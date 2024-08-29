@@ -128,7 +128,7 @@ impl SubflowState {
             if let Some(node) = flow_state.nodes.get(&wire_obj.id) {
                 self.in_nodes.push(node.clone());
             } else {
-                log::warn!("Can not found node(id='{:016x}')", wire_obj.id);
+                log::warn!("Can not found node(id='{}')", wire_obj.id);
             }
         }
         Ok(())
@@ -161,7 +161,7 @@ impl FlowState {
 
             if node.state().disabled {
                 log::warn!(
-                    "------ Skipping disabled node (id='{:016x}', type='{}').",
+                    "------ Skipping disabled node (id='{}', type='{}').",
                     node.id(),
                     node.state().type_name
                 );
@@ -170,7 +170,7 @@ impl FlowState {
 
             // Start the async-task of each flow node
             log::info!(
-                "------ Starting node (id='{:016x}', type='{}')...",
+                "------ Starting node (id='{}', type='{}')...",
                 node.id(),
                 node.state().type_name
             );
@@ -180,7 +180,7 @@ impl FlowState {
                 let node_ref = node.as_ref();
                 let _ = node.clone().run(child_stop_token.child_token()).await;
                 log::info!(
-                    "------ Node(id='{:016x}', type='{}') has been stopped.",
+                    "------ Node(id='{}', type='{}') has been stopped.",
                     node_ref.id(),
                     node_ref.state().type_name
                 );
@@ -340,7 +340,7 @@ impl Flow {
                         .new_flow_node_state(state, node_config)
                         .map_err(|e| {
                             log::error!(
-                                "Failed to create flow node(id='{:016x}'): {:?}",
+                                "Failed to create flow node(id='{}'): {:?}",
                                 node_config.id,
                                 e
                             );
@@ -525,9 +525,9 @@ impl Flow {
     pub async fn start(&self) -> crate::Result<()> {
         // let mut state = self.shared.state.write().await;
         if self.is_subflow() {
-            log::info!("---- Starting Subflow (id={:016x})...", self.id);
+            log::info!("---- Starting Subflow (id={})...", self.id);
         } else {
-            log::info!("---- Starting Flow (id={:016x})...", self.id);
+            log::info!("---- Starting Flow (id={})...", self.id);
         }
 
         if let Some(subflow_state) = &self.subflow_state {
@@ -548,9 +548,9 @@ impl Flow {
 
     pub async fn stop(&self) -> crate::Result<()> {
         if self.is_subflow() {
-            log::info!("---- Stopping Subflow (id={:16x})...", self.id);
+            log::info!("---- Stopping Subflow (id={})...", self.id);
         } else {
-            log::info!("---- Stopping Flow (id={:016x})...", self.id);
+            log::info!("---- Stopping Flow (id={})...", self.id);
         }
 
         self.stop_token.cancel();
@@ -681,7 +681,7 @@ impl Flow {
                 Some(g) => Arc::downgrade(g),
                 None => {
                     return Err(EdgeLinkError::InvalidData(format!(
-                        "Can not found the group id in groups: id='{:016x}'",
+                        "Can not found the group id in groups: id='{}'",
                         gid
                     ))
                     .into());

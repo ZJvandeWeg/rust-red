@@ -12,15 +12,15 @@ use crate::EdgeLinkError;
 mod msg;
 
 pub use msg::*;
+mod eid;
 pub mod propex;
 mod variant;
 
+pub use eid::*;
 pub use variant::Variant;
 pub use variant::VariantError;
 
 use super::flow::Flow;
-
-pub type ElementId = u64;
 
 #[derive(Debug)]
 pub struct PortWire {

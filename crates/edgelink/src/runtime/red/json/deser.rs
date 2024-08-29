@@ -139,7 +139,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
         let mut flow_config: RedFlowConfig = serde_json::from_value(flow.clone())?;
 
         flow_config.subflow_node_id = if flow_config.type_name == "subflow" {
-            let key_type = format!("subflow:{:016x}", flow_config.id);
+            let key_type = format!("subflow:{}", flow_config.id);
             let node = all_values.iter().find(|x| {
                 x.get("type")
                     .and_then(|y| y.as_str())
@@ -230,12 +230,12 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
     let mut new_elements = Vec::new();
     let mut id_map: HashMap<String, String> = HashMap::new();
     for pack in subflow_packs.iter() {
-        let subflow_new_id = utils::generate_uid();
+        let subflow_new_id = ElementId::new();
 
         // "subflow" element
         {
             let mut new_subflow = pack.subflow.clone();
-            new_subflow["id"] = JsonValue::String(format!("{:016x}", subflow_new_id));
+            new_subflow["id"] = JsonValue::String(format!("{}", subflow_new_id));
 
             for in_item in new_subflow["in"].as_array_mut().unwrap() {
                 for wires_item in in_item["wires"].as_array_mut().unwrap() {
@@ -254,8 +254,7 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
         // "subflow:xxxxxx" node
         {
             let mut new_subflow_node = pack.subflow_node.clone();
-            new_subflow_node["type"] =
-                JsonValue::String(format!("subflow:{:016x}", subflow_new_id));
+            new_subflow_node["type"] = JsonValue::String(format!("subflow:{}", subflow_new_id));
             new_elements.push(new_subflow_node);
         }
 
@@ -265,7 +264,7 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
                 let mut node = (*node).clone();
 
                 node["id"] = generate_new_xored_id(subflow_new_id, &node["id"]);
-                node["z"] = JsonValue::String(format!("{:016x}", subflow_new_id));
+                node["z"] = JsonValue::String(format!("{}", subflow_new_id));
 
                 if let Some(wires) = node.get_mut("wires").and_then(|x| x.as_array_mut()) {
                     for wire in wires {
@@ -304,7 +303,7 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
 
 fn generate_new_xored_id(subflow_id: ElementId, old_id_value: &JsonValue) -> JsonValue {
     let old_id = parse_red_id_value(old_id_value).unwrap();
-    JsonValue::String(format!("{:016x}", (subflow_id ^ old_id)))
+    JsonValue::String(format!("{}", (subflow_id ^ old_id)))
 }
 
 pub fn parse_red_type_value(t: &str) -> RedTypeValue {
@@ -321,13 +320,11 @@ pub fn parse_red_type_value(t: &str) -> RedTypeValue {
 }
 
 pub fn parse_red_id_str(id_str: &str) -> Option<ElementId> {
-    ElementId::from_str_radix(id_str, 16).ok()
+    ElementId::from_str(id_str).ok()
 }
 
 pub fn parse_red_id_value(id_value: &serde_json::Value) -> Option<ElementId> {
-    id_value
-        .as_str()
-        .and_then(|s| ElementId::from_str_radix(s, 16).ok())
+    id_value.as_str().and_then(|s| ElementId::from_str(s).ok())
 }
 
 pub trait RedFlowJsonObject {
@@ -399,7 +396,7 @@ where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    u64::from_str_radix(&s, 16).map_err(serde::de::Error::custom)
+    ElementId::from_str(&s).map_err(serde::de::Error::custom)
 }
 
 pub fn deser_red_optional_id<'de, D>(deserializer: D) -> Result<Option<ElementId>, D::Error>
@@ -412,7 +409,7 @@ where
             if s.is_empty() {
                 Ok(None)
             } else {
-                u64::from_str_radix(&s, 16)
+                ElementId::from_str(&s)
                     .map_err(serde::de::Error::custom)
                     .map(Some)
             }
@@ -428,7 +425,7 @@ where
     let str_ids: Vec<String> = Vec::deserialize(deserializer)?;
     let mut ids = Vec::with_capacity(str_ids.capacity());
     for str_id in str_ids.iter() {
-        ids.push(u64::from_str_radix(str_id, 16).map_err(serde::de::Error::custom)?);
+        ids.push(ElementId::from_str(str_id).map_err(serde::de::Error::custom)?);
     }
     Ok(ids)
 }

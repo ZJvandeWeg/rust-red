@@ -22,7 +22,7 @@ pub type MsgBody = BTreeMap<String, Variant>;
 
 #[derive(Debug)]
 pub struct Msg {
-    pub id: u64,
+    pub id: ElementId,
     pub birth_place: ElementId,
     pub body: BTreeMap<String, Variant>,
 }
@@ -58,8 +58,8 @@ impl Msg {
         Arc::new(RwLock::new(msg))
     }
 
-    pub fn generate_id() -> u64 {
-        crate::utils::generate_uid()
+    pub fn generate_id() -> ElementId {
+        ElementId::new()
     }
 
     pub fn get_property(&self, prop: &str) -> Option<&Variant> {
@@ -217,7 +217,7 @@ impl Msg {
             let msg_id_atom = "_msgid"
                 .into_atom(ctx)
                 .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-            let msg_id_value = format!("{:016x}", self.id)
+            let msg_id_value = format!("{}", self.id)
                 .into_js(ctx)
                 .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
 
@@ -255,7 +255,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
                         birth_place = v
                             .as_string()
                             .and_then(|x| x.to_string().ok())
-                            .and_then(|x| ElementId::from_str_radix(&x, 16).ok())
+                            .and_then(|x| ElementId::from_str(&x).ok())
                     }
                     _ => {
                         map.insert(k, Variant::from(&v));
@@ -270,10 +270,10 @@ impl<'js> From<&js::Object<'js>> for Msg {
 
         Msg {
             id: msg_id
-                .and_then(|hex_str| ElementId::from_str_radix(hex_str.as_ref(), 16).ok())
-                .unwrap_or(crate::utils::generate_uid()),
+                .and_then(|hex_str| ElementId::from_str(hex_str.as_ref()).ok())
+                .unwrap_or(ElementId::new()),
 
-            birth_place: birth_place.unwrap_or(0),
+            birth_place: birth_place.unwrap_or(ElementId::empty()),
             body: map,
         }
     }
