@@ -1,0 +1,68 @@
+[package]
+name = "edgelinkd"
+version = "0.1.0"
+authors = ["Li Wei <oldrev@gmail.com>"]
+edition = "2021"
+rust_version = "1.77.2"
+readme = "README.md"
+homepage = "https://github.com/oldrev/edgelink.rs"
+description = "EdgeLink: A Node-RED compatible runtime engine in Rust"
+build = "build.rs"
+
+[[bin]]
+name = "edgelinkd"
+path = "src/main.rs"
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 0
+
+# Enable high optimizations for dependencies (incl. Bevy)
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.ci]
+inherits = "dev"
+debug = false
+incremental = false
+
+
+[profile.release]
+opt-level = "z"   # Optimize for size.
+lto = true        # Enable Link Time Optimization
+codegen-units = 1 # Reduce number of codegen units to increase optimizations.
+strip = true      # Automatically strip symbols from the binary.
+
+[profile.test]
+opt-level = 1 # Enables thin local LTO and some optimizations.
+
+[dependencies]
+edgelink = { path = "./crates/edgelink" }
+async-trait = "0.1.73"
+libloading = "0.8.5"
+tokio = { version = "1.33.0", features = ["default", "signal"] }
+log = "0.4.20"
+tokio-util = "0.7.9"
+log4rs = { version = "1.2.0", features = ["default", "toml_format"], default-features = false}
+jsonata-rs = "0.1.5"
+bumpalo = "3.16.0"
+clap = "4.5.16"
+dirs-next = "2.0.0"
+
+edgelink_red_sqlite_node = { path = "plugins/edgelink_red_sqlite_node" }
+semver = "1.0.23"
+
+
+[dev-dependencies]
+serde_json_path = "0.6.3"
+
+
+[workspace]
+members = [
+    "./crates/*",
+    "./plugins/*",
+]
+
+
+[package.metadata.bundle]
+identifier = "com.github.oldrev.edgelink"

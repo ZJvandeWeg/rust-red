@@ -1,0 +1,50 @@
+[package]
+name = "edgelink"
+version = "0.1.0"
+authors = ["Li Wei <oldrev@gmail.com>"]
+edition = "2021"
+
+
+[lib]
+crate-type = ["dylib", "rlib"]
+
+[dependencies]
+tokio = { version = "1.33.0", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+    "time",
+    "fs",
+    "sync",
+    "io-util",
+] }
+async-trait = "0.1.73"
+log = "0.4.20"
+inventory = "0.3.12"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+thiserror = "1.0.49"
+tokio-util = "0.7.9"
+nom = "7.1.3"
+regex = "1.10.2"
+bumpalo = "3.16.0"
+tokio-cron-scheduler = "0.11.0"
+topological-sort = "0.2.2"
+chrono = "0.4.38"
+rquickjs = { version = "0.6.2", features = ["full-async", "parallel"] }
+rand = "0.8.5"
+semver = "1.0.23"
+base64 = "0.22.1"
+
+[dev-dependencies]
+# Enable test-utilities in dev mode only. This is mostly for tests.
+tokio = { version = "1", features = ["test-util"] }
+
+
+[features]
+default = ["nodes_mqtt", "nodes_udp"]
+nodes_mqtt = []
+nodes_http = ["tokio/net"]
+nodes_tcp = ["tokio/net"]
+nodes_udp = ["tokio/net"]
+nodes_websocket = []
