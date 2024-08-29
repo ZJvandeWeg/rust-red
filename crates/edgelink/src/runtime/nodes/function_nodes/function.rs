@@ -1,13 +1,13 @@
 use rquickjs as js;
+use rquickjs::CatchResultExt;
 use serde::Deserialize;
 use std::sync::Arc;
-
-use log;
 
 use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
+use crate::runtime::red::js::*;
 
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
@@ -39,12 +39,13 @@ impl FlowNodeBehavior for FunctionNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         let js_rt = js::AsyncRuntime::new().unwrap();
         let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
-        let resolver = (
-            js::loader::BuiltinResolver::default(), // .with_module(path)
-                                                    // FileResolver::default().with_path(app_path),
+        let mut resolver = js::loader::BuiltinResolver::default();
+        resolver.add_module("console");
+        let loaders = (
+            js::loader::ScriptLoader::default(),
+            js::loader::ModuleLoader::default(),
         );
-        let loader = js::loader::ScriptLoader::default();
-        js_rt.set_loader(resolver, loader).await;
+        js_rt.set_loader(resolver, loaders).await;
 
         let _ = self.init_async(&js_ctx).await;
 
@@ -117,12 +118,18 @@ impl FunctionNode {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
             let args =(js::Value::new_null(ctx.clone()), js_msg);
-            let js_result: js::Value = user_func.call(args)?;
-
-            let items = self.convert_return_value(&js_result);
-            Ok(items)
+            let js_res_value: js::Result<js::Value> = user_func.call(args);
+            match js_res_value.catch(&ctx) {
+                Ok(js_result) => Ok(self.convert_return_value(&js_result)),
+                Err(e) => {
+                    log::error!("Javascript user function exception: {:?}", e);
+                    Err(js::Error::Exception)
+                }
+            }
+            //Ok( self. convert_return_value( & jsres.catch(&ctx).unwrap()))
         })
         .await;
+
         match eval_result {
             Ok(msgs) => Ok(msgs),
             Err(e) => {
@@ -184,7 +191,10 @@ function __el_user_func(context, msg) {{
 
         js::async_with!(js_ctx => |ctx| {
 
-            crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
+            // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
+
+            ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
+
 
             match ctx.eval::<(), _>(JS_PRELUDE_SCRIPT) {
                 Err(e) => {

@@ -62,6 +62,8 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 - [ ] Environment Variables (WIP)
 - [ ] Context
 - [ ] RED.util (WIP)
+    - [x] RED.util.cloneMessage()
+    - [x] RED.util.generateId()
 - [ ] Plug-in subsystem (WIP)
 
 ### The Current Status of Nodes:

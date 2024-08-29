@@ -1,4 +1,3 @@
-use log;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -16,9 +15,9 @@ use super::nodes::FlowNodeBehavior;
 use super::red::json::{RedFlowConfig, RedGlobalNodeConfig};
 
 pub(crate) struct FlowEngineState {
-    flows: BTreeMap<ElementId, Arc<Flow>>,
+    flows: HashMap<ElementId, Arc<Flow>>,
     env_vars: BTreeMap<String, Variant>,
-    global_nodes: BTreeMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
+    global_nodes: HashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     _context: Variant,
     _shutdown: bool,
 }
@@ -42,8 +41,8 @@ impl FlowEngine {
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
             state: RwLock::new(FlowEngineState {
-                flows: BTreeMap::new(),
-                global_nodes: BTreeMap::new(),
+                flows: HashMap::new(),
+                global_nodes: HashMap::new(),
                 env_vars: BTreeMap::from_iter(FlowEngine::get_env_vars()),
                 _context: Variant::new_empty_object(),
                 _shutdown: false,

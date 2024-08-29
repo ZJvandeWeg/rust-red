@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::define_builtin_flow_node;

@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use log;
-
 use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::{Msg, Variant};

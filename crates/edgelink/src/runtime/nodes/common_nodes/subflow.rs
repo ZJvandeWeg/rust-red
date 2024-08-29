@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use log;
-
 use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;

@@ -1,4 +1,3 @@
-use log;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 use tokio::sync::mpsc;
@@ -95,17 +94,17 @@ impl SubflowOutputPort {
                             .await;
 
                         if let Some(instance_node) = &subflow_state.instance_node {
-                        let envelope = Envelope {
-                            port: self.index,
-                            msg,
-                        };
+                            let envelope = Envelope {
+                                port: self.index,
+                                msg,
+                            };
                             if let Err(e) = instance_node
                                 .fan_out_one(&envelope, stop_token.clone())
                                 .await
                             {
                                 log::warn!("Failed to fan-out message: {:?}", e);
                             }
-                    } else {
+                        } else {
                             log::warn!("The sub-flow does not have a subflow node");
                         }
                     }
@@ -274,11 +273,11 @@ impl Flow {
                 .await?;
         }
 
-            if let Some(subflow_state) = &flow.subflow_state {
+        if let Some(subflow_state) = &flow.subflow_state {
             let flow_state = flow.state.write().await;
-                let mut subflow_state = subflow_state.write().await;
+            let mut subflow_state = subflow_state.write().await;
 
-                subflow_state.populate_in_nodes(&flow_state, flow_config)?;
+            subflow_state.populate_in_nodes(&flow_state, flow_config)?;
         }
 
         Ok(flow)

@@ -2,7 +2,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use base64::prelude::*;
-use log;
 use serde::Deserialize;
 
 use crate::define_builtin_flow_node;

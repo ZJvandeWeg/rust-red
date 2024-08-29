@@ -1,4 +1,3 @@
-use log;
 use serde;
 use serde::Deserialize;
 use std::sync::Arc;
