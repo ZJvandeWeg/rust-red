@@ -266,6 +266,10 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
                 node["id"] = generate_new_xored_id(subflow_new_id, &node["id"]);
                 node["z"] = JsonValue::String(format!("{}", subflow_new_id));
 
+                if let Some(gid) = node.get_mut("g") {
+                    *gid = generate_new_xored_id(subflow_new_id, &gid);
+                }
+
                 if let Some(wires) = node.get_mut("wires").and_then(|x| x.as_array_mut()) {
                     for wire in wires {
                         let wire = wire.as_array_mut().unwrap();
