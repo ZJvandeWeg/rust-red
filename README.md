@@ -43,7 +43,7 @@ Or:
 ./target/release/edgelinkd
 ```
 
-By default, EdgeLink will read ~/.node-red/flows.json and execute it.
+By default, EdgeLink will read `~/.node-red/flows.json` and execute it.
 
 
 ## Configuration
@@ -62,8 +62,8 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 - [ ] Environment Variables (WIP)
 - [ ] Context
 - [ ] RED.util (WIP)
-    - [x] RED.util.cloneMessage()
-    - [x] RED.util.generateId()
+    - [x] `RED.util.cloneMessage()`
+    - [x] `RED.util.generateId()`
 - [ ] Plug-in subsystem (WIP)
 
 ### The Current Status of Nodes:
