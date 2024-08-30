@@ -1,6 +1,5 @@
 use std::fmt;
 use std::hash::Hash;
-use std::io::Empty;
 use std::ops::BitXor;
 
 use crate::utils;

@@ -8,9 +8,9 @@ use tokio_util::sync::CancellationToken;
 
 // use libloading::Library;
 
-use edgelink::runtime::engine::FlowEngine;
-use edgelink::runtime::registry::{Registry, RegistryImpl};
-use edgelink::Result;
+use edgelink_core::runtime::engine::FlowEngine;
+use edgelink_core::runtime::registry::{Registry, RegistryImpl};
+use edgelink_core::Result;
 
 mod consts;
 
@@ -168,7 +168,7 @@ async fn run_main_task(elargs: Arc<EdgeLinkArgs>, cancel: CancellationToken) -> 
     rt.run(cancel.clone()).await
 }
 
-async fn app_main() -> edgelink::Result<()> {
+async fn app_main() -> edgelink_core::Result<()> {
     println!(
         "EdgeLink V{} - #{}\n",
         consts::APP_VERSION,

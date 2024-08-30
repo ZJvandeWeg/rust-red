@@ -8,4 +8,4 @@ edition = "2018"
 crate-type = ["dylib"]
 
 [dependencies]
-edgelink = { path = "../../crates/edgelink" }
+edgelink-core = { path = "../../crates/core" }
