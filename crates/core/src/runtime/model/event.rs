@@ -28,3 +28,9 @@ impl AsyncEvent {
         }
     }
 }
+
+impl Default for AsyncEvent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
