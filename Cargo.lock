@@ -368,6 +368,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "smallvec",
  "thiserror",
  "tokio",
  "tokio-cron-scheduler",

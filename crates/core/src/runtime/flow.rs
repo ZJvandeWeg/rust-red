@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 use tokio::sync::mpsc;
@@ -611,7 +612,7 @@ impl Flow {
     fn get_complete_nodes_by_emitter(
         &self,
         emitter_id: &ElementId,
-    ) -> Option<Vec<Arc<dyn FlowNodeBehavior>>> {
+    ) -> Option<SmallVec<[Arc<dyn FlowNodeBehavior>; 8]>> {
         let state = self.state.read().unwrap();
         state
             .complete_nodes_map
@@ -646,10 +647,9 @@ impl Flow {
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         if let Some(subflow_state) = &self.subflow_state {
-            // TODO smallvec
-            let in_nodes: Vec<_> = {
+            let in_nodes = {
                 let subflow_state = subflow_state.read().unwrap();
-                subflow_state.in_nodes.to_vec()
+                subflow_state.in_nodes.clone()
             };
             let mut msg_sent = false;
             for node in in_nodes {

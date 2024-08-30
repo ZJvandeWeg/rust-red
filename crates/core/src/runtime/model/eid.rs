@@ -66,7 +66,7 @@ impl ElementId {
 
     pub fn combine(lhs: &ElementId, rhs: &ElementId) -> crate::Result<Self> {
         if rhs.is_empty() || lhs.is_empty() {
-            Err(crate::EdgeLinkError::BadArguments(format!("The ids cannot be zero!")).into())
+            Err(crate::EdgeLinkError::BadArguments("The ids cannot be zero!".into()).into())
         } else {
             Ok(*lhs ^ *rhs)
         }

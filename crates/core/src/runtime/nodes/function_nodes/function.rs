@@ -1,6 +1,7 @@
 use rquickjs as js;
 use rquickjs::CatchResultExt;
 use serde::Deserialize;
+use smallvec::SmallVec;
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
@@ -66,7 +67,7 @@ impl FlowNodeBehavior for FunctionNode {
                                 port: x.0,
                                 msg: Arc::new(RwLock::new(x.1)),
                             })
-                            .collect::<Vec<Envelope>>();
+                            .collect::<SmallVec<[Envelope; 4]>>();
 
                         node.clone()
                             .fan_out_many(&envelopes, cancel.child_token())
@@ -112,23 +113,24 @@ impl FunctionNode {
         &self,
         msg: &mut Msg,
         js_ctx: &js::AsyncContext,
-    ) -> crate::Result<Vec<(usize, Msg)>> {
+    ) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
         let origin_msg = &msg;
-        let eval_result: js::Result<Vec<(usize, Msg)>> = js::async_with!(js_ctx => |ctx| {
-            let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-            let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
-            let args =(js::Value::new_null(ctx.clone()), js_msg);
-            let js_res_value: js::Result<js::Value> = user_func.call(args);
-            match js_res_value.catch(&ctx) {
-                Ok(js_result) => Ok(self.convert_return_value(&js_result)),
-                Err(e) => {
-                    log::error!("Javascript user function exception: {:?}", e);
-                    Err(js::Error::Exception)
+        let eval_result: js::Result<SmallVec<[(usize, Msg); 4]>> =
+            js::async_with!(js_ctx => |ctx| {
+                let user_func : js::Function = ctx.globals().get("__el_user_func")?;
+                let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
+                let args =(js::Value::new_null(ctx.clone()), js_msg);
+                let js_res_value: js::Result<js::Value> = user_func.call(args);
+                match js_res_value.catch(&ctx) {
+                    Ok(js_result) => Ok(self.convert_return_value(&js_result)),
+                    Err(e) => {
+                        log::error!("Javascript user function exception: {:?}", e);
+                        Err(js::Error::Exception)
+                    }
                 }
-            }
-            //Ok( self. convert_return_value( & jsres.catch(&ctx).unwrap()))
-        })
-        .await;
+                //Ok( self. convert_return_value( & jsres.catch(&ctx).unwrap()))
+            })
+            .await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
@@ -139,8 +141,8 @@ impl FunctionNode {
         }
     }
 
-    fn convert_return_value(&self, js_result: &js::Value) -> Vec<(usize, Msg)> {
-        let mut items = Vec::new();
+    fn convert_return_value(&self, js_result: &js::Value) -> SmallVec<[(usize, Msg); 4]> {
+        let mut items = SmallVec::<[(usize, Msg); 4]>::new();
         if let Some(obj) = js_result.as_object() {
             // Returns single Msg
             let item = (0, Msg::from(obj));
