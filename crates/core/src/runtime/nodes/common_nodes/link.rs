@@ -50,7 +50,7 @@ struct LinkOutNode {
 impl LinkOutNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        mut state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let node = LinkOutNode { state };

@@ -71,9 +71,7 @@ impl FlowNodeBehavior for FunctionNode {
                                 })
                                 .collect::<SmallVec<[Envelope; 4]>>();
 
-                            node.clone()
-                                .fan_out_many(&envelopes, cancel.child_token())
-                                .await?;
+                            node.fan_out_many(&envelopes, cancel.child_token()).await?;
                         }
                         Err(e) => {
                             log::warn!("Failed to filter message: {}", e);

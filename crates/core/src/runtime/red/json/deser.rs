@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
 
 use serde::de;
 use serde::Deserialize;
@@ -37,7 +36,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
             ) {
                 match type_value.red_type {
                     "tab" => {
-                        let deps = obj.get_flow_dependencies(&all_values);
+                        let deps = obj.get_flow_dependencies(all_values);
                         if deps.is_empty() {
                             flow_topo_sort.insert(ele_id);
                         } else {
@@ -60,7 +59,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
                             flow_nodes.insert(ele_id, jobject.clone());
                         } else {
                             // We got the "subflow" itself
-                            let deps = obj.get_subflow_dependencies(&all_values);
+                            let deps = obj.get_subflow_dependencies(all_values);
                             if deps.is_empty() {
                                 flow_topo_sort.insert(ele_id);
                             } else {
@@ -204,30 +203,23 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
             .and_then(|x| x.as_str())
             .and_then(|x| x.split_once(':'))
         {
-            ids_to_delete.insert(jv["id"].as_str().unwrap());
-            ids_to_delete.insert(subflow_id);
+            let subflow_id_value = JsonValue::String(subflow_id.to_string());
+            ids_to_delete.insert(jv["id"].clone());
+            ids_to_delete.insert(subflow_id_value.clone());
 
             let pack = SubflowPack {
                 subflow_node: jv,
                 subflow: elements
                     .iter()
-                    .find(|x| x.get("id").unwrap().as_str().unwrap() == subflow_id)
+                    .find(|x| x.get("id") == Some(&subflow_id_value))
                     .unwrap(),
                 children: elements
                     .iter()
-                    .filter(|x| {
-                        x.get("z")
-                            .and_then(|y| y.as_str())
-                            .is_some_and(|y| y == subflow_id)
-                    })
+                    .filter(|x| x.get("z") == Some(&subflow_id_value))
                     .collect(),
             };
 
-            ids_to_delete.extend(
-                pack.children
-                    .iter()
-                    .map(|x| x.get("id").unwrap().as_str().unwrap()),
-            );
+            ids_to_delete.extend(pack.children.iter().filter_map(|x| x.get("id")).cloned());
 
             subflow_packs.push(pack);
         }
@@ -325,7 +317,7 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
     new_elements.extend(
         elements
             .iter()
-            .filter(|x| !ids_to_delete.contains(x["id"].as_str().unwrap()))
+            .filter(|x| x.get("id").map_or(false, |id| !ids_to_delete.contains(id)))
             .cloned(),
     );
 
@@ -367,6 +359,7 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
     fn get_flow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
         let this_id = self.get("id");
         let link_out_type: JsonValue = "link out".into();
+        let link_in_type: JsonValue = "link in".into();
 
         let related_link_in_ids = elements
             .iter()
@@ -383,8 +376,9 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
         elements
             .iter()
             .filter(|x| {
-                x.get("id")
-                    .map_or(false, |id| related_link_in_ids.contains(id))
+                x.get("type") == Some(&link_in_type)
+                    && x.get("id")
+                        .map_or(false, |id| related_link_in_ids.contains(id))
             })
             .filter_map(|x| x.get("z"))
             .filter_map(parse_red_id_value)
