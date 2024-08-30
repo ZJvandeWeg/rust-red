@@ -8,6 +8,10 @@ English | [简体中文](README.zh-cn.md)
 
 This is a Node-RED compatible runtime implemented in Rust<sub>†</sub>, designed to enhance performance and reduce memory footprint. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
 
+In summary, you can first test the workflow on a high-performance desktop PC,
+and subsequently deploy EdgeLink along with the `flows.json` workflow file
+to an edge computing device that is constrained by limited resources for operational execution.
+
 ## Features
 
 - **High Performance**: Leverage the advantages of the Rust language for excellent performance.

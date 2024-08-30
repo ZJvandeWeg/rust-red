@@ -14,11 +14,13 @@ mod msg;
 pub use msg::*;
 mod config;
 mod eid;
+mod event;
 pub mod propex;
 mod variant;
 
 pub use config::*;
 pub use eid::*;
+pub use event::*;
 pub use variant::*;
 
 use super::flow::Flow;
