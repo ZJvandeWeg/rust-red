@@ -574,7 +574,6 @@ impl Flow {
         {
             let mut state = self.state.write().unwrap();
             state.stop_nodes().await?;
-
         }
         log::info!(
             "---- All node in flow/subflow(id='{}') has been stopped.",
