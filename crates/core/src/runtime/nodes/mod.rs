@@ -186,15 +186,15 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 }
 
-async fn with_uow<B, F, T>(node: &B, cancel: CancellationToken, proc: F)
+async fn with_uow<'a, B, F, T>(node: &'a B, cancel: CancellationToken, proc: F)
 where
     B: FlowNodeBehavior,
-    F: FnOnce(Arc<RwLock<Msg>>) -> T,
+    F: FnOnce(&'a B, Arc<RwLock<Msg>>) -> T,
     T: std::future::Future<Output = crate::Result<()>>,
 {
     match node.wait_for_msg(cancel.child_token()).await {
         Ok(msg) => {
-            if let Err(ref err) = proc(msg.clone()).await {
+            if let Err(ref err) = proc(node, msg.clone()).await {
                 // TODO report error
                 log::warn!("Failed to commit uow job: {}", err.to_string())
             }

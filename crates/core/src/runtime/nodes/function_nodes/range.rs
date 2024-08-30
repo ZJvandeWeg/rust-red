@@ -154,17 +154,20 @@ impl FlowNodeBehavior for RangeNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            let node = self.clone();
             let cancel = stop_token.child_token();
-            with_uow(self.as_ref(), cancel.child_token(), |msg| async move {
-                {
-                    let mut msg_guard = msg.write().await;
-                    node.do_range(&mut msg_guard);
-                }
-                node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
-                    .await?;
-                Ok(())
-            })
+            with_uow(
+                self.as_ref(),
+                cancel.child_token(),
+                |node, msg| async move {
+                    {
+                        let mut msg_guard = msg.write().await;
+                        node.do_range(&mut msg_guard);
+                    }
+                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
+                        .await?;
+                    Ok(())
+                },
+            )
             .await;
         }
     }

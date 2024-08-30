@@ -27,9 +27,8 @@ impl FlowNodeBehavior for JunctionNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            let node = self.clone();
             let cancel = stop_token.child_token();
-            with_uow(self.as_ref(), cancel.child_token(), |msg| async move {
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
                 node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
                     .await?;
                 Ok(())

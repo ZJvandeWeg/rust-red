@@ -39,8 +39,7 @@ impl FlowNodeBehavior for SubflowNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            let node = self.clone();
-            with_uow(self.as_ref(), stop_token.clone(), |msg| async move {
+            with_uow(self.as_ref(), stop_token.clone(), |node, msg| async move {
                 if let Some(engine) = node.state().flow.upgrade().and_then(|f| f.engine.upgrade()) {
                     engine
                         .inject_msg_to_flow(&node.subflow_id, msg, cancel.clone())

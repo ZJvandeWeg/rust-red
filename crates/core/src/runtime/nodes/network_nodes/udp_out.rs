@@ -1,5 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use tokio::net::UdpSocket;
 
 use base64::prelude::*;
 use serde::Deserialize;
@@ -103,6 +104,35 @@ struct UdpOutNodeConfig {
     //multicast: UdpMulticast,
 }
 
+impl UdpOutNode {
+    async fn uow(&self, msg: Arc<RwLock<Msg>>, socket: &UdpSocket) -> crate::Result<()> {
+        let msg_guard = msg.read().await;
+        if let Some(payload) = msg_guard.get_property("payload") {
+            let remote_addr = std::net::SocketAddr::new(
+                self.config.addr.unwrap(), // TODO FIXME
+                self.config.port.unwrap(),
+            );
+
+            if let Some(bytes) = payload.as_bytes() {
+                if self.config.base64 {
+                    let b64_str = BASE64_STANDARD.encode(bytes);
+                    let bytes = b64_str.as_bytes();
+                    socket.send_to(bytes, remote_addr).await?;
+                } else {
+                    socket.send_to(bytes, remote_addr).await?;
+                }
+            }
+            if let Some(bytes) = payload.to_bytes() {
+                socket.send_to(&bytes, remote_addr).await?;
+            } else {
+                log::warn!("Failed to convert payload into bytes");
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl FlowNodeBehavior for UdpOutNode {
     fn state(&self) -> &FlowNodeState {
@@ -122,39 +152,12 @@ impl FlowNodeBehavior for UdpOutNode {
             Ok(socket) => {
                 let socket = Arc::new(socket);
                 while !stop_token.is_cancelled() {
-                    let node = self.clone();
                     let cloned_socket = socket.clone();
 
-                    with_uow(
-                        node.clone().as_ref(),
-                        stop_token.clone(),
-                        |msg| async move {
-                            let msg_guard = msg.read().await;
-                            if let Some(payload) = msg_guard.get_property("payload") {
-                                let remote_addr = std::net::SocketAddr::new(
-                                    node.config.addr.unwrap(), // TODO FIXME
-                                    node.config.port.unwrap(),
-                                );
-
-                                if let Some(bytes) = payload.as_bytes() {
-                                    if node.config.base64 {
-                                        let b64_str = BASE64_STANDARD.encode(bytes);
-                                        let bytes = b64_str.as_bytes();
-                                        cloned_socket.send_to(bytes, remote_addr).await.unwrap();
-                                    } else {
-                                        cloned_socket.send_to(bytes, remote_addr).await.unwrap();
-                                    }
-                                }
-                                if let Some(bytes) = payload.to_bytes() {
-                                    cloned_socket.send_to(&bytes, remote_addr).await.unwrap();
-                                } else {
-                                    log::warn!("Failed to convert payload into bytes");
-                                }
-                            }
-
-                            Ok(())
-                        },
-                    )
+                    let node = self.clone();
+                    with_uow(node.as_ref(), stop_token.clone(), |node, msg| async move {
+                        node.uow(msg, &cloned_socket).await
+                    })
                     .await;
                 }
             }

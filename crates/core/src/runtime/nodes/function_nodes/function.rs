@@ -51,34 +51,37 @@ impl FlowNodeBehavior for FunctionNode {
         let _ = self.init_async(&js_ctx).await;
 
         while !stop_token.is_cancelled() {
-            let node = self.clone();
             let sub_ctx = &js_ctx;
             let cancel = stop_token.child_token();
-            with_uow(self.as_ref(), cancel.child_token(), |msg| async move {
-                let res = {
-                    let mut msg_guard = msg.write().await;
-                    node.clone().filter_msg(&mut msg_guard, sub_ctx).await
-                };
-                match res {
-                    Ok(changed_msgs) => {
-                        let envelopes = changed_msgs
-                            .into_iter()
-                            .map(|x| Envelope {
-                                port: x.0,
-                                msg: Arc::new(RwLock::new(x.1)),
-                            })
-                            .collect::<SmallVec<[Envelope; 4]>>();
+            with_uow(
+                self.as_ref(),
+                cancel.child_token(),
+                |node, msg| async move {
+                    let res = {
+                        let mut msg_guard = msg.write().await;
+                        node.filter_msg(&mut msg_guard, sub_ctx).await
+                    };
+                    match res {
+                        Ok(changed_msgs) => {
+                            let envelopes = changed_msgs
+                                .into_iter()
+                                .map(|x| Envelope {
+                                    port: x.0,
+                                    msg: Arc::new(RwLock::new(x.1)),
+                                })
+                                .collect::<SmallVec<[Envelope; 4]>>();
 
-                        node.clone()
-                            .fan_out_many(&envelopes, cancel.child_token())
-                            .await?;
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to filter message: {}", e);
-                    }
-                };
-                Ok(())
-            })
+                            node.clone()
+                                .fan_out_many(&envelopes, cancel.child_token())
+                                .await?;
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to filter message: {}", e);
+                        }
+                    };
+                    Ok(())
+                },
+            )
             .await;
         }
 
