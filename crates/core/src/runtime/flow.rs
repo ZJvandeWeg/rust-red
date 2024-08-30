@@ -278,9 +278,9 @@ impl Flow {
             let flow = flow.clone();
             let mut state = flow.state.write().unwrap();
 
-            flow.clone().populate_groups(&mut state, flow_config);
+            flow.clone().populate_groups(&mut state, flow_config)?;
 
-            flow.clone().populate_nodes(&mut state, flow_config, reg);
+            flow.clone().populate_nodes(&mut state, flow_config, reg)?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
@@ -379,7 +379,7 @@ impl Flow {
                         }
                     }
 
-                    factory(self.clone(), node_state, node_config)?
+                    factory(&self, node_state, node_config)?
                 }
                 NodeFactory::Global(_) => {
                     return Err(EdgeLinkError::NotSupported(format!(
@@ -452,7 +452,7 @@ impl Flow {
     }
 
     pub fn get_node(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        self.state.read().unwrap().nodes.get(id).map(|x| x.clone())
+        self.state.read().unwrap().nodes.get(id).cloned()
     }
 
     pub fn get_setting(&self, key: &str) -> Variant {
@@ -574,6 +574,7 @@ impl Flow {
         {
             let mut state = self.state.write().unwrap();
             state.stop_nodes().await?;
+
         }
         log::info!(
             "---- All node in flow/subflow(id='{}') has been stopped.",
@@ -649,7 +650,7 @@ impl Flow {
             // TODO smallvec
             let in_nodes: Vec<_> = {
                 let subflow_state = subflow_state.read().unwrap();
-                subflow_state.in_nodes.iter().cloned().collect()
+                subflow_state.in_nodes.to_vec()
             };
             let mut msg_sent = false;
             for node in in_nodes {

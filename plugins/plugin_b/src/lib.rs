@@ -1,4 +1,4 @@
-use edgelink::{Plugin, PluginRegistrar};
+use edgelink_core::{Plugin, PluginRegistrar};
 
 struct PluginB;
 

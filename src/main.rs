@@ -96,8 +96,7 @@ impl Runtime {
         let mut engine_holder = self.engine.write().await;
         log::info!("Loading flows file: {}", &self.args.flows_path);
         let engine =
-            match FlowEngine::new_with_flows_file(self.registry.clone(), &self.args.flows_path)
-            {
+            match FlowEngine::new_with_flows_file(self.registry.clone(), &self.args.flows_path) {
                 Ok(eng) => eng,
                 Err(e) => {
                     log::error!("Failed to create engine: {}", e);

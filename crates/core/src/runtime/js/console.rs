@@ -12,6 +12,12 @@ impl Console {
     }
 }
 
+impl Default for Console {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[rquickjs::methods]
 impl Console {
     fn log(&self, text: rquickjs::Value<'_>) -> Result<()> {

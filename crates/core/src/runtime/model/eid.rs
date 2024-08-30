@@ -1,6 +1,7 @@
 use std::fmt;
 use std::hash::Hash;
 use std::ops::BitXor;
+use std::str::FromStr;
 
 use crate::utils;
 
@@ -29,6 +30,14 @@ impl Default for ElementId {
     }
 }
 
+impl FromStr for ElementId {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(ElementId(u64::from_str_radix(s, 16)?))
+    }
+}
+
 impl ElementId {
     pub fn new() -> Self {
         Self(utils::generate_uid())
@@ -38,16 +47,12 @@ impl ElementId {
         Self(0)
     }
 
-    pub fn with_u64(id: u64) -> Self {
-        Self(id)
-    }
-
     pub fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
-    pub fn from_str(src: &str) -> Result<ElementId, std::num::ParseIntError> {
-        Ok(ElementId(u64::from_str_radix(src, 16)?))
+    pub fn with_u64(id: u64) -> Self {
+        Self(id)
     }
 
     pub fn to_chars(&self) -> [char; 16] {
@@ -57,5 +62,13 @@ impl ElementId {
             char_array[i] = c; // 填充字符数组
         }
         char_array
+    }
+
+    pub fn combine(lhs: &ElementId, rhs: &ElementId) -> crate::Result<Self> {
+        if rhs.is_empty() || lhs.is_empty() {
+            Err(crate::EdgeLinkError::BadArguments(format!("The ids cannot be zero!")).into())
+        } else {
+            Ok(*lhs ^ *rhs)
+        }
     }
 }

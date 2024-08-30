@@ -10,7 +10,6 @@ use topological_sort::TopologicalSort;
 
 use crate::runtime::model::ElementId;
 use crate::runtime::red::json::*;
-use crate::utils;
 use crate::EdgeLinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
@@ -229,22 +228,43 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
 
     let mut new_elements = Vec::new();
     let mut id_map: HashMap<String, String> = HashMap::new();
+
     for pack in subflow_packs.iter() {
         let subflow_new_id = ElementId::new();
+
+        // TODO code refactoring
 
         // "subflow" element
         {
             let mut new_subflow = pack.subflow.clone();
+            id_map.insert(
+                new_subflow["id"].as_str().unwrap().to_string(),
+                format!("{}", subflow_new_id),
+            );
             new_subflow["id"] = JsonValue::String(format!("{}", subflow_new_id));
 
             for in_item in new_subflow["in"].as_array_mut().unwrap() {
                 for wires_item in in_item["wires"].as_array_mut().unwrap() {
+                    id_map.insert(
+                        wires_item["id"].as_str().unwrap().to_string(),
+                        generate_new_xored_id(subflow_new_id, &wires_item["id"])
+                            .as_str()
+                            .unwrap()
+                            .to_string(),
+                    );
                     wires_item["id"] = generate_new_xored_id(subflow_new_id, &wires_item["id"]);
                 }
             }
 
             for out_item in new_subflow["out"].as_array_mut().unwrap() {
                 for wires_item in out_item["wires"].as_array_mut().unwrap() {
+                    id_map.insert(
+                        wires_item["id"].as_str().unwrap().to_string(),
+                        generate_new_xored_id(subflow_new_id, &wires_item["id"])
+                            .as_str()
+                            .unwrap()
+                            .to_string(),
+                    );
                     wires_item["id"] = generate_new_xored_id(subflow_new_id, &wires_item["id"]);
                 }
             }
@@ -267,7 +287,7 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
                 node["z"] = JsonValue::String(format!("{}", subflow_new_id));
 
                 if let Some(gid) = node.get_mut("g") {
-                    *gid = generate_new_xored_id(subflow_new_id, &gid);
+                    *gid = generate_new_xored_id(subflow_new_id, gid);
                 }
 
                 if let Some(wires) = node.get_mut("wires").and_then(|x| x.as_array_mut()) {
@@ -324,11 +344,11 @@ pub fn parse_red_type_value(t: &str) -> RedTypeValue {
 }
 
 pub fn parse_red_id_str(id_str: &str) -> Option<ElementId> {
-    ElementId::from_str(id_str).ok()
+    id_str.parse().ok()
 }
 
 pub fn parse_red_id_value(id_value: &serde_json::Value) -> Option<ElementId> {
-    id_value.as_str().and_then(|s| ElementId::from_str(s).ok())
+    id_value.as_str().and_then(|s| s.parse().ok())
 }
 
 pub trait RedFlowJsonObject {
@@ -400,7 +420,7 @@ where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    ElementId::from_str(&s).map_err(serde::de::Error::custom)
+    s.parse().map_err(serde::de::Error::custom)
 }
 
 pub fn deser_red_optional_id<'de, D>(deserializer: D) -> Result<Option<ElementId>, D::Error>
@@ -413,9 +433,7 @@ where
             if s.is_empty() {
                 Ok(None)
             } else {
-                ElementId::from_str(&s)
-                    .map_err(serde::de::Error::custom)
-                    .map(Some)
+                s.parse().map_err(serde::de::Error::custom).map(Some)
             }
         }
         None => Ok(None),
@@ -429,7 +447,7 @@ where
     let str_ids: Vec<String> = Vec::deserialize(deserializer)?;
     let mut ids = Vec::with_capacity(str_ids.capacity());
     for str_id in str_ids.iter() {
-        ids.push(ElementId::from_str(str_id).map_err(serde::de::Error::custom)?);
+        ids.push(str_id.parse().map_err(serde::de::Error::custom)?);
     }
     Ok(ids)
 }

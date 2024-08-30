@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 use std::sync::Arc;
-use tokio::io::AsyncReadExt;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
@@ -152,12 +151,17 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
-        let mut state = self.state.write().unwrap();
-        state.env_vars.clear();
-        state.env_vars.extend(FlowEngine::get_env_vars());
-        for flow in state.flows.values() {
+        let flows: Vec<_> = {
+            let mut state = self.state.write().unwrap();
+            state.env_vars.clear();
+            state.env_vars.extend(FlowEngine::get_env_vars());
+
+            state.flows.values().cloned().collect()
+        };
+        for flow in flows {
             flow.start().await?;
         }
+
         log::info!("-- All flows started.");
         Ok(())
     }
@@ -165,10 +169,15 @@ impl FlowEngine {
     pub async fn stop(&self) -> crate::Result<()> {
         log::info!("-- Stopping all flows...");
         self.stop_token.cancel();
-        let state = self.state.write().unwrap();
-        for flow in state.flows.values() {
+
+        let flows: Vec<_> = {
+            let state = self.state.read().unwrap();
+            state.flows.values().cloned().collect()
+        };
+        for flow in flows {
             flow.clone().stop().await?;
         }
+
         //drop(self.stopped_tx);
         log::info!("-- All flows stopped.");
         Ok(())

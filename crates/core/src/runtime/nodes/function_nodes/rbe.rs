@@ -72,7 +72,7 @@ struct RbeNode {
 
 impl RbeNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         base_node: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {

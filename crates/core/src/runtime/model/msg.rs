@@ -255,7 +255,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
                         birth_place = v
                             .as_string()
                             .and_then(|x| x.to_string().ok())
-                            .and_then(|x| ElementId::from_str(&x).ok())
+                            .and_then(|x| x.parse().ok())
                     }
                     _ => {
                         map.insert(k, Variant::from(&v));
@@ -270,7 +270,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
 
         Msg {
             id: msg_id
-                .and_then(|hex_str| ElementId::from_str(hex_str.as_ref()).ok())
+                .and_then(|hex_str| hex_str.parse().ok())
                 .unwrap_or(ElementId::new()),
 
             birth_place: birth_place.unwrap_or(ElementId::empty()),

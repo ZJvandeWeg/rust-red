@@ -40,7 +40,7 @@ struct UnknownFlowNode {
 
 impl UnknownFlowNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {

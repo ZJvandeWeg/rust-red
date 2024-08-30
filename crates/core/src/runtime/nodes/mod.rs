@@ -47,7 +47,7 @@ type GlobalNodeFactoryFn =
     fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Arc<dyn GlobalNodeBehavior>>;
 
 type FlowNodeFactoryFn =
-    fn(Arc<Flow>, FlowNodeState, &RedFlowNodeConfig) -> crate::Result<Arc<dyn FlowNodeBehavior>>;
+    fn(&Flow, FlowNodeState, &RedFlowNodeConfig) -> crate::Result<Arc<dyn FlowNodeBehavior>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeFactory {
@@ -126,7 +126,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
-        let (node_id, flow) = { (self.id().clone(), self.state().flow.upgrade().map(|x| x.clone())) };
+        let (node_id, flow) = { (*self.id(), self.state().flow.upgrade()) };
         if let Some(flow) = flow {
             flow.notify_node_uow_completed(&node_id, msg, cancel).await;
         } else {

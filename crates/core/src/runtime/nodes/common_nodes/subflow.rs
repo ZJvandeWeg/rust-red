@@ -12,7 +12,7 @@ struct SubflowNode {
 
 impl SubflowNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         state: FlowNodeState,
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {

@@ -24,7 +24,7 @@ struct InjectNode {
 
 impl InjectNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         base_node: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {

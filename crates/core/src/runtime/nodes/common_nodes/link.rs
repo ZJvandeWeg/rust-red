@@ -10,7 +10,7 @@ struct LinkInNode {
 
 impl LinkInNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
@@ -51,7 +51,7 @@ struct LinkOutNode {
 
 impl LinkOutNode {
     fn create(
-        _flow: Arc<Flow>,
+        _flow: &Flow,
         state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
