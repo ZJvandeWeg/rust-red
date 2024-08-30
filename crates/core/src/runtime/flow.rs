@@ -134,7 +134,7 @@ impl SubflowState {
         Ok(())
     }
 
-    async fn start_tx_tasks(&mut self, stop_token: CancellationToken) -> crate::Result<()> {
+    fn start_tx_tasks(&mut self, stop_token: CancellationToken) -> crate::Result<()> {
         for tx_port in self.tx_ports.iter() {
             let child_stop_token = stop_token.clone();
             let port_cloned = tx_port.clone();
@@ -154,8 +154,7 @@ impl SubflowState {
 }
 
 impl FlowState {
-    async fn start_nodes(&mut self, stop_token: CancellationToken) -> crate::Result<()> {
-        // 启动是按照节点依赖顺序的正序
+    fn start_nodes(&mut self, stop_token: CancellationToken) -> crate::Result<()> {
         for node_id in self.nodes_ordering.iter() {
             let node = self.nodes[node_id].clone();
 
@@ -524,6 +523,7 @@ impl Flow {
 
     pub async fn start(&self) -> crate::Result<()> {
         // let mut state = self.shared.state.write().await;
+
         if self.is_subflow() {
             log::info!("---- Starting Subflow (id={})...", self.id);
         } else {
@@ -533,14 +533,12 @@ impl Flow {
         if let Some(subflow_state) = &self.subflow_state {
             log::info!("------ Starting the forward tasks of the subflow...");
             let mut subflow_state = subflow_state.write().await;
-            subflow_state
-                .start_tx_tasks(self.stop_token.clone())
-                .await?;
+            subflow_state.start_tx_tasks(self.stop_token.clone())?;
         }
 
         {
             let mut state = self.state.write().await;
-            state.start_nodes(self.stop_token.clone()).await?;
+            state.start_nodes(self.stop_token.clone())?;
         }
 
         Ok(())
