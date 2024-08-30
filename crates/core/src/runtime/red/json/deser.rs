@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::str::FromStr;
 
 use serde::de;
 use serde::Deserialize;
@@ -36,7 +37,13 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
             ) {
                 match type_value.red_type {
                     "tab" => {
-                        flow_topo_sort.insert(ele_id);
+                        let deps = obj.get_flow_dependencies(&all_values);
+                        if deps.is_empty() {
+                            flow_topo_sort.insert(ele_id);
+                        } else {
+                            deps.iter()
+                                .for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
+                        }
                         flows.insert(ele_id, jobject.clone());
                     }
 
@@ -53,7 +60,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
                             flow_nodes.insert(ele_id, jobject.clone());
                         } else {
                             // We got the "subflow" itself
-                            let deps = obj.get_subflow_dependencies(all_values);
+                            let deps = obj.get_subflow_dependencies(&all_values);
                             if deps.is_empty() {
                                 flow_topo_sort.insert(ele_id);
                             } else {
@@ -352,10 +359,38 @@ pub fn parse_red_id_value(id_value: &serde_json::Value) -> Option<ElementId> {
 }
 
 pub trait RedFlowJsonObject {
+    fn get_flow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId>;
     fn get_subflow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId>;
 }
 
 impl RedFlowJsonObject for JsonMap<String, JsonValue> {
+    fn get_flow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
+        let this_id = self.get("id");
+        let link_out_type: JsonValue = "link out".into();
+
+        let related_link_in_ids = elements
+            .iter()
+            .filter_map(|x| {
+                if x.get("z") == this_id && x.get("type") == Some(&link_out_type) {
+                    x.get("links").and_then(|y| y.as_array())
+                } else {
+                    None
+                }
+            })
+            .flat_map(|array| array.iter())
+            .collect::<HashSet<&JsonValue>>();
+
+        elements
+            .iter()
+            .filter(|x| {
+                x.get("id")
+                    .map_or(false, |id| related_link_in_ids.contains(id))
+            })
+            .filter_map(|x| x.get("z"))
+            .filter_map(parse_red_id_value)
+            .collect::<HashSet<ElementId>>()
+    }
+
     fn get_subflow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
         let subflow_id = self
             .get("id")

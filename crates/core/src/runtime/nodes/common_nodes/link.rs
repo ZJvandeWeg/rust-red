@@ -27,18 +27,16 @@ impl FlowNodeBehavior for LinkInNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            match self.wait_for_msg(stop_token.child_token()).await {
-                Ok(msg) => {
-                    let envelope = Envelope { port: 0, msg };
-                    self.fan_out_one(&envelope, stop_token.child_token())
+            let cancel = stop_token.clone();
+            with_uow(
+                self.as_ref(),
+                cancel.child_token(),
+                |node, msg| async move {
+                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone())
                         .await
-                        .expect("Should be OK");
-                }
-                Err(ref err) => {
-                    log::error!("Error: {:#?}", err);
-                    break;
-                }
-            }
+                },
+            )
+            .await;
         }
     }
 }
