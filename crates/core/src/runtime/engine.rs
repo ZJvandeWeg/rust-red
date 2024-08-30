@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::io::Read;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use tokio::sync::RwLock;
@@ -23,12 +24,12 @@ pub(crate) struct FlowEngineState {
 }
 
 pub struct FlowEngine {
-    pub(crate) state: RwLock<FlowEngineState>,
+    pub(crate) state: std::sync::RwLock<FlowEngineState>,
     pub(crate) stop_token: CancellationToken,
 }
 
 impl FlowEngine {
-    pub async fn new_with_json(
+    pub fn new_with_json(
         reg: Arc<dyn Registry>,
         json: &serde_json::Value,
     ) -> crate::Result<Arc<FlowEngine>> {
@@ -40,7 +41,7 @@ impl FlowEngine {
 
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
-            state: RwLock::new(FlowEngineState {
+            state: std::sync::RwLock::new(FlowEngineState {
                 flows: HashMap::new(),
                 global_nodes: HashMap::new(),
                 env_vars: BTreeMap::from_iter(FlowEngine::get_env_vars()),
@@ -49,58 +50,54 @@ impl FlowEngine {
             }),
         });
 
-        engine
-            .clone()
-            .load_flows(&json_values.flows, reg.clone())
-            .await?;
+        engine.clone().load_flows(&json_values.flows, reg.clone())?;
 
         engine
             .clone()
-            .load_global_nodes(&json_values.global_nodes, reg.clone())
-            .await?;
+            .load_global_nodes(&json_values.global_nodes, reg.clone())?;
 
         Ok(engine)
     }
 
-    pub async fn new_with_flows_file(
+    pub fn new_with_flows_file(
         reg: Arc<dyn Registry>,
         flows_json_path: &str,
     ) -> crate::Result<Arc<FlowEngine>> {
-        let mut file = tokio::fs::File::open(flows_json_path).await?;
+        let mut file = std::fs::File::open(flows_json_path)?;
         let mut json_str = String::new();
-        file.read_to_string(&mut json_str).await?;
-        Self::new_with_json_string(reg, &json_str).await
+        file.read_to_string(&mut json_str)?;
+        Self::new_with_json_string(reg, &json_str)
     }
 
-    pub async fn new_with_json_string(
+    pub fn new_with_json_string(
         reg: Arc<dyn Registry>,
         json_str: &str,
     ) -> crate::Result<Arc<FlowEngine>> {
         let json: serde_json::Value = serde_json::from_str(json_str)?;
-        Self::new_with_json(reg, &json).await
+        Self::new_with_json(reg, &json)
     }
 
     pub fn get_flow(&self, _id: &ElementId) -> Arc<Flow> {
         todo!()
     }
 
-    async fn load_flows(
+    fn load_flows(
         self: Arc<Self>,
         flow_configs: &[RedFlowConfig],
         reg: Arc<dyn Registry>,
     ) -> crate::Result<()> {
         // load flows
         for flow_config in flow_configs.iter() {
-            let flow = Flow::new(self.clone(), flow_config, reg.clone()).await?;
+            let flow = Flow::new(self.clone(), flow_config, reg.clone())?;
             {
-                let mut state = self.state.write().await;
+                let mut state = self.state.write().unwrap();
                 state.flows.insert(flow.id, flow);
             }
         }
         Ok(())
     }
 
-    async fn load_global_nodes(
+    fn load_global_nodes(
         self: Arc<Self>,
         node_configs: &[RedGlobalNodeConfig],
         reg: Arc<dyn Registry>,
@@ -129,7 +126,7 @@ impl FlowEngine {
                 }
             };
 
-            let mut state = self.state.write().await;
+            let mut state = self.state.write().unwrap();
             state.global_nodes.insert(*global_node.id(), global_node);
         }
         Ok(())
@@ -141,8 +138,12 @@ impl FlowEngine {
         msg: Arc<RwLock<Msg>>,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let state = self.state.read().await;
-        if let Some(flow) = state.flows.get(flow_id) {
+        let flow = {
+            let state = self.state.read().unwrap();
+            let flows = &state.flows;
+            flows.get(flow_id).cloned()
+        };
+        if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
@@ -151,7 +152,7 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
-        let mut state = self.state.write().await;
+        let mut state = self.state.write().unwrap();
         state.env_vars.clear();
         state.env_vars.extend(FlowEngine::get_env_vars());
         for flow in state.flows.values() {
@@ -164,7 +165,7 @@ impl FlowEngine {
     pub async fn stop(&self) -> crate::Result<()> {
         log::info!("-- Stopping all flows...");
         self.stop_token.cancel();
-        let state = self.state.write().await;
+        let state = self.state.write().unwrap();
         for flow in state.flows.values() {
             flow.clone().stop().await?;
         }
@@ -173,10 +174,10 @@ impl FlowEngine {
         Ok(())
     }
 
-    pub async fn find_flow_node_async(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        let flows = &self.state.read().await.flows;
+    pub fn find_flow_node(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
+        let flows = &self.state.read().unwrap().flows;
         for (_, flow) in flows.iter() {
-            if let Some(node) = flow.get_node_async(id).await {
+            if let Some(node) = flow.get_node(id) {
                 return Some(node.clone());
             }
         }

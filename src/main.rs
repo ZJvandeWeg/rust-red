@@ -97,7 +97,6 @@ impl Runtime {
         log::info!("Loading flows file: {}", &self.args.flows_path);
         let engine =
             match FlowEngine::new_with_flows_file(self.registry.clone(), &self.args.flows_path)
-                .await
             {
                 Ok(eng) => eng,
                 Err(e) => {

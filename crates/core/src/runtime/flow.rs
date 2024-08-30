@@ -62,8 +62,8 @@ pub struct Flow {
 
     pub stop_token: CancellationToken,
 
-    state: RwLock<FlowState>,
-    subflow_state: Option<RwLock<SubflowState>>,
+    state: std::sync::RwLock<FlowState>,
+    subflow_state: Option<std::sync::RwLock<SubflowState>>,
 }
 
 impl GraphElement for Flow {
@@ -85,30 +85,45 @@ impl SubflowOutputPort {
             match self.msg_rx.wait_for_msg(stop_token.clone()).await {
                 Ok(msg) => {
                     // Find out the subflow:xxx node
-                    if let Some(flow) = Weak::upgrade(&self.owner) {
+                    let instance_node = {
+                        // 升级 Weak<Flow> 到 Arc<Flow>
+                        let flow = self
+                            .owner
+                            .upgrade()
+                            .expect("The owner of this sub-flow node has been released already!!!");
+
+                        // 直接借用 flow，避免使用 clone
                         let subflow_state = flow
                             .subflow_state
                             .as_ref()
-                            .expect("Subflow must have a subflow_state!")
-                            .read()
-                            .await;
+                            .expect("Subflow must have a subflow_state!");
 
-                        if let Some(instance_node) = &subflow_state.instance_node {
-                            let envelope = Envelope {
-                                port: self.index,
-                                msg,
-                            };
-                            if let Err(e) = instance_node
-                                .fan_out_one(&envelope, stop_token.clone())
-                                .await
-                            {
-                                log::warn!("Failed to fan-out message: {:?}", e);
-                            }
-                        } else {
-                            log::warn!("The sub-flow does not have a subflow node");
+                        // 获取读锁定的引用
+                        let subflow_state_guard = subflow_state
+                            .read()
+                            .expect("Cannot acquire the lock of field `subflow_state`!!!");
+
+                        // 克隆 instance_node，因为需要返回 Option<T> 的克隆
+                        subflow_state_guard.instance_node.clone()
+                    };
+
+                    if let Some(instance_node) = instance_node {
+                        let instance_node = instance_node.clone();
+                        let envelope = Envelope {
+                            port: self.index,
+                            msg,
+                        };
+                        if let Err(e) = instance_node
+                            .fan_out_one(&envelope, stop_token.clone())
+                            .await
+                        {
+                            log::warn!("Failed to fan-out message: {:?}", e);
                         }
+                    } else {
+                        log::warn!("The sub-flow does not have a subflow node");
                     }
                 }
+
                 Err(e) => {
                     log::error!("Failed to receive msg in subflow_tx_task: {:?}", e);
                 }
@@ -198,7 +213,7 @@ impl FlowState {
 }
 
 impl Flow {
-    pub(crate) async fn new(
+    pub(crate) fn new(
         engine: Arc<FlowEngine>,
         flow_config: &RedFlowConfig,
         reg: Arc<dyn Registry>,
@@ -215,7 +230,7 @@ impl Flow {
             engine: Arc::downgrade(&engine),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
-            state: RwLock::new(FlowState {
+            state: std::sync::RwLock::new(FlowState {
                 groups: HashMap::new(),
                 nodes: HashMap::new(),
                 complete_nodes: HashMap::new(),
@@ -227,7 +242,7 @@ impl Flow {
             }),
 
             subflow_state: match flow_kind {
-                FlowKind::Subflow => Some(RwLock::new(SubflowState {
+                FlowKind::Subflow => Some(std::sync::RwLock::new(SubflowState {
                     instance_node: None,
                     in_nodes: Vec::new(),
                     tx_tasks: JoinSet::new(),
@@ -241,10 +256,10 @@ impl Flow {
 
         // Add empty subflow forward ports
         if let Some(subflow_state) = &flow.subflow_state {
-            let mut subflow_state = subflow_state.write().await;
+            let mut subflow_state = subflow_state.write().unwrap();
 
             if let Some(subflow_node_id) = flow_config.subflow_node_id {
-                subflow_state.instance_node = engine.find_flow_node_async(&subflow_node_id).await;
+                subflow_state.instance_node = engine.find_flow_node(&subflow_node_id);
             }
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
@@ -261,20 +276,16 @@ impl Flow {
 
         {
             let flow = flow.clone();
-            let mut state = flow.state.write().await;
+            let mut state = flow.state.write().unwrap();
 
-            flow.clone()
-                .populate_groups(&mut state, flow_config)
-                .await?;
+            flow.clone().populate_groups(&mut state, flow_config);
 
-            flow.clone()
-                .populate_nodes(&mut state, flow_config, reg)
-                .await?;
+            flow.clone().populate_nodes(&mut state, flow_config, reg);
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
-            let flow_state = flow.state.write().await;
-            let mut subflow_state = subflow_state.write().await;
+            let flow_state = flow.state.write().unwrap();
+            let mut subflow_state = subflow_state.write().unwrap();
 
             subflow_state.populate_in_nodes(&flow_state, flow_config)?;
         }
@@ -282,7 +293,7 @@ impl Flow {
         Ok(flow)
     }
 
-    async fn populate_groups(
+    fn populate_groups(
         self: Arc<Self>,
         state: &mut FlowState,
         flow_config: &RedFlowConfig,
@@ -309,7 +320,7 @@ impl Flow {
         Ok(())
     }
 
-    async fn populate_nodes(
+    fn populate_nodes(
         self: Arc<Self>,
         state: &mut FlowState,
         flow_config: &RedFlowConfig,
@@ -348,7 +359,7 @@ impl Flow {
 
                     // Redirect all the output node wires in the subflow to the output port of the subflow.
                     if let Some(subflow_state) = &self.subflow_state {
-                        let subflow_state = subflow_state.read().await;
+                        let subflow_state = subflow_state.read().unwrap();
                         for (subflow_port_index, red_port) in
                             flow_config.out_ports.iter().enumerate()
                         {
@@ -440,8 +451,8 @@ impl Flow {
         self.subflow_state.is_some()
     }
 
-    pub async fn get_node_async(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        self.state.read().await.nodes.get(id).map(|x| x.clone())
+    pub fn get_node(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
+        self.state.read().unwrap().nodes.get(id).map(|x| x.clone())
     }
 
     pub fn get_setting(&self, key: &str) -> Variant {
@@ -532,12 +543,12 @@ impl Flow {
 
         if let Some(subflow_state) = &self.subflow_state {
             log::info!("------ Starting the forward tasks of the subflow...");
-            let mut subflow_state = subflow_state.write().await;
+            let mut subflow_state = subflow_state.write().unwrap();
             subflow_state.start_tx_tasks(self.stop_token.clone())?;
         }
 
         {
-            let mut state = self.state.write().await;
+            let mut state = self.state.write().unwrap();
             state.start_nodes(self.stop_token.clone())?;
         }
 
@@ -555,13 +566,13 @@ impl Flow {
 
         // Wait all subflow senders to stop
         if let Some(ss) = &self.subflow_state {
-            let mut ss = ss.write().await;
+            let mut ss = ss.write().unwrap();
             ss.stop_tx_tasks().await?;
         }
 
         // Wait all nodes
         {
-            let mut state = self.state.write().await;
+            let mut state = self.state.write().unwrap();
             state.stop_nodes().await?;
         }
         log::info!(
@@ -574,21 +585,12 @@ impl Flow {
 
     pub async fn notify_node_uow_completed(
         &self,
-        src_node_id: &ElementId,
+        emitter_id: &ElementId,
         msg: &Msg,
         cancel: CancellationToken,
     ) {
-        let state = self.state.read().await;
-        if let Some(complete_node_ids) = state.complete_nodes_map.get(src_node_id) {
-            for complete_node_id in complete_node_ids.iter() {
-                let complete_node = match state.complete_nodes.get(complete_node_id) {
-                    Some(e) => e,
-                    None => {
-                        log::error!("Can not found complete node with id: {}", complete_node_id);
-                        continue;
-                    }
-                };
-
+        if let Some(complete_nodes) = self.get_complete_nodes_by_emitter(emitter_id) {
+            for complete_node in complete_nodes.iter() {
                 let to_send = Arc::new(RwLock::new(msg.clone()));
                 match complete_node
                     .inject_msg(to_send, cancel.child_token())
@@ -604,6 +606,23 @@ impl Flow {
                 }
             }
         }
+    }
+
+    fn get_complete_nodes_by_emitter(
+        &self,
+        emitter_id: &ElementId,
+    ) -> Option<Vec<Arc<dyn FlowNodeBehavior>>> {
+        let state = self.state.read().unwrap();
+        state
+            .complete_nodes_map
+            .get(emitter_id)
+            .map(|complete_nids| {
+                complete_nids
+                    .iter()
+                    .filter_map(|k| state.complete_nodes.get(k))
+                    .cloned()
+                    .collect()
+            })
     }
 
     pub async fn inject_msg(
@@ -627,9 +646,13 @@ impl Flow {
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         if let Some(subflow_state) = &self.subflow_state {
-            let subflow_state = subflow_state.read().await;
+            // TODO smallvec
+            let in_nodes: Vec<_> = {
+                let subflow_state = subflow_state.read().unwrap();
+                subflow_state.in_nodes.iter().cloned().collect()
+            };
             let mut msg_sent = false;
-            for node in subflow_state.in_nodes.iter() {
+            for node in in_nodes {
                 if !msg_sent {
                     node.inject_msg(msg.clone(), cancel.clone()).await?;
                 } else {

@@ -126,8 +126,9 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
-        if let Some(flow) = self.state().flow.upgrade() {
-            flow.notify_node_uow_completed(self.id(), msg, cancel).await;
+        let (node_id, flow) = { (self.id().clone(), self.state().flow.upgrade().map(|x| x.clone())) };
+        if let Some(flow) = flow {
+            flow.notify_node_uow_completed(&node_id, msg, cancel).await;
         } else {
             todo!();
         }
