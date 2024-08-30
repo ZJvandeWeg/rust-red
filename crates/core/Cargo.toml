@@ -35,6 +35,8 @@ rquickjs = { version = "0.6.2", features = ["full-async", "parallel", "macro"] }
 rand = "0.8.5"
 semver = "1.0.23"
 base64 = "0.22.1"
+dirs-next = "2.0.0"
+clap = { version = "4.5.16", features = ["derive"] }
 
 [dev-dependencies]
 # Enable test-utilities in dev mode only. This is mostly for tests.

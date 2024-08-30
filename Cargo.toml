@@ -38,19 +38,15 @@ opt-level = 1 # Enables thin local LTO and some optimizations.
 
 [dependencies]
 edgelink-core = { path = "./crates/core" }
-async-trait = "0.1.73"
 libloading = "0.8.5"
 tokio = { version = "1.33.0", features = ["default", "signal"] }
 log = "0.4.20"
 tokio-util = "0.7.9"
 log4rs = { version = "1.2.0", features = ["default", "toml_format"], default-features = false}
-jsonata-rs = "0.1.5"
-bumpalo = "3.16.0"
-clap = "4.5.16"
-dirs-next = "2.0.0"
 
 edgelink_red_sqlite_node = { path = "plugins/edgelink_red_sqlite_node" }
 semver = "1.0.23"
+clap = "4.5.16"
 
 
 [dev-dependencies]

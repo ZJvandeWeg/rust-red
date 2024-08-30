@@ -1,42 +1,20 @@
-use clap::Parser;
-use dirs_next::home_dir;
 // use std::env;
 use std::process;
 use std::sync::Arc;
+
+// 3rd-party libs
+use clap::Parser;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 // use libloading::Library;
 
 use edgelink_core::runtime::engine::FlowEngine;
+use edgelink_core::runtime::model::EdgelinkConfig;
 use edgelink_core::runtime::registry::{Registry, RegistryImpl};
 use edgelink_core::Result;
 
 mod consts;
-
-/// Simple program to greet a person
-#[derive(Parser, Debug, Clone)]
-#[command(version, about, long_about = None)]
-struct EdgeLinkArgs {
-    /// Path of the 'flows.json' file
-    #[arg(short, long, default_value_t = default_flows_path())]
-    flows_path: String,
-
-    /// Path of the log configuration file
-    #[arg(short, long)]
-    log_path: Option<String>,
-}
-
-fn default_flows_path() -> String {
-    match home_dir() {
-        Some(path) => path
-            .join(".node-red")
-            .join("flows.json")
-            .to_string_lossy()
-            .to_string(),
-        None => "".to_string(),
-    }
-}
 
 /*
 use core::{Plugin, PluginRegistrar};
@@ -76,7 +54,7 @@ fn main() {
 }
 
 */
-pub(crate) fn log_init(elargs: &EdgeLinkArgs) {
+pub(crate) fn log_init(elargs: &EdgelinkConfig) {
     if let Some(ref log_path) = elargs.log_path {
         log4rs::init_file(log_path, Default::default()).unwrap();
     } else {
@@ -100,13 +78,13 @@ pub(crate) fn log_init(elargs: &EdgeLinkArgs) {
 }
 
 struct Runtime {
-    args: Arc<EdgeLinkArgs>,
+    args: Arc<EdgelinkConfig>,
     registry: Arc<dyn Registry>,
     engine: RwLock<Option<Arc<FlowEngine>>>,
 }
 
 impl Runtime {
-    fn new(elargs: Arc<EdgeLinkArgs>) -> Self {
+    fn new(elargs: Arc<EdgelinkConfig>) -> Self {
         Runtime {
             args: elargs.clone(),
             registry: Arc::new(RegistryImpl::new()),
@@ -163,7 +141,10 @@ impl Runtime {
     }
 }
 
-async fn run_main_task(elargs: Arc<EdgeLinkArgs>, cancel: CancellationToken) -> crate::Result<()> {
+async fn run_main_task(
+    elargs: Arc<EdgelinkConfig>,
+    cancel: CancellationToken,
+) -> crate::Result<()> {
     let rt = Arc::new(Runtime::new(elargs));
     rt.run(cancel.clone()).await
 }
@@ -175,7 +156,7 @@ async fn app_main() -> edgelink_core::Result<()> {
         consts::GIT_HASH
     );
 
-    let elargs = Arc::new(EdgeLinkArgs::parse());
+    let elargs = Arc::new(EdgelinkConfig::parse());
 
     println!("Initializing logging subsystem...\n");
     log_init(&elargs);
