@@ -186,18 +186,6 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 }
 
-#[async_trait]
-pub trait SourceFlowNodeBehavior: Any + Send + Sync + FlowNodeBehavior {
-}
-
-#[async_trait]
-pub trait FilterFlowNodeBehavior: Any + Send + Sync + FlowNodeBehavior {
-}
-
-#[async_trait]
-pub trait SinkFlowNodeBehavior: Any + Send + Sync + FlowNodeBehavior {
-}
-
 async fn with_uow<B, F, T>(node: &B, cancel: CancellationToken, proc: F)
 where
     B: FlowNodeBehavior,
