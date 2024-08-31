@@ -20,7 +20,7 @@ impl AsyncEvent {
         self.subscribers.write().await.push(Box::new(callback));
     }
 
-    pub async fn trigger(&self) {
+    pub async fn emit(&self) {
         let subscribers = self.subscribers.read().await;
         for callback in subscribers.iter() {
             let fut = callback();

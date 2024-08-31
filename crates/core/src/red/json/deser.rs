@@ -539,7 +539,26 @@ impl RedPropertyType {
     }
 }
 
-pub fn string_to_option_u16<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
+pub fn str_to_option_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Option<String> = Option::deserialize(deserializer)?;
+    match value {
+        Some(s) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<f64>().map(Some).map_err(|_| {
+                    de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid f64")
+                })
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+pub fn str_to_option_u16<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -558,7 +577,7 @@ where
     }
 }
 
-pub fn string_to_ipaddr<'de, D>(deserializer: D) -> Result<Option<IpAddr>, D::Error>
+pub fn str_to_ipaddr<'de, D>(deserializer: D) -> Result<Option<IpAddr>, D::Error>
 where
     D: Deserializer<'de>,
 {

@@ -164,7 +164,10 @@ impl FlowEngine {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
-            Err(EdgeLinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id)).into())
+            Err(
+                EdgeLinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id))
+                    .into(),
+            )
         }
     }
 
