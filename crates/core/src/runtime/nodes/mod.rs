@@ -78,6 +78,43 @@ pub struct FlowNodeState {
 
 impl FlowNodeState {
     //
+    fn new(engine: &FlowEngine, node_config: &RedFlowNodeConfig) -> crate::Result<FlowNodeState> {
+        let mut ports = Vec::new();
+        let (tx_root, rx) = tokio::sync::mpsc::channel(16);
+        // Convert the Node-RED wires elements to ours
+        for red_port in node_config.wires.iter() {
+            let mut wires = Vec::new();
+            for nid in red_port.node_ids.iter() {
+                let node_entry = engine.find_flow_node(nid). ok_or(format!(
+                    "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
+                    node_config.id,
+                    node_config.name,
+                    nid
+                ))?;
+                let tx = node_entry.state().msg_tx.to_owned();
+                let pw = PortWire {
+                    // target_node_id: *nid,
+                    // target_node: Arc::downgrade(node_entry),
+                    msg_sender: tx,
+                };
+                wires.push(pw);
+            }
+            let port = Port { wires };
+            ports.push(port);
+        }
+
+        Ok(FlowNodeState {
+            id: node_config.id,
+            name: node_config.name.clone(),
+            type_name: node_config.type_name.clone(),
+            disabled: node_config.disabled,
+            flow: Weak::new(),
+            msg_tx: tx_root,
+            msg_rx: MsgReceiverHolder::new(rx),
+            ports,
+            group: Weak::new(),
+        })
+    }
 }
 
 #[async_trait]

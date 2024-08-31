@@ -12,7 +12,7 @@ use crate::runtime::model::ElementId;
 use crate::runtime::red::json::*;
 use crate::EdgeLinkError;
 
-pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
+pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let processed = preprocess_root(root_jv)?;
     let all_values = processed.as_array().ok_or(EdgeLinkError::BadFlowsJson())?;
 
@@ -177,7 +177,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<JsonValues> {
         flow_configs.push(flow_config);
     }
 
-    Ok(JsonValues {
+    Ok(RedFlows {
         flows: flow_configs,
         global_nodes,
     })
