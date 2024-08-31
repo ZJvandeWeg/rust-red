@@ -20,11 +20,18 @@ pub struct Envelope {
 
 pub type MsgBody = BTreeMap<String, Variant>;
 
+#[derive(Debug, Clone)]
+pub struct LinkSourceEntry {
+    pub id: ElementId,
+    pub link_call_node_id: ElementId,
+}
+
 #[derive(Debug)]
 pub struct Msg {
     pub id: ElementId,
     pub birth_place: ElementId,
     pub body: BTreeMap<String, Variant>,
+    pub link_source: Option<Vec<LinkSourceEntry>>,
 }
 
 impl Msg {
@@ -32,6 +39,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
+            link_source: None,
             body: BTreeMap::from([("payload".to_string(), Variant::Null)]),
         };
         Arc::new(RwLock::new(msg))
@@ -44,6 +52,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
+            link_source: None,
             body,
         };
         Arc::new(RwLock::new(msg))
@@ -53,6 +62,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
+            link_source: None,
             body: BTreeMap::from([("payload".to_string(), payload)]),
         };
         Arc::new(RwLock::new(msg))
@@ -217,12 +227,26 @@ impl Msg {
             let msg_id_atom = "_msgid"
                 .into_atom(ctx)
                 .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-            let msg_id_value = format!("{}", self.id)
+            let msg_id_value = self
+                .id
+                .to_string()
                 .into_js(ctx)
                 .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-
             obj.set(msg_id_atom, msg_id_value)
                 .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+
+            /*
+            let link_source_atom = "_linkSource"
+                .into_atom(ctx)
+                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+            let link_source_atom = self
+                .id
+                .to_string()
+                .into_js(ctx)
+                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+            obj.set(msg_id_atom, msg_id_value)
+                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+            */
         }
         Ok(obj)
     }
@@ -232,11 +256,30 @@ impl Msg {
     }
 }
 
+impl Msg {
+    pub fn push_link_source(&mut self, lse: LinkSourceEntry) {
+        if let Some(link_source) = &mut self.link_source {
+            link_source.push(lse);
+        } else {
+            self.link_source = Some(vec![lse]);
+        }
+    }
+
+    pub fn pop_link_source(&mut self) -> Option<LinkSourceEntry> {
+        if let Some(link_source) = &mut self.link_source {
+            link_source.pop()
+        } else {
+            None
+        }
+    }
+}
+
 impl Clone for Msg {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
             birth_place: self.birth_place,
+            link_source: self.link_source.clone(),
             body: self.body.clone(),
         }
     }
@@ -247,6 +290,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
         let mut map = BTreeMap::new();
         let mut birth_place = None;
         let mut msg_id = None;
+        let mut link_source = None;
         for result in jo.props::<String, js::Value>() {
             match result {
                 Ok((k, v)) => match k.as_ref() {
@@ -256,6 +300,9 @@ impl<'js> From<&js::Object<'js>> for Msg {
                             .as_string()
                             .and_then(|x| x.to_string().ok())
                             .and_then(|x| x.parse().ok())
+                    }
+                    "_linkSource" => {
+                        todo!()
                     }
                     _ => {
                         map.insert(k, Variant::from(&v));
@@ -275,6 +322,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
 
             birth_place: birth_place.unwrap_or(ElementId::empty()),
             body: map,
+            link_source,
         }
     }
 }

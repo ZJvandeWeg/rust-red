@@ -378,8 +378,10 @@ impl Flow {
                 }
             };
 
-            state.nodes_ordering.push(*node.id());
+            state.nodes_ordering.push(node.id());
             state.nodes.insert(node_config.id, node.clone());
+
+            log::debug!("------ {} has been loaded!", node);
 
             self.register_internal_node(node, state, node_config)?;
         }
@@ -400,11 +402,11 @@ impl Flow {
                     for src_id in scope {
                         if let Some(src_id) = helpers::parse_red_id_value(src_id) {
                             if let Some(set) = state.complete_nodes_map.get_mut(&src_id) {
-                                set.insert(*node.id());
+                                set.insert(node.id());
                             } else {
                                 state
                                     .complete_nodes_map
-                                    .insert(src_id, HashSet::from([*node.id()]));
+                                    .insert(src_id, HashSet::from([node.id()]));
                             }
                         }
                     }

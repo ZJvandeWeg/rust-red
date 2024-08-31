@@ -86,11 +86,21 @@ impl FlowEngine {
     ) -> crate::Result<()> {
         // load flows
         for flow_config in flow_configs.iter() {
+            log::debug!(
+                "---- Loading flow/subflow: (id='{}', label='{}')...",
+                flow_config.id,
+                flow_config.label
+            );
             let flow = Flow::new(self.clone(), flow_config, reg.clone())?;
             {
                 let mut state = self.state.write().unwrap();
                 state.flows.insert(flow.id, flow);
             }
+            log::debug!(
+                "---- The flow (id='{}', label='{}') has been loaded successfully.",
+                flow_config.id,
+                flow_config.label
+            );
         }
         Ok(())
     }

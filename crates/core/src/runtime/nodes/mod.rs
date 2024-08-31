@@ -127,8 +127,8 @@ pub trait GlobalNodeBehavior: Any + Send + Sync {
 pub trait FlowNodeBehavior: Any + Send + Sync {
     fn state(&self) -> &FlowNodeState;
 
-    fn id(&self) -> &ElementId {
-        &self.state().id
+    fn id(&self) -> ElementId {
+        self.state().id
     }
 
     fn name(&self) -> &str {
@@ -163,7 +163,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
-        let (node_id, flow) = { (*self.id(), self.state().flow.upgrade()) };
+        let (node_id, flow) = { (self.id(), self.state().flow.upgrade()) };
         if let Some(flow) = flow {
             flow.notify_node_uow_completed(&node_id, msg, cancel).await;
         } else {

@@ -69,7 +69,7 @@ pub(crate) fn log_init(elargs: &EdgelinkConfig) {
             .build(
                 log4rs::config::Root::builder()
                     .appender("stdout")
-                    .build(log::LevelFilter::Info),
+                    .build(log::LevelFilter::Debug),
             )
             .unwrap();
 
@@ -99,7 +99,7 @@ impl Runtime {
             match FlowEngine::new_with_flows_file(self.registry.clone(), &self.args.flows_path) {
                 Ok(eng) => eng,
                 Err(e) => {
-                    log::error!("Failed to create engine: {}", e);
+                    log::error!("Failed to create engine: {:?}", e);
                     return Err(e);
                 }
             };

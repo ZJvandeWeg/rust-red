@@ -132,10 +132,10 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
         // We check for cycle errors before usage
         let node = flow_nodes[&node_id].clone();
         log::debug!(
-            "\t -- node.id={}, node.name={}, node.type={}",
+            "SORTED_NODES: node.id='{}', node.name='{}', node.type='{}'",
             node_id,
-            node.get("name").unwrap().as_str().unwrap(),
-            node.get("type").unwrap().as_str().unwrap()
+            node.get("name").and_then(|x| x.as_str()).unwrap_or(""),
+            node.get("type").and_then(|x| x.as_str()).unwrap_or("")
         );
         sorted_flow_nodes.push(node);
     }
@@ -363,7 +363,10 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
         let related_link_in_ids = elements
             .iter()
             .filter_map(|x| {
-                if x.get("z") == this_id && option_value_equals_str(&x.get("type"), "link out") {
+                if x.get("z") == this_id
+                    && (option_value_equals_str(&x.get("type"), "link out")
+                        || option_value_equals_str(&x.get("type"), "link call"))
+                {
                     x.get("links").and_then(|y| y.as_array())
                 } else {
                     None
@@ -379,6 +382,7 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
                     && x.get("id")
                         .map_or(false, |id| related_link_in_ids.contains(id))
             })
+            .filter(|x| x.get("z") != this_id) // Remove itself!
             .filter_map(|x| x.get("z"))
             .filter_map(parse_red_id_value)
             .collect::<HashSet<ElementId>>()
@@ -437,6 +441,15 @@ impl RedFlowNodeJsonObject for JsonMap<String, JsonValue> {
                 .flatten()
                 .filter_map(parse_red_id_value);
             result.extend(iter);
+        }
+
+        // Add links
+        if let Some(links) = self.get("links").and_then(|x| x.as_array()) {
+            let red_type = self.get("type").and_then(|x| x.as_str()).unwrap();
+            if red_type == "link out" || red_type == "link call" {
+                let iter = links.iter().filter_map(parse_red_id_value);
+                result.extend(iter);
+            }
         }
 
         result

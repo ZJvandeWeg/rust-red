@@ -40,15 +40,17 @@ impl LinkOutNode {
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
         let mut linked_nodes = Vec::new();
-        for link_in_id in link_out_config.links.iter() {
-            if let Some(link_in) = engine.find_flow_node(link_in_id) {
-                linked_nodes.push(Arc::downgrade(&link_in));
-            } else {
-                log::error!(
-                    "Cannot found the required `link in` node(id={})!",
-                    link_in_id
-                );
-                return Err(EdgeLinkError::BadFlowsJson().into());
+        if link_out_config.mode == LinkOutMode::Link {
+            for link_in_id in link_out_config.links.iter() {
+                if let Some(link_in) = engine.find_flow_node(link_in_id) {
+                    linked_nodes.push(Arc::downgrade(&link_in));
+                } else {
+                    log::error!(
+                        "LinkOutNode: Cannot found the required `link in` node(id={})!",
+                        link_in_id
+                    );
+                    return Err(EdgeLinkError::BadFlowsJson().into());
+                }
             }
         }
 
@@ -58,6 +60,42 @@ impl LinkOutNode {
             linked_nodes,
         };
         Ok(Arc::new(node))
+    }
+
+    async fn uow(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+        match self.config.mode {
+            LinkOutMode::Link => {
+                for link_node in self.linked_nodes.iter() {
+                    if let Some(link_node) = link_node.upgrade() {
+                        link_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                    } else {
+                        let err_msg = format!(
+                            "The required `link in` was unavailable in `link out` node(id={})!",
+                            self.id()
+                        );
+                        return Err(EdgeLinkError::InvalidOperation(err_msg).into());
+                    }
+                }
+            }
+            LinkOutMode::Return => {
+                if let Some(engine) = self.state().flow.upgrade().and_then(|f| f.engine.upgrade()) {
+                    let mut msg_guard = msg.write().await;
+                    if let Some(link_source) = &mut msg_guard.link_source {
+                        if link_source.len() > 0 {
+                            if let Some(source_link) = link_source.pop() {
+                                if let Some(target_node) =
+                                    engine.find_flow_node(&source_link.link_call_node_id)
+                                {
+                                    target_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -70,27 +108,8 @@ impl FlowNodeBehavior for LinkOutNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            with_uow(self.as_ref(), stop_token.clone(), |node, msg| async move {
-                match node.config.mode {
-                    LinkOutMode::Link => {
-                        for link_node in node.linked_nodes.iter() {
-                            if let Some(link_node) = link_node.upgrade() {
-                                link_node.inject_msg(msg.clone(), cancel.clone()).await?;
-                            }
-                            else {
-                                let err_msg = format!(
-                                    "The required `link in` was unavailable in `link out` node(id={})!",
-                                    node.id()
-                                );
-                                return Err(EdgeLinkError::InvalidOperation(err_msg).into());
-                            }
-                        }
-                    }
-                    LinkOutMode::Return => {
-                        todo!()
-                    }
-                }
-                Ok(())
+            with_uow(self.as_ref(), stop_token.clone(), |node, msg| {
+                node.uow(msg, cancel.clone())
             })
             .await;
         }
