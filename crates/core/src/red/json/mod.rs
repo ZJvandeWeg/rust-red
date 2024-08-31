@@ -2,6 +2,7 @@ use crate::{runtime::model::*, EdgeLinkError};
 use serde_json::Value as JsonValue;
 
 pub mod deser;
+pub mod helpers;
 
 pub struct RedTypeValue<'a> {
     red_type: &'a str,
@@ -157,19 +158,42 @@ pub struct RedFlows {
     pub global_nodes: Vec<RedGlobalNodeConfig>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde:: Deserialize)]
 pub enum RedPropertyType {
+    #[serde(rename = "str")]
     Str,
+
+    #[serde(rename = "num")]
     Num,
+
+    #[serde(rename = "json")]
     Json,
+
+    #[serde(rename = "re")]
     Re,
+
+    #[serde(rename = "date")]
     Date,
+
+    #[serde(rename = "bin")]
     Bin,
+
+    #[serde(rename = "msg")]
     Msg,
+
+    #[serde(rename = "flow")]
     Flow,
+
+    #[serde(rename = "global")]
     Global,
+
+    #[serde(rename = "bool")]
     Bool,
+
+    #[serde(rename = "jsonata")]
     Jsonata,
+
+    #[serde(rename = "env")]
     Env,
 }
 

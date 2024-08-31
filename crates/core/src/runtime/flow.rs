@@ -15,7 +15,6 @@ use crate::EdgeLinkError;
 
 use super::group::Group;
 use crate::red::eval;
-use crate::red::json::deser::parse_red_id_value;
 use crate::red::json::{RedEnvEntry, RedPropertyType};
 
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
@@ -175,30 +174,18 @@ impl FlowState {
             let node = self.nodes[node_id].clone();
 
             if node.state().disabled {
-                log::warn!(
-                    "------ Skipping disabled node (id='{}', type='{}').",
-                    node.id(),
-                    node.state().type_name
-                );
+                log::warn!("------ Skipping disabled node {}.", node);
                 continue;
             }
 
             // Start the async-task of each flow node
-            log::info!(
-                "------ Starting node (id='{}', type='{}')...",
-                node.id(),
-                node.state().type_name
-            );
+            log::info!("------ Starting node {}...", node,);
 
             let child_stop_token = stop_token.clone();
             self.node_tasks.spawn(async move {
                 let node_ref = node.as_ref();
                 let _ = node.clone().run(child_stop_token.child_token()).await;
-                log::info!(
-                    "------ Node(id='{}', type='{}') has been stopped.",
-                    node_ref.id(),
-                    node_ref.state().type_name
-                );
+                log::info!("------ {} has been stopped.", node_ref,);
             });
         }
 
@@ -411,7 +398,7 @@ impl Flow {
 
                 if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
                     for src_id in scope {
-                        if let Some(src_id) = parse_red_id_value(src_id) {
+                        if let Some(src_id) = helpers::parse_red_id_value(src_id) {
                             if let Some(set) = state.complete_nodes_map.get_mut(&src_id) {
                                 set.insert(*node.id());
                             } else {

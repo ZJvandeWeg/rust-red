@@ -177,7 +177,11 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         if self.state().ports.is_empty() {
-            log::warn!("No output wires in this node: Node(id='{}')", self.id());
+            log::warn!(
+                "No output wires in this node: Node(id='{}', name='{}')",
+                self.id(),
+                self.name()
+            );
             return Ok(());
         }
         if envelope.port >= self.state().ports.len() {
@@ -220,6 +224,26 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
             self.fan_out_one(e, cancel.child_token()).await?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for dyn FlowNodeBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "FlowNode(id='{}', name='{}')",
+            self.id(),
+            self.name(),
+        ))
+    }
+}
+
+impl fmt::Display for dyn FlowNodeBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "FlowNode(id='{}', name='{}')",
+            self.id(),
+            self.name(),
+        ))
     }
 }
 

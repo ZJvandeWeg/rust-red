@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
-use crate::red::json::deser::parse_red_id_str;
+use crate::red::json::helpers;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
@@ -21,7 +21,7 @@ impl SubflowNode {
             .get("type")
             .and_then(|s| s.as_str())
             .and_then(|s| s.split_once(':'))
-            .and_then(|p| parse_red_id_str(p.1))
+            .and_then(|p| helpers::parse_red_id_str(p.1))
             .ok_or(EdgeLinkError::BadFlowsJson())?;
 
         //let subflow = flow.engine.upgrade().unwrap().flows

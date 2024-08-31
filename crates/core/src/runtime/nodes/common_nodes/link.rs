@@ -60,6 +60,7 @@ enum LinkOutMode {
 struct LinkOutNode {
     state: FlowNodeState,
     config: LinkOutNodeConfig,
+    linked_nodes: Vec<Arc<dyn FlowNodeBehavior>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -72,15 +73,24 @@ struct LinkOutNodeConfig {
 
 impl LinkOutNode {
     fn create(
-        _flow: &Flow,
-        mut state: FlowNodeState,
+        flow: &Flow,
+        state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let link_out_config: LinkOutNodeConfig = LinkOutNodeConfig::deserialize(&_config.json)?;
+        let engine = flow.engine.upgrade().expect("The engine must be created!");
+
+        let mut linked_nodes = Vec::new();
+        for link_in_id in link_out_config.links.iter() {
+            if let Some(link_in) = engine.find_flow_node(&link_in_id) {
+                linked_nodes.push(link_in.clone());
+            }
+        }
 
         let node = LinkOutNode {
             state,
             config: link_out_config,
+            linked_nodes,
         };
         Ok(Arc::new(node))
     }
@@ -94,18 +104,19 @@ impl FlowNodeBehavior for LinkOutNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            match self.wait_for_msg(stop_token.child_token()).await {
-                Ok(msg) => {
-                    let envelope = Envelope { port: 0, msg };
-                    self.fan_out_one(&envelope, stop_token.child_token())
-                        .await
-                        .expect("Should be OK");
+            let cancel = stop_token.clone();
+            with_uow(self.as_ref(), stop_token.clone(), |node, msg| async move {
+                if let Some(engine) = node.state().flow.upgrade().and_then(|f| f.engine.upgrade()) {
+                    /*
+                    engine
+                        .inject_msg_to_flow(&node., msg, cancel.clone())
+                        .await?;
+                    */
                 }
-                Err(ref err) => {
-                    log::error!("Error: {:#?}", err);
-                    break;
-                }
-            }
+
+                Ok(())
+            })
+            .await;
         }
     }
 }

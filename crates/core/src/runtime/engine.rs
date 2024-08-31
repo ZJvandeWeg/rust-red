@@ -149,6 +149,25 @@ impl FlowEngine {
         }
     }
 
+    pub async fn forward_msg_to_link_in(
+        &self,
+        link_in_id: &ElementId,
+        msg: Arc<RwLock<Msg>>,
+        cancel: CancellationToken,
+    ) -> crate::Result<()> {
+        let flow = {
+            let state = self.state.read().unwrap();
+            let flows = &state.flows;
+            flows.get(link_in_id).cloned()
+        };
+        if let Some(flow) = flow {
+            flow.inject_msg(msg, cancel.clone()).await?;
+            Ok(())
+        } else {
+            Err(EdgeLinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id)).into())
+        }
+    }
+
     pub async fn start(&self) -> crate::Result<()> {
         let flows: Vec<_> = {
             let mut state = self.state.write().unwrap();
