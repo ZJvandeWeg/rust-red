@@ -3,9 +3,9 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
+use crate::red::json::RedFlowNodeConfig;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
-use crate::runtime::red::json::RedFlowNodeConfig;
 
 #[derive(Deserialize, Debug)]
 struct DebugNodeConfig {
@@ -32,8 +32,7 @@ impl DebugNode {
         state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let mut debug_config: DebugNodeConfig =
-            serde_json::from_value(serde_json::Value::Object(_config.json.clone()))?;
+        let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.json)?;
         if debug_config.complete.is_empty() {
             debug_config.complete = "payload".to_string();
         }

@@ -2,6 +2,7 @@ use rand::Rng;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod async_util;
+pub mod json;
 pub mod parser;
 pub mod time;
 

@@ -5,10 +5,10 @@ use smallvec::SmallVec;
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
+use crate::red::js::*;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
-use crate::runtime::red::js::*;
 
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
@@ -96,8 +96,7 @@ impl FunctionNode {
         base_node: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let mut function_config: FunctionNodeConfig =
-            serde_json::from_value(serde_json::Value::Object(_config.json.clone()))?;
+        let mut function_config = FunctionNodeConfig::deserialize(&_config.json)?;
         if function_config.outputs == 0 {
             function_config.outputs = 1;
         }

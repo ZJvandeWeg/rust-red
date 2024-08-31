@@ -8,8 +8,9 @@ use serde_json::Map as JsonMap;
 use serde_json::Value as JsonValue;
 use topological_sort::TopologicalSort;
 
+use crate::red::json::*;
 use crate::runtime::model::ElementId;
-use crate::runtime::red::json::*;
+use crate::utils::json::option_value_equals_str;
 use crate::EdgeLinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
@@ -170,7 +171,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
 
         for flow_node_jv in owned_node_jvs.into_iter() {
             let mut node_config: RedFlowNodeConfig = serde_json::from_value(flow_node_jv.clone())?;
-            node_config.json = flow_node_jv.as_object().unwrap().clone();
+            node_config.json = flow_node_jv.clone();
             flow_config.nodes.push(node_config);
         }
 
@@ -358,13 +359,11 @@ pub trait RedFlowJsonObject {
 impl RedFlowJsonObject for JsonMap<String, JsonValue> {
     fn get_flow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
         let this_id = self.get("id");
-        let link_out_type: JsonValue = "link out".into();
-        let link_in_type: JsonValue = "link in".into();
 
         let related_link_in_ids = elements
             .iter()
             .filter_map(|x| {
-                if x.get("z") == this_id && x.get("type") == Some(&link_out_type) {
+                if x.get("z") == this_id && option_value_equals_str(&x.get("type"), "link out") {
                     x.get("links").and_then(|y| y.as_array())
                 } else {
                     None
@@ -376,7 +375,7 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
         elements
             .iter()
             .filter(|x| {
-                x.get("type") == Some(&link_in_type)
+                option_value_equals_str(&x.get("type"), "link in")
                     && x.get("id")
                         .map_or(false, |id| related_link_in_ids.contains(id))
             })

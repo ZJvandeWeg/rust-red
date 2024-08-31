@@ -294,17 +294,21 @@ impl FlowNodeBehavior for RbeNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
             let sub_state = &mut state;
-            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
-                let can_send = {
-                    let mut msg_guard = msg.write().await;
-                    node.do_filter(&mut msg_guard, sub_state)
-                };
-                if can_send {
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
-                        .await?;
-                }
-                Ok(())
-            })
+            with_uow(
+                self.as_ref(),
+                cancel.child_token(),
+                |node, msg| async move {
+                    let can_send = {
+                        let mut msg_guard = msg.write().await;
+                        node.do_filter(&mut msg_guard, sub_state)
+                    };
+                    if can_send {
+                        node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
+                            .await?;
+                    }
+                    Ok(())
+                },
+            )
             .await;
         }
 

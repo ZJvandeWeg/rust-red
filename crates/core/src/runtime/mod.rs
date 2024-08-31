@@ -4,5 +4,4 @@ pub mod group;
 pub mod js;
 pub mod model;
 pub mod nodes;
-pub mod red;
 pub mod registry;

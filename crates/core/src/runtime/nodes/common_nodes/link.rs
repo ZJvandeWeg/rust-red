@@ -1,9 +1,13 @@
+use std::str::FromStr;
 use std::sync::Arc;
+
+use serde::Deserialize;
 
 use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
+#[derive(Debug)]
 struct LinkInNode {
     state: FlowNodeState,
 }
@@ -43,8 +47,27 @@ impl FlowNodeBehavior for LinkInNode {
 
 define_builtin_flow_node!("link in", LinkInNode::create);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+enum LinkOutMode {
+    #[serde(rename = "link")]
+    Link = 0,
+
+    #[serde(rename = "return")]
+    Return = 1,
+}
+
+#[derive(Debug)]
 struct LinkOutNode {
     state: FlowNodeState,
+    config: LinkOutNodeConfig,
+}
+
+#[derive(Deserialize, Debug)]
+struct LinkOutNodeConfig {
+    mode: LinkOutMode,
+
+    #[serde(deserialize_with = "crate::red::json::deser::deser_red_id_vec")]
+    links: Vec<ElementId>,
 }
 
 impl LinkOutNode {
@@ -53,7 +76,12 @@ impl LinkOutNode {
         mut state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let node = LinkOutNode { state };
+        let link_out_config: LinkOutNodeConfig = LinkOutNodeConfig::deserialize(&_config.json)?;
+
+        let node = LinkOutNode {
+            state,
+            config: link_out_config,
+        };
         Ok(Arc::new(node))
     }
 }

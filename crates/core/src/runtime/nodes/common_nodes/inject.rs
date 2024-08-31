@@ -5,12 +5,12 @@ use std::time::Duration;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::define_builtin_flow_node;
+use crate::red::eval;
+use crate::red::json::RedPropertyTriple;
+use crate::red::json::RedPropertyType;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
-use crate::runtime::red::eval;
-use crate::runtime::red::json::RedPropertyTriple;
-use crate::runtime::red::json::RedPropertyType;
 
 struct InjectNode {
     state: FlowNodeState,

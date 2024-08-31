@@ -34,29 +34,16 @@ impl<'de> Deserialize<'de> for UdpMulticast {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum UdpIpV {
+    #[serde(rename = "udp4")]
     V4,
+
+    #[serde(rename = "udp6")]
     V6,
 }
 
-impl<'de> Deserialize<'de> for UdpIpV {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "udp4" => Ok(UdpIpV::V4),
-            "udp6" => Ok(UdpIpV::V6),
-            _ => Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(&s),
-                &"expected 'udp4' or 'udp6'",
-            )),
-        }
-    }
-}
-
+#[derive(Debug)]
 struct UdpOutNode {
     state: FlowNodeState,
     config: UdpOutNodeConfig,
@@ -68,8 +55,7 @@ impl UdpOutNode {
         state: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let udp_config: UdpOutNodeConfig =
-            serde_json::from_value(serde_json::Value::Object(_config.json.clone()))?;
+        let udp_config = UdpOutNodeConfig::deserialize(&_config.json)?;
 
         let node = UdpOutNode {
             state,
@@ -82,19 +68,19 @@ impl UdpOutNode {
 #[derive(Deserialize, Debug)]
 struct UdpOutNodeConfig {
     /// Remote address
-    #[serde(deserialize_with = "crate::runtime::red::json::deser::string_to_ipaddr")]
+    #[serde(deserialize_with = "crate::red::json::deser::string_to_ipaddr")]
     addr: Option<IpAddr>,
 
     /// Remote port
-    #[serde(deserialize_with = "crate::runtime::red::json::deser::string_to_option_u16")]
+    #[serde(deserialize_with = "crate::red::json::deser::string_to_option_u16")]
     port: Option<u16>,
 
     /// Local address
-    #[serde(deserialize_with = "crate::runtime::red::json::deser::string_to_ipaddr")]
+    #[serde(deserialize_with = "crate::red::json::deser::string_to_ipaddr")]
     iface: Option<IpAddr>,
 
     /// Local port
-    #[serde(deserialize_with = "crate::runtime::red::json::deser::string_to_option_u16")]
+    #[serde(deserialize_with = "crate::red::json::deser::string_to_option_u16")]
     outport: Option<u16>,
 
     ipv: UdpIpV,

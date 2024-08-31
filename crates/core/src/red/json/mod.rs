@@ -110,7 +110,7 @@ pub struct RedFlowNodeConfig {
     pub wires: Vec<RedPortConfig>,
 
     #[serde(skip)]
-    pub json: serde_json::Map<String, JsonValue>,
+    pub json: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

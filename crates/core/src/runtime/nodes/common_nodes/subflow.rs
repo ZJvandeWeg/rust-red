@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
+use crate::red::json::deser::parse_red_id_str;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
-use crate::runtime::red::json::deser::parse_red_id_str;
 
 struct SubflowNode {
     state: FlowNodeState,

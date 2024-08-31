@@ -3,8 +3,8 @@ use std::{collections::HashMap, sync::Weak};
 use super::{
     flow::Flow,
     model::{ElementId, Variant},
-    red::json::RedGroupConfig,
 };
+use crate::red::json::RedGroupConfig;
 
 pub enum GroupParent {
     Flow(Weak<Flow>),

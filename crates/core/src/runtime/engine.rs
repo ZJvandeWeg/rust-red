@@ -12,7 +12,7 @@ use crate::EdgeLinkError;
 
 use super::model::{ElementId, Msg};
 use super::nodes::FlowNodeBehavior;
-use super::red::json::{RedFlowConfig, RedGlobalNodeConfig};
+use crate::red::json::{RedFlowConfig, RedGlobalNodeConfig};
 
 pub(crate) struct FlowEngineState {
     flows: HashMap<ElementId, Arc<Flow>>,
@@ -32,11 +32,10 @@ impl FlowEngine {
         reg: Arc<dyn Registry>,
         json: &serde_json::Value,
     ) -> crate::Result<Arc<FlowEngine>> {
-        let json_values =
-            crate::runtime::red::json::deser::load_flows_json_value(json).map_err(|e| {
-                log::error!("Failed to load NodeRED JSON value: {}", e);
-                e
-            })?;
+        let json_values = crate::red::json::deser::load_flows_json_value(json).map_err(|e| {
+            log::error!("Failed to load NodeRED JSON value: {}", e);
+            e
+        })?;
 
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),

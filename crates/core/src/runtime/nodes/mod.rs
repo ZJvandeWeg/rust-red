@@ -6,10 +6,10 @@ use tokio::select;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use crate::red::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
-use crate::runtime::red::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
 use crate::EdgeLinkError;
 
 use super::group::Group;
