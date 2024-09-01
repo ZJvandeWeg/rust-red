@@ -22,7 +22,9 @@ impl SubflowNode {
             .and_then(|s| s.as_str())
             .and_then(|s| s.split_once(':'))
             .and_then(|p| helpers::parse_red_id_str(p.1))
-            .ok_or(EdgelinkError::BadFlowsJson())?;
+            .ok_or(EdgelinkError::BadFlowsJson(
+                "Cannot get or parse the `type` property with the format `subflow:xxx`".to_string(),
+            ))?;
 
         //let subflow = flow.engine.upgrade().unwrap().flows
         let node = SubflowNode { state, subflow_id };

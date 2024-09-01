@@ -74,6 +74,10 @@ pub struct FlowNodeState {
     pub msg_rx: MsgReceiverHolder,
     pub ports: Vec<Port>,
     pub group: Weak<Group>,
+
+    pub on_received: MsgEventSender,
+    pub on_completed: MsgEventSender,
+    pub on_error: MsgEventSender,
 }
 
 impl FlowNodeState {
@@ -169,7 +173,11 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
-        self.state().msg_rx.recv_msg(stop_token).await
+        let msg = self.state().msg_rx.recv_msg(stop_token).await?;
+        if self.state().on_received.receiver_count() > 0 {
+            self.state().on_received.send(msg.clone())?;
+        }
+        Ok(msg)
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
@@ -282,19 +290,25 @@ where
             if let Some(EdgelinkError::TaskCancelled) = err.downcast_ref::<EdgelinkError>() {
                 return;
             }
-            log::warn!("Error: {:#?}", err);
+            log::warn!(
+                "with_uow() Error: Node(id='{}', name='{}', type='{}')\n{:#?}",
+                node.id(),
+                node.name(),
+                node.type_name(),
+                err
+            );
         }
     }
 }
 
 #[macro_export]
 macro_rules! define_builtin_flow_node {
-    ($type_name:literal, $factory:expr) => {
+    ($type_:literal, $factory:expr) => {
         inventory::submit! {
             BuiltinNodeDescriptor {
                 meta: MetaNode {
                     kind: NodeKind::Flow,
-                    type_name: $type_name,
+                    type_: $type_,
                     factory: NodeFactory::Flow($factory),
                 },
             }
@@ -304,12 +318,12 @@ macro_rules! define_builtin_flow_node {
 
 #[macro_export]
 macro_rules! define_builtin_global_node {
-    ($type_name:literal, $factory:expr) => {
+    ($type_:literal, $factory:expr) => {
         inventory::submit! {
             BuiltinNodeDescriptor {
                 meta: MetaNode {
                     kind: NodeKind::Global,
-                    type_name: $type_name,
+                    type_: $type_,
                     factory: NodeFactory::Global($factory),
                 },
             }

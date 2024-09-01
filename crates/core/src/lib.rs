@@ -26,8 +26,8 @@ pub enum EdgelinkError {
     #[error("Permission Denied")]
     PermissionDenied,
 
-    #[error("Invalid 'flows.json'")]
-    BadFlowsJson(),
+    #[error("Invalid 'flows.json': {0}")]
+    BadFlowsJson(String),
 
     #[error("Unsupported 'flows.json' format: {0}")]
     UnsupportedFlowsJsonFormat(String),

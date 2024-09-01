@@ -158,7 +158,7 @@ pub struct RedFlows {
     pub global_nodes: Vec<RedGlobalNodeConfig>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, serde:: Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
 pub enum RedPropertyType {
     #[serde(rename = "str")]
     Str,
@@ -197,10 +197,12 @@ pub enum RedPropertyType {
     Env,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct RedPropertyTriple {
     pub p: String,
+
     pub vt: RedPropertyType,
+
     pub v: String,
 }
 
@@ -213,9 +215,13 @@ fn parse_property_triple(jv: &serde_json::Value) -> crate::Result<RedPropertyTri
         )?,
         p: jv
             .get("p")
-            .ok_or(EdgelinkError::BadFlowsJson())?
+            .ok_or(EdgelinkError::BadFlowsJson(
+                "Cannot get the property `p` in the property triple".to_string(),
+            ))?
             .as_str()
-            .ok_or(EdgelinkError::BadFlowsJson())?
+            .ok_or(EdgelinkError::BadFlowsJson(
+                "Cannot convert the property `p` into string".to_string(),
+            ))?
             .to_string(),
 
         v: match jv.get("v").and_then(serde_json::Value::as_str) {
@@ -234,7 +240,10 @@ impl RedPropertyTriple {
                 objects.iter().map(parse_property_triple).collect();
             entries
         } else {
-            Err(EdgelinkError::BadFlowsJson().into())
+            Err(
+                EdgelinkError::BadFlowsJson("The property table must be an array".to_string())
+                    .into(),
+            )
         }
     }
 }

@@ -15,7 +15,9 @@ use crate::EdgelinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let processed = preprocess_root(root_jv)?;
-    let all_values = processed.as_array().ok_or(EdgelinkError::BadFlowsJson())?;
+    let all_values = processed.as_array().ok_or(EdgelinkError::BadFlowsJson(
+        "Cannot convert the value into an array".to_string(),
+    ))?;
 
     let mut flows = HashMap::new();
     let mut groups = HashMap::new();
@@ -82,7 +84,10 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             groups.insert(ele_id, g);
                         }
                         None => {
-                            return Err(EdgelinkError::BadFlowsJson().into());
+                            return Err(EdgelinkError::BadFlowsJson(
+                                "The group must have a 'z' property".to_string(),
+                            )
+                            .into());
                         }
                     },
 
@@ -111,7 +116,10 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                 }
             }
         } else {
-            return Err(EdgelinkError::BadFlowsJson().into());
+            return Err(EdgelinkError::BadFlowsJson(
+                "The entry in `flows.json` must be object".to_string(),
+            )
+            .into());
         }
     }
 
@@ -547,8 +555,31 @@ impl RedPropertyType {
             "bool" => Ok(RedPropertyType::Bool),
             "jsonata" => Ok(RedPropertyType::Jsonata),
             "env" => Ok(RedPropertyType::Env),
-            _ => Err(EdgelinkError::BadFlowsJson().into()),
+            _ => Err(EdgelinkError::BadFlowsJson(format!(
+                "Unsupported property type: '{}'",
+                ptype
+            ))
+            .into()),
         }
+    }
+}
+
+pub fn str_to_option_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Option<String> = Option::deserialize(deserializer)?;
+    match value {
+        Some(s) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<u64>().map(Some).map_err(|_| {
+                    de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid u64")
+                })
+            }
+        }
+        None => Ok(None),
     }
 }
 

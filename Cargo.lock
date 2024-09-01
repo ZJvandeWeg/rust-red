@@ -468,6 +468,8 @@ dependencies = [
  "log",
  "log4rs",
  "semver",
+ "serde",
+ "serde_json",
  "serde_json_path",
  "tokio",
  "tokio-util",

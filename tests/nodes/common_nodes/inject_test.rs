@@ -1,40 +1,53 @@
-fn basic_test(type_: &str, val: &str, rval: &str) {
+use crate::*;
+use edgelink_core as el;
+use edgelink_core::runtime::flow::*;
+use edgelink_core::runtime::model::*;
+use edgelink_core::runtime::nodes::*;
+use serde::ser::Serialize;
+use serde_json::*;
+
+async fn basic_test(type_: &str, val: Variant, rval: Option<&str>) -> el::Result<()> {
     let flow = json!([
-        { "id":"flow", "type":"tab" },
+        { "id":"0", "type":"tab" },
         {
-            "id": "01", "type": "inject", "topic": "t1", "payload": val, "payloadType": type_,
-            "wires": [["02"]],
-            "z": "flow"
+            "id": "1", "type": "inject", "topic": "t1",
+            "payload": to_value(&val).unwrap(),
+            "payloadType": type_,
+            "wires": [
+                ["2", ],
+            ],
+            "z": "0"
         },
-        { "id": "02", "type": "helper", "z":"flow" }
+        { "id": "2", "type": "helper", "z": "0" }
     ]);
-    /*
-    helper.load(injectNode, flow, function () {
-        var n1 = helper.getNode("n1");
-        var n2 = helper.getNode("n2");
-        n2.on("input", function (msg) {
-            try {
-                msg.should.have.property("topic", "t1");
-                if (rval) {
-                    msg.should.have.property("payload");
-                    should.deepEqual(msg.payload, rval);
-                }
-                else {
-                    msg.should.have.property("payload", val);
-                }
-                done();
-            } catch (err) {
-                done(err);
-            }
-        });
-        n1.receive({});
-    });
-    */
+    println!("json:\n{}", serde_json::to_string_pretty(&flow)?);
+
+    let helper = TestHelper::with_json(&flow)?;
+    let n1 = helper.get_node(&ElementId::with_u64(1)).unwrap();
+    let n2 = helper.get_node(&ElementId::with_u64(2)).unwrap();
+    let mut received_rx = n2.state().on_received.subscribe();
+
+    helper.start_engine().await?;
+
+    let msg = received_rx.recv().await?;
+    let locked_msg = msg.read().await;
+    assert_eq!(
+        locked_msg
+            .get_property("topic")
+            .expect("has topic")
+            .as_string()
+            .expect(""),
+        "t1"
+    );
+
+    helper.stop_engine().await?;
+    Ok(())
 }
 
-#[test]
-fn test_crate1_integration() {
+#[tokio::test]
+async fn test_crate1_integration() -> el::Result<()> {
     // setup();
     // let result = crate1::some_function();
-    assert_eq!(33, 42);
+    basic_test("num", Variant::Integer(10), None).await?;
+    Ok(())
 }

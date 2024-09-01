@@ -14,15 +14,13 @@ mod msg;
 pub use msg::*;
 mod config;
 mod eid;
-mod event;
 mod error;
 pub mod propex;
 mod variant;
 
-pub use error::*;
 pub use config::*;
 pub use eid::*;
-pub use event::*;
+pub use error::*;
 pub use variant::*;
 
 use super::flow::Flow;
@@ -118,3 +116,6 @@ impl<T: RuntimeElement + Any> RuntimeElement for T {
 pub fn query_trait<T: RuntimeElement, U: 'static>(ele: &T) -> Option<&U> {
     ele.as_any().downcast_ref::<U>()
 }
+
+pub type MsgEventSender = tokio::sync::broadcast::Sender<Arc<RwLock<Msg>>>;
+pub type MsgEventReceiver = tokio::sync::broadcast::Receiver<Arc<RwLock<Msg>>>;

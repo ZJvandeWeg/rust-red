@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use serde::Deserialize;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::define_builtin_flow_node;
@@ -12,6 +13,37 @@ use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 
+#[derive(serde::Deserialize, Debug)]
+struct InjectNodeConfig {
+    #[serde(default)]
+    props: Vec<RedPropertyTriple>,
+
+    #[serde(
+        default,
+        deserialize_with = "crate::red::json::deser::str_to_option_u64"
+    )]
+    repeat: Option<u64>,
+
+    #[serde(default)]
+    crontab: String,
+
+    #[serde(default)]
+    once: bool,
+
+    #[serde(rename = "onceDelay", default)]
+    once_delay: Option<f64>,
+
+    #[serde(default)]
+    topic: String,
+
+    #[serde(default)]
+    payload: String,
+
+    #[serde(rename = "payloadType", default)]
+    payload_type: String,
+}
+
+#[derive(Debug)]
 struct InjectNode {
     state: FlowNodeState,
 
@@ -28,16 +60,20 @@ impl InjectNode {
         base_node: FlowNodeState,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+        // let inject_node_config = InjectNodeConfig::deserialize(&_config.json)?;
+
+        let json = _config.json.clone();
         let mut props = RedPropertyTriple::collection_from_json_value(
-            &_config
-                .json
+            &json
                 .get("props")
-                .ok_or(EdgelinkError::BadFlowsJson())
+                .ok_or(EdgelinkError::BadFlowsJson(
+                    "Cannot get the `props` property".to_string(),
+                ))
                 .cloned()?,
         )?;
 
-        if let Some(payload_type) = _config.json.get("payloadType").and_then(|v| v.as_str()) {
-            let payload_value_expr = _config.json.get("payload").unwrap().as_str().unwrap();
+        if let Some(payload_type) = json.get("payloadType").and_then(|v| v.as_str()) {
+            let payload_value_expr = json.get("payload").unwrap().as_str().unwrap();
             props.retain(|x| x.p != "payload");
             props.push(RedPropertyTriple {
                 p: "payload".to_string(),
@@ -49,28 +85,22 @@ impl InjectNode {
         let node = InjectNode {
             state: base_node,
 
-            repeat: _config
-                .json
+            repeat: json
                 .get("repeat")
                 .and_then(|jv| jv.as_str())
                 .and_then(|value| value.parse::<f64>().ok()),
 
-            cron: _config
-                .json
-                .get("crontab")
-                .and_then(|v| v.as_str())
-                .and_then(|v| {
-                    if v.is_empty() {
-                        None
-                    } else {
-                        Some(format!("0 {}", v))
-                    }
-                }),
+            cron: json.get("crontab").and_then(|v| v.as_str()).and_then(|v| {
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(format!("0 {}", v))
+                }
+            }),
 
-            once: _config.json.get("once").unwrap().as_bool().unwrap(),
+            once: json.get("once").unwrap().as_bool().unwrap(),
 
-            once_delay: _config
-                .json
+            once_delay: json
                 .get("onceDelay")
                 .and_then(|jv| jv.as_str())
                 .and_then(|value| value.parse::<f64>().ok()),

@@ -1,8 +1,8 @@
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
-use tokio::sync::mpsc;
 use tokio::sync::RwLock;
+use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
@@ -209,7 +209,9 @@ impl Flow {
         let flow_kind = match flow_config.type_name.as_str() {
             "tab" => FlowKind::GlobalFlow,
             "subflow" => FlowKind::Subflow,
-            _ => return Err(EdgelinkError::BadFlowsJson().into()),
+            _ => {
+                return Err(EdgelinkError::BadFlowsJson("Unsupported flow type".to_string()).into())
+            }
         };
 
         let flow: Arc<Flow> = Arc::new(Flow {
@@ -361,7 +363,11 @@ impl Flow {
                                     };
                                     node_port.wires.push(node_wire)
                                 } else {
-                                    return Err(EdgelinkError::BadFlowsJson().into());
+                                    return Err(EdgelinkError::BadFlowsJson(format!(
+                                        "Bad port for subflow: {}",
+                                        red_wire.port
+                                    ))
+                                    .into());
                                 }
                             }
                         }
@@ -717,6 +723,10 @@ impl Flow {
             None => Weak::new(),
         };
 
+        let (on_received_tx, _) = broadcast::channel(1);
+        let (on_completed_tx, _) = broadcast::channel(1);
+        let (on_error_tx, _) = broadcast::channel(1);
+
         Ok(FlowNodeState {
             id: node_config.id,
             name: node_config.name.clone(),
@@ -727,6 +737,9 @@ impl Flow {
             msg_rx: MsgReceiverHolder::new(rx),
             ports,
             group: group_ref,
+            on_received: on_received_tx,
+            on_completed: on_completed_tx,
+            on_error: on_error_tx,
         })
     }
 }

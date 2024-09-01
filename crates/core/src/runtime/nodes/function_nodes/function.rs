@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use std::sync::Arc;
 
 use crate::define_builtin_flow_node;
-use crate::red::js::*;
+// use crate::red::js::*;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
@@ -74,7 +74,7 @@ impl FlowNodeBehavior for FunctionNode {
                             node.fan_out_many(&envelopes, cancel.child_token()).await?;
                         }
                         Err(e) => {
-                            log::warn!("Failed to filter message: {}", e);
+                            return Err(e);
                         }
                     };
                     Ok(())

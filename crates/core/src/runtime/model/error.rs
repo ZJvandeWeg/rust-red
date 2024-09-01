@@ -16,7 +16,6 @@ pub struct NodeErrorSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeError {
-
     pub message: String,
 
     pub source: Option<NodeErrorSource>,

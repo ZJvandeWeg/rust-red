@@ -1,4 +1,6 @@
 use rquickjs::{self as js, FromIteratorJs, IntoAtom, IntoJs};
+use serde::ser::{SerializeMap, SerializeSeq};
+use serde::Serialize;
 use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -640,6 +642,36 @@ impl<const N: usize> From<[(&str, Variant); N]> for Variant {
 impl From<&[u8]> for Variant {
     fn from(array: &[u8]) -> Self {
         Variant::Bytes(array.to_vec())
+    }
+}
+
+impl Serialize for Variant {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Variant::Null => serializer.serialize_none(),
+            Variant::Rational(v) => serializer.serialize_f64(*v),
+            Variant::Integer(v) => serializer.serialize_i32(*v),
+            Variant::String(v) => serializer.serialize_str(v),
+            Variant::Bool(v) => serializer.serialize_bool(*v),
+            Variant::Bytes(v) => serializer.serialize_bytes(v),
+            Variant::Array(v) => {
+                let mut seq = serializer.serialize_seq(Some(v.len()))?;
+                for item in v {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            Variant::Object(v) => {
+                let mut map = serializer.serialize_map(Some(v.len()))?;
+                for (k, v) in v {
+                    map.serialize_entry(k, v)?;
+                }
+                map.end()
+            }
+        }
     }
 }
 
