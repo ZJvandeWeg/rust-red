@@ -222,7 +222,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
                 envelope.msg.clone() // First time
             };
 
-            wire.tx(msg_to_send, cancel.child_token()).await?;
+            wire.tx(msg_to_send, cancel.clone()).await?;
             msg_sent = true;
         }
         Ok(())

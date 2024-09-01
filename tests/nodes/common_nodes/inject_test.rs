@@ -19,7 +19,7 @@ async fn basic_test(type_: &str, val: Variant, rval: Option<&str>) -> el::Result
             ],
             "z": "0"
         },
-        { "id": "2", "type": "helper", "z": "0" }
+        { "id": "2", "type": "debug", "z": "0" }
     ]);
     println!("json:\n{}", serde_json::to_string_pretty(&flow)?);
 
