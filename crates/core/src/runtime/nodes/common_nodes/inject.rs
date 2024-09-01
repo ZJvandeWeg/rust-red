@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Deserialize;
+use serde_json::Value;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::define_builtin_flow_node;
@@ -61,8 +62,7 @@ impl InjectNode {
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         // let inject_node_config = InjectNodeConfig::deserialize(&_config.json)?;
-
-        let json = _config.json.clone();
+        let json = handle_legacy_json(&_config.json);
         let mut props = RedPropertyTriple::collection_from_json_value(
             &json
                 .get("props")
@@ -98,7 +98,7 @@ impl InjectNode {
                 }
             }),
 
-            once: json.get("once").unwrap().as_bool().unwrap(),
+            once: json.get("once").and_then(|x| x.as_bool()).unwrap_or(false),
 
             once_delay: json
                 .get("onceDelay")
@@ -263,6 +263,45 @@ impl FlowNodeBehavior for InjectNode {
             stop_token.cancelled().await;
         }
     }
+}
+
+fn handle_legacy_json(orig: &Value) -> Value {
+    let mut n = orig.clone();
+    if let Value::Object(ref mut map) = n {
+        if let Some(props) = map.get_mut("props") {
+            if let Value::Array(ref mut props_array) = props {
+                for prop in props_array {
+                    if let Value::Object(ref mut prop_map) = prop {
+                        if let Some(p) = prop_map.get("p") {
+                            if p == "payload" && !prop_map.contains_key("v") {
+                                prop_map.insert("v".to_string(), orig["payload"].clone());
+                                prop_map.insert("vt".to_string(), orig["payloadType"].clone());
+                            } else if p == "topic"
+                                && prop_map.get("vt") == Some(&Value::String("str".to_string()))
+                                && !prop_map.contains_key("v")
+                            {
+                                prop_map.insert("v".to_string(), orig["topic"].clone());
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let mut new_props = Vec::new();
+            new_props.push(serde_json::json!({
+                "p": "payload",
+                "v": orig["payload"],
+                "vt": orig["payloadType"]
+            }));
+            new_props.push(serde_json::json!({
+                "p": "topic",
+                "v": orig["topic"],
+                "vt": "str"
+            }));
+            map.insert("props".to_string(), Value::Array(new_props));
+        }
+    }
+    n
 }
 
 define_builtin_flow_node!("inject", InjectNode::create);
