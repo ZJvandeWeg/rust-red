@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 use crate::runtime::model::propex;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 use super::propex::PropexSegment;
 
@@ -264,14 +264,14 @@ impl Variant {
                 for e in array.iter() {
                     if let Some(byte) = e.as_i64() {
                         if !(0..=0xFF).contains(&byte) {
-                            return Err(EdgeLinkError::NotSupported(
+                            return Err(EdgelinkError::NotSupported(
                                 "Invalid byte value".to_owned(),
                             )
                             .into());
                         }
                         bytes.push(byte as u8)
                     } else {
-                        return Err(EdgeLinkError::NotSupported(
+                        return Err(EdgelinkError::NotSupported(
                             "Invalid byte JSON value type".to_owned(),
                         )
                         .into());
@@ -280,7 +280,7 @@ impl Variant {
                 Ok(Variant::Bytes(bytes))
             }
             serde_json::Value::String(string) => Ok(Variant::from(string.as_bytes())),
-            _ => Err(EdgeLinkError::NotSupported("Invalid byte JSON Value".to_owned()).into()),
+            _ => Err(EdgelinkError::NotSupported("Invalid byte JSON Value".to_owned()).into()),
         }
     }
 
@@ -533,9 +533,9 @@ impl Variant {
         if let Variant::Array(items) = self {
             let iter = items.iter().map(|e| e.as_js_value(ctx).unwrap()); // TODO FIXME
             js::Array::from_iter_js(ctx, iter)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()).into())
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()).into())
         } else {
-            Err(crate::EdgeLinkError::InvalidOperation("Bad variant type".to_string()).into())
+            Err(crate::EdgelinkError::InvalidOperation("Bad variant type".to_string()).into())
         }
     }
 
@@ -545,18 +545,18 @@ impl Variant {
             for (k, v) in map {
                 let prop_name = k
                     .into_atom(ctx)
-                    .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
                 let prop_value = v
                     .as_js_value(ctx)
-                    .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
                 obj.set(prop_name, prop_value)
-                    .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
             }
             Ok(obj)
         } else {
-            Err(crate::EdgeLinkError::InvalidOperation("Bad variant type".to_string()).into())
+            Err(crate::EdgelinkError::InvalidOperation("Bad variant type".to_string()).into())
         }
     }
 } // struct Variant

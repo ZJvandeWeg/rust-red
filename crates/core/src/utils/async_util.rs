@@ -1,4 +1,4 @@
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
@@ -6,7 +6,7 @@ pub async fn delay(dur: Duration, cancel: CancellationToken) -> crate::Result<()
     tokio::select! {
         _ = cancel.cancelled() => {
             // 取消 sleep_task 任务
-            Err(EdgeLinkError::TaskCancelled.into())
+            Err(EdgelinkError::TaskCancelled.into())
         }
         _ = tokio::time::sleep(dur)=> {
             // Long work has completed

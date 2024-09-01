@@ -11,7 +11,7 @@ use crate::runtime::engine::FlowEngine;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::Registry;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 use super::group::Group;
 use crate::red::eval;
@@ -209,7 +209,7 @@ impl Flow {
         let flow_kind = match flow_config.type_name.as_str() {
             "tab" => FlowKind::GlobalFlow,
             "subflow" => FlowKind::Subflow,
-            _ => return Err(EdgeLinkError::BadFlowsJson().into()),
+            _ => return Err(EdgelinkError::BadFlowsJson().into()),
         };
 
         let flow: Arc<Flow> = Arc::new(Flow {
@@ -361,7 +361,7 @@ impl Flow {
                                     };
                                     node_port.wires.push(node_wire)
                                 } else {
-                                    return Err(EdgeLinkError::BadFlowsJson().into());
+                                    return Err(EdgelinkError::BadFlowsJson().into());
                                 }
                             }
                         }
@@ -370,7 +370,7 @@ impl Flow {
                     factory(&self, node_state, node_config)?
                 }
                 NodeFactory::Global(_) => {
-                    return Err(EdgeLinkError::NotSupported(format!(
+                    return Err(EdgelinkError::NotSupported(format!(
                         "Must be a flow node: Node(id={0}, type='{1}')",
                         flow_config.id, flow_config.type_name
                     ))
@@ -625,7 +625,7 @@ impl Flow {
 
             _ = cancel.cancelled() => {
                 // The token was cancelled
-                Err(EdgeLinkError::TaskCancelled.into())
+                Err(EdgelinkError::TaskCancelled.into())
             }
         }
     }
@@ -653,7 +653,7 @@ impl Flow {
             }
             Ok(())
         } else {
-            Err(EdgeLinkError::InvalidOperation("This is not a subflow!".into()).into())
+            Err(EdgelinkError::InvalidOperation("This is not a subflow!".into()).into())
         }
     }
 
@@ -690,7 +690,7 @@ impl Flow {
             Some(gid) => match state.groups.get(gid) {
                 Some(g) => Arc::downgrade(g),
                 None => {
-                    return Err(EdgeLinkError::InvalidData(format!(
+                    return Err(EdgelinkError::InvalidData(format!(
                         "Can not found the group id in groups: id='{}'",
                         gid
                     ))

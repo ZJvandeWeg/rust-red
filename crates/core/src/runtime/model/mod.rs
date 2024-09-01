@@ -7,7 +7,7 @@ use tokio;
 use tokio::sync::mpsc;
 
 use crate::runtime::nodes::FlowNodeBehavior;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 mod msg;
 
@@ -37,10 +37,10 @@ impl PortWire {
         tokio::select! {
 
             send_result = self.msg_sender.send(msg) =>  send_result.map_err(|e|
-                crate::EdgeLinkError::InvalidOperation(format!("Failed to transmit message: {}", e)).into()),
+                crate::EdgelinkError::InvalidOperation(format!("Failed to transmit message: {}", e)).into()),
 
             _ = cancel.cancelled() =>
-                Err(crate::EdgeLinkError::TaskCancelled.into()),
+                Err(crate::EdgelinkError::TaskCancelled.into()),
         }
     }
 }
@@ -69,7 +69,7 @@ impl MsgReceiverHolder {
             Some(msg) => Ok(msg),
             None => {
                 log::error!("Failed to receive message");
-                Err(EdgeLinkError::TaskCancelled.into())
+                Err(EdgelinkError::TaskCancelled.into())
             }
         }
     }
@@ -85,7 +85,7 @@ impl MsgReceiverHolder {
 
             _ = stop_token.cancelled() => {
                 // The token was cancelled
-                Err(EdgeLinkError::TaskCancelled.into())
+                Err(EdgelinkError::TaskCancelled.into())
             }
         }
     }

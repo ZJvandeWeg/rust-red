@@ -11,11 +11,11 @@ use topological_sort::TopologicalSort;
 use crate::red::json::*;
 use crate::runtime::model::ElementId;
 use crate::utils::json::option_value_equals_str;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let processed = preprocess_root(root_jv)?;
-    let all_values = processed.as_array().ok_or(EdgeLinkError::BadFlowsJson())?;
+    let all_values = processed.as_array().ok_or(EdgelinkError::BadFlowsJson())?;
 
     let mut flows = HashMap::new();
     let mut groups = HashMap::new();
@@ -82,7 +82,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             groups.insert(ele_id, g);
                         }
                         None => {
-                            return Err(EdgeLinkError::BadFlowsJson().into());
+                            return Err(EdgelinkError::BadFlowsJson().into());
                         }
                     },
 
@@ -111,7 +111,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                 }
             }
         } else {
-            return Err(EdgeLinkError::BadFlowsJson().into());
+            return Err(EdgelinkError::BadFlowsJson().into());
         }
     }
 
@@ -547,7 +547,7 @@ impl RedPropertyType {
             "bool" => Ok(RedPropertyType::Bool),
             "jsonata" => Ok(RedPropertyType::Jsonata),
             "env" => Ok(RedPropertyType::Env),
-            _ => Err(EdgeLinkError::BadFlowsJson().into()),
+            _ => Err(EdgelinkError::BadFlowsJson().into()),
         }
     }
 }

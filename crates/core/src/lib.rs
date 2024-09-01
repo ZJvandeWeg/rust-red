@@ -22,7 +22,7 @@ pub trait Plugin {
 }
 
 #[derive(Error, Debug)]
-pub enum EdgeLinkError {
+pub enum EdgelinkError {
     #[error("Permission Denied")]
     PermissionDenied,
 
@@ -40,9 +40,6 @@ pub enum EdgeLinkError {
 
     #[error("Task cancelled")]
     TaskCancelled,
-
-    #[error("Invalidate operation")]
-    InvalidateOperation(String),
 
     #[error("{0}")]
     InvalidOperation(String),

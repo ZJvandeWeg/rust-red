@@ -32,7 +32,7 @@ impl InjectNode {
             &_config
                 .json
                 .get("props")
-                .ok_or(EdgeLinkError::BadFlowsJson())
+                .ok_or(EdgelinkError::BadFlowsJson())
                 .cloned()?,
         )?;
 

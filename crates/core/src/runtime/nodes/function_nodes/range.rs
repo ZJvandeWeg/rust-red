@@ -31,7 +31,7 @@ impl RangeNode {
                 .get("action")
                 .and_then(|jv| jv.as_str())
                 .and_then(|value| RangeAction::from_str(value).ok())
-                .ok_or(EdgeLinkError::NotSupported(
+                .ok_or(EdgelinkError::NotSupported(
                     "Bad range node action".to_string(),
                 ))?,
 

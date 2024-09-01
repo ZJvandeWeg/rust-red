@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::runtime::model::*;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 use super::{
     propex::{self, PropexSegment},
@@ -20,7 +20,7 @@ pub struct Envelope {
 
 pub type MsgBody = BTreeMap<String, Variant>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct LinkSourceEntry {
     pub id: ElementId,
     pub link_call_node_id: ElementId,
@@ -31,7 +31,7 @@ pub struct Msg {
     pub id: ElementId,
     pub birth_place: ElementId,
     pub body: BTreeMap<String, Variant>,
-    pub link_source: Option<Vec<LinkSourceEntry>>,
+    pub link_call_stack: Option<Vec<LinkSourceEntry>>,
 }
 
 impl Msg {
@@ -39,7 +39,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
-            link_source: None,
+            link_call_stack: None,
             body: BTreeMap::from([("payload".to_string(), Variant::Null)]),
         };
         Arc::new(RwLock::new(msg))
@@ -52,7 +52,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
-            link_source: None,
+            link_call_stack: None,
             body,
         };
         Arc::new(RwLock::new(msg))
@@ -62,7 +62,7 @@ impl Msg {
         let msg = Msg {
             id: Msg::generate_id(),
             birth_place,
-            link_source: None,
+            link_call_stack: None,
             body: BTreeMap::from([("payload".to_string(), payload)]),
         };
         Arc::new(RwLock::new(msg))
@@ -172,23 +172,23 @@ impl Msg {
                                 create_missing,
                             )?)
                         } else {
-                            Err(crate::EdgeLinkError::BadArguments("Bad propex".into()).into())
+                            Err(crate::EdgelinkError::BadArguments("Bad propex".into()).into())
                         }
                     } else {
-                        Err(crate::EdgeLinkError::BadArguments(
+                        Err(crate::EdgelinkError::BadArguments(
                             "The first property must be a string".into(),
                         )
                         .into())
                     }
                 }
-                _ => Err(crate::EdgeLinkError::BadArguments(
+                _ => Err(crate::EdgelinkError::BadArguments(
                     "The first property must be a string".into(),
                 )
                 .into()),
             }
         } else {
             Err(
-                crate::EdgeLinkError::BadArguments("The first property must be a string".into())
+                crate::EdgelinkError::BadArguments("The first property must be a string".into())
                     .into(),
             )
         }
@@ -213,27 +213,27 @@ impl Msg {
         for (k, v) in self.body.iter() {
             let prop_name = k
                 .into_atom(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
             let prop_value = v
                 .as_js_value(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
             obj.set(prop_name, prop_value)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
         }
 
         {
             let msg_id_atom = "_msgid"
                 .into_atom(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
             let msg_id_value = self
                 .id
                 .to_string()
                 .into_js(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
             obj.set(msg_id_atom, msg_id_value)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
             /*
             let link_source_atom = "_linkSource"
@@ -258,16 +258,20 @@ impl Msg {
 
 impl Msg {
     pub fn push_link_source(&mut self, lse: LinkSourceEntry) {
-        if let Some(link_source) = &mut self.link_source {
+        if let Some(link_source) = &mut self.link_call_stack {
             link_source.push(lse);
         } else {
-            self.link_source = Some(vec![lse]);
+            self.link_call_stack = Some(vec![lse]);
         }
     }
 
     pub fn pop_link_source(&mut self) -> Option<LinkSourceEntry> {
-        if let Some(link_source) = &mut self.link_source {
-            link_source.pop()
+        if let Some(link_source) = &mut self.link_call_stack {
+            let p = link_source.pop();
+            if link_source.is_empty() {
+                self.link_call_stack = None
+            }
+            p
         } else {
             None
         }
@@ -279,7 +283,7 @@ impl Clone for Msg {
         Self {
             id: self.id,
             birth_place: self.birth_place,
-            link_source: self.link_source.clone(),
+            link_call_stack: self.link_call_stack.clone(),
             body: self.body.clone(),
         }
     }
@@ -322,7 +326,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
 
             birth_place: birth_place.unwrap_or(ElementId::empty()),
             body: map,
-            link_source,
+            link_call_stack: link_source,
         }
     }
 }

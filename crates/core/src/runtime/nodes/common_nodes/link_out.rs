@@ -49,7 +49,7 @@ impl LinkOutNode {
                         "LinkOutNode: Cannot found the required `link in` node(id={})!",
                         link_in_id
                     );
-                    return Err(EdgeLinkError::BadFlowsJson().into());
+                    return Err(EdgelinkError::BadFlowsJson().into());
                 }
             }
         }
@@ -73,24 +73,44 @@ impl LinkOutNode {
                             "The required `link in` was unavailable in `link out` node(id={})!",
                             self.id()
                         );
-                        return Err(EdgeLinkError::InvalidOperation(err_msg).into());
+                        return Err(EdgelinkError::InvalidOperation(err_msg).into());
                     }
                 }
             }
             LinkOutMode::Return => {
-                if let Some(engine) = self.state().flow.upgrade().and_then(|f| f.engine.upgrade()) {
-                    let mut msg_guard = msg.write().await;
-                    if let Some(link_source) = &mut msg_guard.link_source {
-                        if link_source.len() > 0 {
-                            if let Some(source_link) = link_source.pop() {
-                                if let Some(target_node) =
-                                    engine.find_flow_node(&source_link.link_call_node_id)
-                                {
-                                    target_node.inject_msg(msg.clone(), cancel.clone()).await?;
-                                }
-                            }
+                let engine = self
+                    .state()
+                    .flow
+                    .upgrade()
+                    .and_then(|f| f.engine.upgrade())
+                    .expect("The engine cannot be released");
+                let mut msg_guard = msg.write().await;
+                if let Some(link_call_stack) = &mut msg_guard.link_call_stack {
+                    if let Some(source_link) = link_call_stack.last() {
+                        if let Some(target_node) =
+                            engine.find_flow_node(&source_link.link_call_node_id)
+                        {
+                            target_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                        } else {
+                            return Err(EdgelinkError::InvalidData(format!(
+                                "Cannot found the `link call` node by id='{}'",
+                                source_link.link_call_node_id
+                            ))
+                            .into());
                         }
+                    } else {
+                        return Err(EdgelinkError::InvalidData(format!(
+                            "The `link call stack` is empty for msg: {:?}",
+                            msg
+                        ))
+                        .into());
                     }
+                } else {
+                    return Err(EdgelinkError::InvalidOperation(format!(
+                        "The `link call stack` is empty for msg {:?}",
+                        msg
+                    ))
+                    .into());
                 }
             }
         }

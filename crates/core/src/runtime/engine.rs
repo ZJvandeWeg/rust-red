@@ -8,7 +8,7 @@ use crate::runtime::flow::Flow;
 use crate::runtime::model::Variant;
 use crate::runtime::nodes::{GlobalNodeBehavior, NodeFactory};
 use crate::runtime::registry::Registry;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 use super::model::{ElementId, Msg};
 use super::nodes::FlowNodeBehavior;
@@ -126,7 +126,7 @@ impl FlowEngine {
             let global_node = match meta_node.factory {
                 NodeFactory::Global(factory) => factory(self.clone(), global_config)?,
                 _ => {
-                    return Err(EdgeLinkError::NotSupported(format!(
+                    return Err(EdgelinkError::NotSupported(format!(
                         "Must be a global node: Node(id={0}, type='{1}')",
                         global_config.id, global_config.type_name
                     ))
@@ -155,7 +155,7 @@ impl FlowEngine {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
-            Err(EdgeLinkError::BadArguments(format!("Can not found flow_id: {}", flow_id)).into())
+            Err(EdgelinkError::BadArguments(format!("Can not found flow_id: {}", flow_id)).into())
         }
     }
 
@@ -175,7 +175,7 @@ impl FlowEngine {
             Ok(())
         } else {
             Err(
-                EdgeLinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id))
+                EdgelinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id))
                     .into(),
             )
         }

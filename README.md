@@ -79,9 +79,11 @@ Adjust various settings in the configuration file, such as port number, `flows.j
         - [x] Complete
         - [ ] Catch
         - [ ] Status
-        - [x] Link In (WIP)
-        - [x] Link Call (WIP)
-        - [x] Link Out (WIP)
+        - [x] Link In
+        - [x] Link Call
+            - [x] Static Target
+            - [ ] Dynamic Target (WIP)
+        - [x] Link Out
         - [x] Comment (Ignore automatically)
         - [x] GlobalConfig (WIP)
         - [x] Unknown
@@ -108,7 +110,9 @@ Adjust various settings in the configuration file, such as port number, `flows.j
         - [ ] TCP Out
         - [ ] TCP Request
         - [ ] UDP In
-        - [x] UDP Out (WIP)
+        - [x] UDP Out
+            - [x] Unicast
+            - [ ] Multicast (WIP)
         - [ ] TLS
         - [ ] HTTP Proxy
     - Sqeuence nodes:

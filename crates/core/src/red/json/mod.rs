@@ -1,4 +1,4 @@
-use crate::{runtime::model::*, EdgeLinkError};
+use crate::{runtime::model::*, EdgelinkError};
 use serde_json::Value as JsonValue;
 
 pub mod deser;
@@ -213,9 +213,9 @@ fn parse_property_triple(jv: &serde_json::Value) -> crate::Result<RedPropertyTri
         )?,
         p: jv
             .get("p")
-            .ok_or(EdgeLinkError::BadFlowsJson())?
+            .ok_or(EdgelinkError::BadFlowsJson())?
             .as_str()
-            .ok_or(EdgeLinkError::BadFlowsJson())?
+            .ok_or(EdgelinkError::BadFlowsJson())?
             .to_string(),
 
         v: match jv.get("v").and_then(serde_json::Value::as_str) {
@@ -234,7 +234,7 @@ impl RedPropertyTriple {
                 objects.iter().map(parse_property_triple).collect();
             entries
         } else {
-            Err(EdgeLinkError::BadFlowsJson().into())
+            Err(EdgelinkError::BadFlowsJson().into())
         }
     }
 }

@@ -136,7 +136,7 @@ impl FunctionNode {
             Ok(msgs) => Ok(msgs),
             Err(e) => {
                 log::warn!("Failed to invoke user func: {}", e);
-                Err(EdgeLinkError::InvalidData(e.to_string()).into())
+                Err(EdgelinkError::InvalidData(e.to_string()).into())
             }
         }
     }
@@ -213,7 +213,7 @@ function __el_user_func(context, msg) {{
                     Ok(()) => (),
                     Err(e) => {
                         log::error!("Failed to evaluate the initialization script code: {}", e);
-                        return Err(EdgeLinkError::InvalidData(e.to_string()).into())
+                        return Err(EdgelinkError::InvalidData(e.to_string()).into())
                     }
                 }
             }
@@ -222,7 +222,7 @@ function __el_user_func(context, msg) {{
                 Ok(()) => Ok(()),
                 Err(e) => {
                     log::error!("Failed to evaluate the user function definition code: {}", e);
-                    return Err(EdgeLinkError::InvalidData(e.to_string()).into())
+                    return Err(EdgelinkError::InvalidData(e.to_string()).into())
                 }
             }
         })
@@ -236,7 +236,7 @@ function __el_user_func(context, msg) {{
                     Ok(()) => Ok(()),
                     Err(e) => {
                         log::error!("Failed to evaluate the finalization script code: {}", e);
-                        Err(EdgeLinkError::InvalidData(e.to_string()).into())
+                        Err(EdgelinkError::InvalidData(e.to_string()).into())
                     }
                 }
             }

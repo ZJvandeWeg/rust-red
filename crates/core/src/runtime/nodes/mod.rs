@@ -10,7 +10,7 @@ use crate::red::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
-use crate::EdgeLinkError;
+use crate::EdgelinkError;
 
 use super::group::Group;
 use super::model::{ElementId, Envelope, Msg, MsgReceiverHolder};
@@ -153,7 +153,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
 
             _ = cancel.cancelled() => {
                 // The token was cancelled
-                Err(EdgeLinkError::TaskCancelled.into())
+                Err(EdgelinkError::TaskCancelled.into())
             }
         }
     }
@@ -185,7 +185,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
             return Ok(());
         }
         if envelope.port >= self.state().ports.len() {
-            return Err(crate::EdgeLinkError::BadArguments(format!(
+            return Err(crate::EdgelinkError::BadArguments(format!(
                 "Invalid port index {}",
                 envelope.port
             ))
@@ -267,7 +267,7 @@ where
             }
         }
         Err(ref err) => {
-            if let Some(EdgeLinkError::TaskCancelled) = err.downcast_ref::<EdgeLinkError>() {
+            if let Some(EdgelinkError::TaskCancelled) = err.downcast_ref::<EdgelinkError>() {
                 return;
             }
             log::warn!("Error: {:#?}", err);

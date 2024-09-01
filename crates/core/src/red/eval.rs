@@ -8,7 +8,7 @@ use crate::{
         model::{Msg, Variant},
         nodes::FlowNodeBehavior,
     },
-    utils, EdgeLinkError,
+    utils, EdgelinkError,
 };
 
 use super::json::RedPropertyType;
@@ -59,7 +59,7 @@ fn context_store_parser(
 pub fn parse_context_store(key: &str) -> crate::Result<ParsedContextStoreProperty<'_>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
-        Err(e) => Err(EdgeLinkError::BadArguments(
+        Err(e) => Err(EdgelinkError::BadArguments(
             format!("Can not parse the key: '{0}'", e).to_owned(),
         )
         .into()),
