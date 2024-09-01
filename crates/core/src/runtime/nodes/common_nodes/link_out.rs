@@ -42,7 +42,7 @@ impl LinkOutNode {
         let mut linked_nodes = Vec::new();
         if link_out_config.mode == LinkOutMode::Link {
             for link_in_id in link_out_config.links.iter() {
-                if let Some(link_in) = engine.find_flow_node(link_in_id) {
+                if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
                     log::error!(
@@ -88,7 +88,7 @@ impl LinkOutNode {
                 if let Some(link_call_stack) = &mut msg_guard.link_call_stack {
                     if let Some(source_link) = link_call_stack.last() {
                         if let Some(target_node) =
-                            engine.find_flow_node(&source_link.link_call_node_id)
+                            engine.find_flow_node_by_id(&source_link.link_call_node_id)
                         {
                             target_node.inject_msg(msg.clone(), cancel.clone()).await?;
                         } else {

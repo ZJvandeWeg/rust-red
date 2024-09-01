@@ -140,6 +140,11 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         &self.state().group
     }
 
+    fn get_engine(&self) -> Option<Arc<FlowEngine>> {
+        let flow = self.state().flow.upgrade()?;
+        flow.engine.upgrade()
+    }
+
     async fn run(self: Arc<Self>, stop_token: CancellationToken);
 
     async fn inject_msg(

@@ -214,14 +214,28 @@ impl FlowEngine {
         Ok(())
     }
 
-    pub fn find_flow_node(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        let flows = &self.state.read().unwrap().flows;
+    pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
+        let flows = &self.state.read().ok()?.flows;
         for (_, flow) in flows.iter() {
-            if let Some(node) = flow.get_node(id) {
+            if let Some(node) = flow.get_node_by_id(id) {
                 return Some(node.clone());
             }
         }
         None
+    }
+
+    pub fn find_flow_node_by_name(
+        &self,
+        name: &str,
+    ) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
+        let state = &self.state.read().expect("The state must be available!");
+        for (_, flow) in state.flows.iter() {
+            let opt_node = flow.get_node_by_name(name)?;
+            if opt_node.is_some() {
+                return Ok(opt_node.clone());
+            }
+        }
+        Ok(None)
     }
 
     fn get_env_vars() -> impl Iterator<Item = (String, Variant)> {

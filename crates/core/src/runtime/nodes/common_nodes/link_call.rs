@@ -8,6 +8,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
 use crate::define_builtin_flow_node;
+use crate::red::json::deser::parse_red_id_str;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
@@ -73,7 +74,7 @@ impl LinkCallNode {
         let mut linked_nodes = Vec::new();
         if link_call_config.link_type == LinkType::Static {
             for link_in_id in link_call_config.links.iter() {
-                if let Some(link_in) = engine.find_flow_node(link_in_id) {
+                if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
                     log::error!(
@@ -205,10 +206,74 @@ impl LinkCallNode {
             }
             LinkType::Dynamic => {
                 // get the target_node_id from msg
-                todo!()
+                let target_node = {
+                    let locked_msg = msg.read().await;
+                    self.get_dynamic_target_node(&locked_msg)?
+                };
+                if let Some(target_node) = target_node {
+                    // Now we got the dynamic target
+                    target_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                } else {
+                    let err_msg = format!("Cannot found node by msg.target");
+                    return Err(EdgelinkError::InvalidOperation(err_msg).into());
+                }
             }
         }
         Ok(())
+    }
+
+    fn get_dynamic_target_node(
+        &self,
+        msg: &Msg,
+    ) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
+        let target_field = msg.body.get("target").ok_or(EdgelinkError::InvalidData(
+            "There are no `target` field in the msg!".to_string(),
+        ))?;
+
+        let result = match target_field {
+            Variant::String(target_name) => {
+                let engine = self.get_engine().expect("The engine must be instanced!");
+                // Firstly, we are looking into the node ids
+                if let Some(parsed_id) = parse_red_id_str(&target_name) {
+                    let found = engine.find_flow_node_by_id(&parsed_id);
+                    if found.is_some() {
+                        found
+                    } else {
+                        None
+                    }
+                }
+                // Secondly, we are looking into the node names
+                else if let Some(found) = engine.find_flow_node_by_name(&target_name)? {
+                    Some(found)
+                } else {
+                    // Otherwises, there is no such target node
+                    None
+                }
+            }
+            _ => {
+                let err_msg = format!(
+                    "Unsupported dynamic target in `msg.target`: {:?}",
+                    target_field
+                );
+                return Err(EdgelinkError::InvalidOperation(err_msg).into());
+            }
+        };
+        if let Some(node) = &result {
+            let flow = node
+                .state()
+                .flow
+                .upgrade()
+                .ok_or(EdgelinkError::InvalidOperation(
+                    "The flow cannot be released".to_string(),
+                ))?;
+            if flow.is_subflow() {
+                return Err(EdgelinkError::InvalidData(
+                    "A `link call` cannot call a `link in` node inside a subflow".to_string(),
+                )
+                .into());
+            }
+        }
+        Ok(result)
     }
 
     async fn timeout_task(&self, event_id: ElementId) {

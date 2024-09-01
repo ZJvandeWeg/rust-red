@@ -247,7 +247,7 @@ impl Flow {
             let mut subflow_state = subflow_state.write().unwrap();
 
             if let Some(subflow_node_id) = flow_config.subflow_node_id {
-                subflow_state.instance_node = engine.find_flow_node(&subflow_node_id);
+                subflow_state.instance_node = engine.find_flow_node_by_id(&subflow_node_id);
             }
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
@@ -441,8 +441,25 @@ impl Flow {
         self.subflow_state.is_some()
     }
 
-    pub fn get_node(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        self.state.read().unwrap().nodes.get(id).cloned()
+    pub fn get_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
+        self.state.read().ok()?.nodes.get(id).cloned()
+    }
+
+    pub fn get_node_by_name(&self, name: &str) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
+        let state = self.state.read().expect("The state must be available!");
+        let iter = state.nodes.values().filter(move |&val| val.name() == name);
+        let nfound = iter.clone().count();
+        if nfound == 1 {
+            Ok(iter.clone().next().cloned())
+        } else if nfound == 0 {
+            Ok(None)
+        } else {
+            Err(EdgelinkError::InvalidOperation(format!(
+                "There are multiple node with name '{}'",
+                name
+            ))
+            .into())
+        }
     }
 
     pub fn get_setting(&self, key: &str) -> Variant {
