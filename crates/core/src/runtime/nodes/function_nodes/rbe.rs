@@ -157,7 +157,7 @@ impl RbeNode {
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-        // topic 取不到或者是空字符串就转换为 None
+        // If the `topic` cannot be retrieved or is an empty string, convert it to `None`.
         let topic = match msg.get_trimmed_nav_property(&self.topic) {
             Some(Variant::String(topic)) => {
                 if !topic.is_empty() {
@@ -180,6 +180,8 @@ impl RbeNode {
                 }
             };
         }
+
+        // TODO: The following code is directly copied from Node-RED JS and needs to be rewritten and optimized.
 
         if let Some(prop_value) = msg.get_trimmed_nav_property(&self.property) {
             let t = match (self.sep_topics, topic) {
