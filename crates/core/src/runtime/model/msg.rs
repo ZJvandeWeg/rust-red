@@ -81,48 +81,36 @@ impl Msg {
     }
 
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
-        if let Ok(segs) = propex::parse(expr) {
-            match segs[0] {
-                // The first level of the property expression for 'msg' must be a string, which means it must be
-                // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-                PropexSegment::StringIndex(first_prop_name) => {
-                    if let Some(first_prop) = self.get_property(first_prop_name) {
-                        if segs.len() == 1 {
-                            Some(first_prop)
-                        } else {
-                            first_prop.get_item_by_propex_segments(&segs[1..])
-                        }
-                    } else {
-                        None
-                    }
+        let segs = propex::parse(expr).ok()?;
+        match segs[0] {
+            // The first level of the property expression for 'msg' must be a string, which means it must be
+            // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
+            PropexSegment::StringIndex(first_prop_name) => {
+                let first_prop = self.get_property(first_prop_name)?;
+                if segs.len() == 1 {
+                    Some(first_prop)
+                } else {
+                    first_prop.get_item_by_propex_segments(&segs[1..])
                 }
-                _ => None,
             }
-        } else {
-            None
+            _ => None,
         }
     }
 
     pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
-        if let Ok(segs) = propex::parse(expr) {
-            match segs[0] {
-                // The first level of the property expression for 'msg' must be a string, which means it must be
-                // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-                PropexSegment::StringIndex(first_prop_name) => {
-                    if let Some(first_prop) = self.get_property_mut(first_prop_name) {
-                        if segs.len() == 1 {
-                            Some(first_prop)
-                        } else {
-                            first_prop.get_item_by_propex_segments_mut(&segs[1..])
-                        }
-                    } else {
-                        None
-                    }
+        let segs = propex::parse(expr).ok()?;
+        match segs[0] {
+            // The first level of the property expression for 'msg' must be a string, which means it must be
+            // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
+            PropexSegment::StringIndex(first_prop_name) => {
+                let first_prop = self.get_property_mut(first_prop_name)?;
+                if segs.len() == 1 {
+                    Some(first_prop)
+                } else {
+                    first_prop.get_item_by_propex_segments_mut(&segs[1..])
                 }
-                _ => None,
             }
-        } else {
-            None
+            _ => None,
         }
     }
 
@@ -294,7 +282,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
         let mut map = BTreeMap::new();
         let mut birth_place = None;
         let mut msg_id = None;
-        let mut link_source = None;
+        let link_call_stack = None;
         for result in jo.props::<String, js::Value>() {
             match result {
                 Ok((k, v)) => match k.as_ref() {
@@ -326,7 +314,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
 
             birth_place: birth_place.unwrap_or(ElementId::empty()),
             body: map,
-            link_call_stack: link_source,
+            link_call_stack,
         }
     }
 }

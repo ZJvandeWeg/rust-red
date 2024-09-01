@@ -82,7 +82,7 @@ impl GraphElement for Flow {
 impl SubflowOutputPort {
     async fn tx_task(&self, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            match self.msg_rx.wait_for_msg(stop_token.clone()).await {
+            match self.msg_rx.recv_msg(stop_token.clone()).await {
                 Ok(msg) => {
                     // Find out the subflow:xxx node
                     let instance_node = {

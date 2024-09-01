@@ -63,7 +63,7 @@ impl MsgReceiverHolder {
         MsgReceiverHolder { rx: Mutex::new(rx) }
     }
 
-    pub async fn wait_for_msg_forever(&self) -> crate::Result<Arc<RwLock<Msg>>> {
+    pub async fn recv_msg_forever(&self) -> crate::Result<Arc<RwLock<Msg>>> {
         let rx = &mut self.rx.lock().await;
         match rx.recv().await {
             Some(msg) => Ok(msg),
@@ -74,12 +74,9 @@ impl MsgReceiverHolder {
         }
     }
 
-    pub async fn wait_for_msg(
-        &self,
-        stop_token: CancellationToken,
-    ) -> crate::Result<Arc<RwLock<Msg>>> {
+    pub async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
         tokio::select! {
-            result = self.wait_for_msg_forever() => {
+            result = self.recv_msg_forever() => {
                 result
             }
 

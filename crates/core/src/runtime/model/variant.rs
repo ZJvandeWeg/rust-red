@@ -366,11 +366,8 @@ impl Variant {
     }
 
     pub fn get_object_nav_property(&self, expr: &str) -> Option<&Variant> {
-        if let Ok(prop_segs) = propex::parse(expr) {
-            self.get_item_by_propex_segments(&prop_segs)
-        } else {
-            None
-        }
+        let prop_segs = propex::parse(expr).ok()?;
+        self.get_item_by_propex_segments(&prop_segs)
     }
 
     pub fn set_object_property(

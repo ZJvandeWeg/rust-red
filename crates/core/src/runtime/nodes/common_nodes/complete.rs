@@ -27,7 +27,7 @@ impl FlowNodeBehavior for CompleteNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            match self.wait_for_msg(stop_token.child_token()).await {
+            match self.recv_msg(stop_token.child_token()).await {
                 Ok(msg) => {
                     self.fan_out_one(&Envelope { port: 0, msg }, stop_token.child_token())
                         .await

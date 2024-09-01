@@ -75,8 +75,8 @@ impl FlowEngine {
         Self::new_with_json(reg, &json)
     }
 
-    pub fn get_flow(&self, _id: &ElementId) -> Arc<Flow> {
-        todo!()
+    pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
+        self.state.read().ok()?.flows.get(id).cloned()
     }
 
     fn load_flows(

@@ -54,7 +54,7 @@ impl FlowNodeBehavior for DebugNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             if self.config.active {
-                match self.wait_for_msg(stop_token.child_token()).await {
+                match self.recv_msg(stop_token.child_token()).await {
                     Ok(msg) => {
                         log::info!(
                             "Message Received [Node: {}] ：\n{:#?}",

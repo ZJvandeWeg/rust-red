@@ -77,7 +77,7 @@ pub struct FlowNodeState {
 }
 
 impl FlowNodeState {
-    //
+    /*
     fn new(engine: &FlowEngine, node_config: &RedFlowNodeConfig) -> crate::Result<FlowNodeState> {
         let mut ports = Vec::new();
         let (tx_root, rx) = tokio::sync::mpsc::channel(16);
@@ -115,6 +115,7 @@ impl FlowNodeState {
             group: Weak::new(),
         })
     }
+    */
 }
 
 #[async_trait]
@@ -158,8 +159,8 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         }
     }
 
-    async fn wait_for_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
-        self.state().msg_rx.wait_for_msg(stop_token).await
+    async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
+        self.state().msg_rx.recv_msg(stop_token).await
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
@@ -253,7 +254,7 @@ where
     F: FnOnce(&'a B, Arc<RwLock<Msg>>) -> T,
     T: std::future::Future<Output = crate::Result<()>>,
 {
-    match node.wait_for_msg(cancel.child_token()).await {
+    match node.recv_msg(cancel.child_token()).await {
         Ok(msg) => {
             if let Err(ref err) = proc(node, msg.clone()).await {
                 // TODO report error
