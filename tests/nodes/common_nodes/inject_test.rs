@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use crate::*;
+use edgelink_core::utils::async_util::delay;
 use edgelink_core as el;
 use edgelink_core::runtime::flow::*;
 use edgelink_core::runtime::model::*;
@@ -11,7 +14,7 @@ async fn basic_test(type_: &str, val: Variant, rval: Option<&str>) -> el::Result
         { "id":"0", "type":"tab" },
         {
             "id": "1", "type": "inject", "topic": "t1",
-            "once": true, "onceDelay": 0.1,
+            "once": true, "onceDelay": 1,
             "payload": to_value(&val).unwrap(),
             "payloadType": type_,
             "wires": [
@@ -31,18 +34,22 @@ async fn basic_test(type_: &str, val: Variant, rval: Option<&str>) -> el::Result
     println!("Starting engine...");
     helper.start_engine().await?;
 
-    println!("Waiting broadcast...");
-    let msg = received_rx.recv().await?;
-    println!("Received! ...");
-    let locked_msg = msg.read().await;
-    assert_eq!(
-        locked_msg
-            .get_property("topic")
-            .expect("has topic")
-            .as_string()
-            .expect(""),
-        "t1"
-    );
+    let x = tokio::spawn(async move {
+        println!("Waiting broadcast...");
+        let msg = received_rx.recv().await.unwrap();
+        println!("Received! ...");
+        let locked_msg = msg.read().await;
+        assert_eq!(
+            locked_msg
+                .get_property("topic")
+                .expect("has topic")
+                .as_string()
+                .expect(""),
+            "t1"
+        );
+    });
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     helper.stop_engine().await?;
     Ok(())

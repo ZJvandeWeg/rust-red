@@ -723,10 +723,6 @@ impl Flow {
             None => Weak::new(),
         };
 
-        let (on_received_tx, _) = broadcast::channel(1);
-        let (on_completed_tx, _) = broadcast::channel(1);
-        let (on_error_tx, _) = broadcast::channel(1);
-
         Ok(FlowNodeState {
             id: node_config.id,
             name: node_config.name.clone(),
@@ -737,9 +733,9 @@ impl Flow {
             msg_rx: MsgReceiverHolder::new(rx),
             ports,
             group: group_ref,
-            on_received: on_received_tx,
-            on_completed: on_completed_tx,
-            on_error: on_error_tx,
+            on_received: MsgEventSender::new(1),
+            on_completed: MsgEventSender::new(1),
+            on_error: MsgEventSender::new(1),
         })
     }
 }
