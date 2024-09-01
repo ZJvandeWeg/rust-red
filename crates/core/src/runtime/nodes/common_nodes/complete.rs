@@ -4,6 +4,7 @@ use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
+#[derive(Debug)]
 struct CompleteNode {
     state: FlowNodeState,
 }
@@ -27,11 +28,23 @@ impl FlowNodeBehavior for CompleteNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            match self.recv_msg(stop_token.child_token()).await {
+            // We are not using the Unit of Work stuff here!
+            match self.recv_msg(stop_token.clone()).await {
                 Ok(msg) => {
-                    self.fan_out_one(&Envelope { port: 0, msg }, stop_token.child_token())
+                    match self
+                        .fan_out_one(&Envelope { port: 0, msg }, stop_token.clone())
                         .await
-                        .unwrap(); //FIXME
+                    {
+                        Ok(_) => {}
+                        Err(err) => {
+                            log::error!(
+                                "Fatal error: failed to fan out message in CompleteNode(id='{}', name='{}'): {:?}",
+                                self.id(),
+                                self.name(),
+                                err
+                            );
+                        }
+                    }
                 }
                 Err(ref err) => {
                     log::error!("Error: {:#?}", err);
