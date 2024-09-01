@@ -1,4 +1,4 @@
-# EdgeLink: A Node-RED Compatible Runtime Engine in Rust
+# EdgeLink: A Node-RED Compatible Run-time Engine in Rust
 
 ![Node-RED Rust Backend](assets/banner.jpg)
 
@@ -6,16 +6,16 @@ English | [简体中文](README.zh-cn.md)
 
 ## Overview
 
-This is a Node-RED compatible runtime implemented in Rust<sub>†</sub>, designed to enhance performance and reduce memory footprint. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
+This is a Node-RED compatible run-time engine implemented in Rust<sub>†</sub>. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
 
-In summary, you can first test the workflow on a high-performance desktop PC,
+In summary, you can first test the workflow on a normal desktop PC,
 and subsequently deploy EdgeLink along with the `flows.json` workflow file
 to an edge computing device that is constrained by limited resources for operational execution.
 
 ## Features
 
 - **High Performance**: Leverage the advantages of the Rust language for excellent performance.
-- **Low Memory Footprint**: Reduce memory usage compared to the NodeJS backend.
+- **Low Memory Footprint**: Reduce memory usage compared to the NodeJS backend. Tests indicate that, for running a same simple workflow, the physical memory usage of EdgeLink is only 3% of that of Node-RED.
 - **Scalability**: Retain the extensibility of Node-RED, supporting custom nodes.
 - **Easy Migration**: Easily replace the existing Node-RED backend with minimal modifications.
 
@@ -82,7 +82,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
         - [x] Link In
         - [x] Link Call
             - [x] Static Target
-            - [ ] Dynamic Target (WIP)
+            - [x] Dynamic Target
         - [x] Link Out
         - [x] Comment (Ignore automatically)
         - [x] GlobalConfig (WIP)
