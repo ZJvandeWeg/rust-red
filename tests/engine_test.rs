@@ -33,7 +33,7 @@ async fn can_create_flow_manually() {
     let inject_node = flow
         .get_node_by_id(&"bf843d35fe7cf583".parse().unwrap())
         .unwrap();
-    assert_eq!(inject_node.state().type_name, "inject");
+    assert_eq!(inject_node.state().type_, "inject");
 
     engine.start().await.unwrap();
     engine.stop().await.unwrap();

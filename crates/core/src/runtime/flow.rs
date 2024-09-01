@@ -394,7 +394,7 @@ impl Flow {
         state: &mut FlowState,
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<()> {
-        match node.state().type_name.as_str() {
+        match node.state().type_.as_str() {
             "complete" => {
                 state.complete_nodes.insert(node_config.id, node.clone());
 
@@ -720,7 +720,7 @@ impl Flow {
         Ok(FlowNodeState {
             id: node_config.id,
             name: node_config.name.clone(),
-            type_name: node_config.type_name.clone(),
+            type_: node_config.type_name.clone(),
             disabled: node_config.disabled,
             flow: Arc::downgrade(&self),
             msg_tx: tx_root,

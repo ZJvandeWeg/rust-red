@@ -59,7 +59,7 @@ pub enum NodeFactory {
 pub struct MetaNode {
     /// The tag of the element
     pub kind: NodeKind,
-    pub type_name: &'static str,
+    pub type_: &'static str,
     pub factory: NodeFactory,
 }
 
@@ -67,7 +67,7 @@ pub struct MetaNode {
 pub struct FlowNodeState {
     pub id: ElementId,
     pub name: String,
-    pub type_name: String,
+    pub type_: String,
     pub disabled: bool,
     pub flow: Weak<Flow>,
     pub msg_tx: MsgSender,
@@ -137,7 +137,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     fn type_name(&self) -> &str {
-        &self.state().type_name
+        &self.state().type_
     }
 
     fn group(&self) -> &Weak<Group> {

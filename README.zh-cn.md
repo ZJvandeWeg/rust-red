@@ -1,4 +1,5 @@
 # EdgeLink：Rust 开发的 Node-RED 兼容运行时引擎
+[![GitHub Actions](https://github.com/oldrev/edgelink/workflows/Build-Debug/badge.svg)](https://github.com/oldrev/edgelink/actions) [![Releases](https://img.shields.io/github/release/oldrev/edgelink.svg)](https://github.com/oldrev/edgelink/releases)
 
 ![Node-RED Rust Backend](assets/banner.jpg)
 

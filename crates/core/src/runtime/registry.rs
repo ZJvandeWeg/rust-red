@@ -20,8 +20,8 @@ impl RegistryImpl {
     pub fn new() -> Self {
         let mut nodes = HashMap::new();
         for bnd in inventory::iter::<BuiltinNodeDescriptor> {
-            log::debug!("Found builtin Node: '{}'", bnd.meta.type_name);
-            nodes.insert(bnd.meta.type_name, bnd.meta);
+            log::debug!("Found builtin Node: '{}'", bnd.meta.type_);
+            nodes.insert(bnd.meta.type_, bnd.meta);
         }
 
         RegistryImpl {
