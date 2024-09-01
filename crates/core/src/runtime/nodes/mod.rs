@@ -136,6 +136,10 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         &self.state().name
     }
 
+    fn type_name(&self) -> &str {
+        &self.state().type_name
+    }
+
     fn group(&self) -> &Weak<Group> {
         &self.state().group
     }
@@ -236,8 +240,9 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
 impl fmt::Debug for dyn FlowNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
-            "FlowNode(id='{}', name='{}')",
+            "FlowNode(id='{}', type='{}', name='{}')",
             self.id(),
+            self.type_name(),
             self.name(),
         ))
     }
@@ -246,8 +251,9 @@ impl fmt::Debug for dyn FlowNodeBehavior {
 impl fmt::Display for dyn FlowNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
-            "FlowNode(id='{}', name='{}')",
+            "FlowNode(id='{}', type='{}', name='{}')",
             self.id(),
+            self.type_name(),
             self.name(),
         ))
     }
