@@ -85,13 +85,13 @@ struct Runtime {
 }
 
 impl Runtime {
-    fn new(elargs: Arc<EdgelinkConfig>) -> Self {
-        let reg = RegistryBuilder::default().build();
-        Runtime {
+    fn default(elargs: Arc<EdgelinkConfig>) -> edgelink_core::Result<Self> {
+        let reg = RegistryBuilder::default().build()?;
+        Ok(Runtime {
             app_config: elargs.clone(),
             registry: reg,
             engine: RwLock::new(None),
-        }
+        })
     }
 
     async fn main_flow_task(self: Arc<Self>, cancel: CancellationToken) -> crate::Result<()> {
@@ -147,7 +147,7 @@ async fn run_main_task(
     elargs: Arc<EdgelinkConfig>,
     cancel: CancellationToken,
 ) -> crate::Result<()> {
-    let rt = Arc::new(Runtime::new(elargs));
+    let rt = Arc::new(Runtime::default(elargs)?);
     rt.run(cancel.clone()).await
 }
 

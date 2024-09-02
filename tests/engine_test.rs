@@ -1,5 +1,6 @@
 use edgelink_core::runtime::engine::*;
 use edgelink_core::runtime::registry::*;
+use edgelink_core::Result;
 use std::sync::Arc;
 // use tokio_util::sync::CancellationToken;
 
@@ -21,10 +22,10 @@ impl NodeBehavior for TestGlobalNode {
 */
 
 #[tokio::test]
-async fn can_create_flow_manually() {
+async fn can_create_flow_manually() -> Result<()> {
     // data::
     let reg_builder = RegistryBuilder::new();
-    let reg = reg_builder.build();
+    let reg = reg_builder.build()?;
 
     let engine = FlowEngine::new_with_flows_file(reg, "tests/data/flows.json").unwrap();
 
@@ -41,4 +42,5 @@ async fn can_create_flow_manually() {
 
     // assert_eq!(engine.id(), 0xdee0d1b0cfd62a6cu64);
     // assert_eq!(flow.label(), "Flow 1");
+    Ok(())
 }

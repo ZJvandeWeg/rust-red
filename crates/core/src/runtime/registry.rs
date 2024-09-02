@@ -45,13 +45,15 @@ impl RegistryBuilder {
         self
     }
 
-    pub fn build(self) -> Arc<dyn Registry> {
+    pub fn build(self) -> crate::Result<Arc<dyn Registry>> {
         if self.meta_nodes.is_empty() {
             log::warn!("There are no meta node in the Registry!");
         }
-        Arc::new(RegistryImpl {
+
+        let result = Arc::new(RegistryImpl {
             meta_nodes: Arc::new(self.meta_nodes),
-        })
+        });
+        Ok(result)
     }
 }
 
