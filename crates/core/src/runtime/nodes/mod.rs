@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::red::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
 use crate::runtime::engine::FlowEngine;
-use crate::runtime::flow::Flow;
+use crate::runtime::flow::*;
 use crate::runtime::model::*;
 use crate::EdgelinkError;
 
@@ -18,6 +18,8 @@ use super::model::{ElementId, Envelope, Msg, MsgReceiverHolder};
 mod common_nodes;
 mod function_nodes;
 mod network_nodes;
+
+pub const NODE_MSG_CHANNEL_CAPACITY: usize = 16;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeState {
@@ -47,7 +49,7 @@ type GlobalNodeFactoryFn =
     fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Arc<dyn GlobalNodeBehavior>>;
 
 type FlowNodeFactoryFn =
-    fn(&Flow, FlowNodeState, &RedFlowNodeConfig) -> crate::Result<Arc<dyn FlowNodeBehavior>>;
+    fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Arc<dyn FlowNodeBehavior>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeFactory {
@@ -64,7 +66,7 @@ pub struct MetaNode {
 }
 
 #[derive(Debug)]
-pub struct FlowNodeState {
+pub struct FlowNode {
     pub id: ElementId,
     pub name: String,
     pub type_: String,
@@ -80,47 +82,7 @@ pub struct FlowNodeState {
     pub on_error: MsgEventSender,
 }
 
-impl FlowNodeState {
-    /*
-    fn new(engine: &FlowEngine, node_config: &RedFlowNodeConfig) -> crate::Result<FlowNodeState> {
-        let mut ports = Vec::new();
-        let (tx_root, rx) = tokio::sync::mpsc::channel(16);
-        // Convert the Node-RED wires elements to ours
-        for red_port in node_config.wires.iter() {
-            let mut wires = Vec::new();
-            for nid in red_port.node_ids.iter() {
-                let node_entry = engine.find_flow_node(nid). ok_or(format!(
-                    "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
-                    node_config.id,
-                    node_config.name,
-                    nid
-                ))?;
-                let tx = node_entry.state().msg_tx.to_owned();
-                let pw = PortWire {
-                    // target_node_id: *nid,
-                    // target_node: Arc::downgrade(node_entry),
-                    msg_sender: tx,
-                };
-                wires.push(pw);
-            }
-            let port = Port { wires };
-            ports.push(port);
-        }
-
-        Ok(FlowNodeState {
-            id: node_config.id,
-            name: node_config.name.clone(),
-            type_name: node_config.type_name.clone(),
-            disabled: node_config.disabled,
-            flow: Weak::new(),
-            msg_tx: tx_root,
-            msg_rx: MsgReceiverHolder::new(rx),
-            ports,
-            group: Weak::new(),
-        })
-    }
-    */
-}
+impl FlowNode {}
 
 #[async_trait]
 pub trait GlobalNodeBehavior: Any + Send + Sync {
@@ -130,26 +92,26 @@ pub trait GlobalNodeBehavior: Any + Send + Sync {
 
 #[async_trait]
 pub trait FlowNodeBehavior: Any + Send + Sync {
-    fn state(&self) -> &FlowNodeState;
+    fn get_node(&self) -> &FlowNode;
 
     fn id(&self) -> ElementId {
-        self.state().id
+        self.get_node().id
     }
 
     fn name(&self) -> &str {
-        &self.state().name
+        &self.get_node().name
     }
 
     fn type_name(&self) -> &str {
-        &self.state().type_
+        &self.get_node().type_
     }
 
     fn group(&self) -> &Weak<Group> {
-        &self.state().group
+        &self.get_node().group
     }
 
     fn get_engine(&self) -> Option<Arc<FlowEngine>> {
-        let flow = self.state().flow.upgrade()?;
+        let flow = self.get_node().flow.upgrade()?;
         flow.engine.upgrade()
     }
 
@@ -161,7 +123,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         select! {
-            result = self.state().msg_tx.send(msg) => {
+            result = self.get_node().msg_tx.send(msg) => {
                 result.map_err(|e| e.into())
             }
 
@@ -173,15 +135,15 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
-        let msg = self.state().msg_rx.recv_msg(stop_token).await?;
-        if self.state().on_received.receiver_count() > 0 {
-            self.state().on_received.send(msg.clone())?;
+        let msg = self.get_node().msg_rx.recv_msg(stop_token).await?;
+        if self.get_node().on_received.receiver_count() > 0 {
+            self.get_node().on_received.send(msg.clone())?;
         }
         Ok(msg)
     }
 
     async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
-        let (node_id, flow) = { (self.id(), self.state().flow.upgrade()) };
+        let (node_id, flow) = { (self.id(), self.get_node().flow.upgrade()) };
         if let Some(flow) = flow {
             flow.notify_node_uow_completed(&node_id, msg, cancel).await;
         } else {
@@ -194,7 +156,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         envelope: &Envelope,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        if self.state().ports.is_empty() {
+        if self.get_node().ports.is_empty() {
             log::warn!(
                 "No output wires in this node: Node(id='{}', name='{}')",
                 self.id(),
@@ -202,7 +164,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
             );
             return Ok(());
         }
-        if envelope.port >= self.state().ports.len() {
+        if envelope.port >= self.get_node().ports.len() {
             return Err(crate::EdgelinkError::BadArguments(format!(
                 "Invalid port index {}",
                 envelope.port
@@ -210,7 +172,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
             .into());
         }
 
-        let port = &self.state().ports[envelope.port];
+        let port = &self.get_node().ports[envelope.port];
 
         let mut msg_sent = false;
         for wire in port.wires.iter() {
@@ -233,7 +195,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         envelopes: &[Envelope],
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        if self.state().ports.is_empty() {
+        if self.get_node().ports.is_empty() {
             log::warn!("No output wires in this node: Node(id='{}')", self.id());
             return Ok(());
         }

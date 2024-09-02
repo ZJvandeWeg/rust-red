@@ -35,23 +35,23 @@ impl GlobalNodeBehavior for UnknownGlobalNode {
 define_builtin_global_node!("unknown.global", UnknownGlobalNode::create);
 
 struct UnknownFlowNode {
-    state: FlowNodeState,
+    state: FlowNode,
 }
 
 impl UnknownFlowNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        base: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let node = UnknownFlowNode { state };
+        let node = UnknownFlowNode { state: base };
         Ok(Arc::new(node))
     }
 }
 
 #[async_trait]
 impl FlowNodeBehavior for UnknownFlowNode {
-    fn state(&self) -> &FlowNodeState {
+    fn get_node(&self) -> &FlowNode {
         &self.state
     }
 

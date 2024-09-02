@@ -5,24 +5,24 @@ use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
 struct JunctionNode {
-    state: FlowNodeState,
+    base: FlowNode,
 }
 
 impl JunctionNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let node = JunctionNode { state };
+        let node = JunctionNode { base: state };
         Ok(Arc::new(node))
     }
 }
 
 #[async_trait]
 impl FlowNodeBehavior for JunctionNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

@@ -7,7 +7,7 @@ use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 
 struct RangeNode {
-    state: FlowNodeState,
+    base: FlowNode,
 
     action: RangeAction,
     round: bool,
@@ -21,11 +21,11 @@ struct RangeNode {
 impl RangeNode {
     fn create(
         _flow: &Flow,
-        base_node: FlowNodeState,
+        base_node: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let node = RangeNode {
-            state: base_node,
+            base: base_node,
             action: _config
                 .json
                 .get("action")
@@ -148,8 +148,8 @@ impl FromStr for RangeAction {
 
 #[async_trait]
 impl FlowNodeBehavior for RangeNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

@@ -6,24 +6,24 @@ use crate::runtime::nodes::*;
 
 #[derive(Debug)]
 struct LinkInNode {
-    state: FlowNodeState,
+    base: FlowNode,
 }
 
 impl LinkInNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
-        let node = LinkInNode { state };
+        let node = LinkInNode { base: state };
         Ok(Arc::new(node))
     }
 }
 
 #[async_trait]
 impl FlowNodeBehavior for LinkInNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

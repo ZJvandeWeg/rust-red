@@ -25,7 +25,7 @@ struct LinkOutNodeConfig {
 
 #[derive(Debug)]
 struct LinkOutNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: LinkOutNodeConfig,
     linked_nodes: Vec<Weak<dyn FlowNodeBehavior>>,
 }
@@ -33,7 +33,7 @@ struct LinkOutNode {
 impl LinkOutNode {
     fn create(
         flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let link_out_config = LinkOutNodeConfig::deserialize(&_config.json)?;
@@ -58,7 +58,7 @@ impl LinkOutNode {
         }
 
         let node = LinkOutNode {
-            state,
+            base: state,
             config: link_out_config,
             linked_nodes,
         };
@@ -82,7 +82,7 @@ impl LinkOutNode {
             }
             LinkOutMode::Return => {
                 let engine = self
-                    .state()
+                    .get_node()
                     .flow
                     .upgrade()
                     .and_then(|f| f.engine.upgrade())
@@ -124,8 +124,8 @@ impl LinkOutNode {
 
 #[async_trait]
 impl FlowNodeBehavior for LinkOutNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

@@ -22,14 +22,14 @@ struct DebugNodeConfig {
 
 #[derive(Debug)]
 struct DebugNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: DebugNodeConfig,
 }
 
 impl DebugNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.json)?;
@@ -38,7 +38,7 @@ impl DebugNode {
         }
 
         let node = DebugNode {
-            state,
+            base: state,
             config: debug_config,
         };
         Ok(Arc::new(node))
@@ -47,8 +47,8 @@ impl DebugNode {
 
 #[async_trait]
 impl FlowNodeBehavior for DebugNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

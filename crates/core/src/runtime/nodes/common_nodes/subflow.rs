@@ -6,14 +6,14 @@ use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 
 struct SubflowNode {
-    state: FlowNodeState,
+    base: FlowNode,
     subflow_id: ElementId,
 }
 
 impl SubflowNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let subflow_id = config
@@ -27,22 +27,30 @@ impl SubflowNode {
             ))?;
 
         //let subflow = flow.engine.upgrade().unwrap().flows
-        let node = SubflowNode { state, subflow_id };
+        let node = SubflowNode {
+            base: state,
+            subflow_id,
+        };
         Ok(Arc::new(node))
     }
 }
 
 #[async_trait]
 impl FlowNodeBehavior for SubflowNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
             with_uow(self.as_ref(), stop_token.clone(), |node, msg| async move {
-                if let Some(engine) = node.state().flow.upgrade().and_then(|f| f.engine.upgrade()) {
+                if let Some(engine) = node
+                    .get_node()
+                    .flow
+                    .upgrade()
+                    .and_then(|f| f.engine.upgrade())
+                {
                     engine
                         .inject_msg_to_flow(&node.subflow_id, msg, cancel.clone())
                         .await?;

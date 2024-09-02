@@ -55,7 +55,7 @@ struct LinkCallMutState {
 
 #[derive(Debug)]
 struct LinkCallNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: LinkCallNodeConfig,
     linked_nodes: Vec<Weak<dyn FlowNodeBehavior>>,
     event_id_atomic: AtomicU64,
@@ -65,7 +65,7 @@ struct LinkCallNode {
 impl LinkCallNode {
     fn create(
         flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let link_call_config = LinkCallNodeConfig::deserialize(&config.json)?;
@@ -90,7 +90,7 @@ impl LinkCallNode {
         }
 
         let node = LinkCallNode {
-            state,
+            base: state,
             config: link_call_config,
             event_id_atomic: AtomicU64::new(1),
             linked_nodes: linked_nodes,
@@ -263,7 +263,7 @@ impl LinkCallNode {
         };
         if let Some(node) = &result {
             let flow = node
-                .state()
+                .get_node()
                 .flow
                 .upgrade()
                 .ok_or(EdgelinkError::InvalidOperation(
@@ -294,8 +294,8 @@ impl LinkCallNode {
 
 #[async_trait]
 impl FlowNodeBehavior for LinkCallNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

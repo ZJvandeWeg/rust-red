@@ -25,7 +25,7 @@ struct FunctionNodeConfig {
 }
 
 struct FunctionNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: FunctionNodeConfig,
 }
 
@@ -33,8 +33,8 @@ const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
@@ -93,7 +93,7 @@ impl FlowNodeBehavior for FunctionNode {
 impl FunctionNode {
     fn create(
         _flow: &Flow,
-        base_node: FlowNodeState,
+        base_node: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let mut function_config = FunctionNodeConfig::deserialize(&_config.json)?;
@@ -102,7 +102,7 @@ impl FunctionNode {
         }
 
         let node = FunctionNode {
-            state: base_node,
+            base: base_node,
 
             config: function_config,
         };

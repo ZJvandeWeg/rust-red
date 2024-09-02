@@ -2,7 +2,6 @@ use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
-use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
@@ -35,15 +34,15 @@ struct SubflowState {
     tx_ports: Vec<Arc<SubflowOutputPort>>,
 }
 
-struct FlowState {
-    groups: HashMap<ElementId, Arc<Group>>,
-    nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    complete_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    complete_nodes_map: HashMap<ElementId, HashSet<ElementId>>,
-    catch_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    nodes_ordering: Vec<ElementId>,
-    _context: Variant,
-    node_tasks: JoinSet<()>,
+pub(crate) struct FlowState {
+    pub(crate) groups: HashMap<ElementId, Arc<Group>>,
+    pub(crate) nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    pub(crate) complete_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    pub(crate) complete_nodes_map: HashMap<ElementId, HashSet<ElementId>>,
+    pub(crate) catch_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    pub(crate) nodes_ordering: Vec<ElementId>,
+    pub(crate) _context: Variant,
+    pub(crate) node_tasks: JoinSet<()>,
 }
 
 #[derive(Debug, Clone)]
@@ -173,7 +172,7 @@ impl FlowState {
         for node_id in self.nodes_ordering.iter() {
             let node = self.nodes[node_id].clone();
 
-            if node.state().disabled {
+            if node.get_node().disabled {
                 log::warn!("------ Skipping disabled node {}.", node);
                 continue;
             }
@@ -253,7 +252,7 @@ impl Flow {
             }
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
-                let (msg_root_tx, msg_rx) = mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
+                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
 
                 subflow_state.tx_ports.push(Arc::new(SubflowOutputPort {
                     index,
@@ -400,7 +399,7 @@ impl Flow {
         state: &mut FlowState,
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<()> {
-        match node.state().type_.as_str() {
+        match node.get_node().type_.as_str() {
             "complete" => {
                 state.complete_nodes.insert(node_config.id, node.clone());
 
@@ -684,9 +683,9 @@ impl Flow {
         self: Arc<Self>,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
-    ) -> crate::Result<FlowNodeState> {
+    ) -> crate::Result<FlowNode> {
         let mut ports = Vec::new();
-        let (tx_root, rx) = mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
+        let (tx_root, rx) = tokio::sync::mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
         // Convert the Node-RED wires elements to ours
         for red_port in node_config.wires.iter() {
             let mut wires = Vec::new();
@@ -697,7 +696,7 @@ impl Flow {
                     node_config.name,
                     nid
                 )))?;
-                let tx = node_entry.state().msg_tx.to_owned();
+                let tx = node_entry.get_node().msg_tx.to_owned();
                 let pw = PortWire {
                     // target_node_id: *nid,
                     // target_node: Arc::downgrade(node_entry),
@@ -723,7 +722,7 @@ impl Flow {
             None => Weak::new(),
         };
 
-        Ok(FlowNodeState {
+        Ok(FlowNode {
             id: node_config.id,
             name: node_config.name.clone(),
             type_: node_config.type_name.clone(),

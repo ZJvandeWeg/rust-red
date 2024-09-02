@@ -45,20 +45,20 @@ enum UdpIpV {
 
 #[derive(Debug)]
 struct UdpOutNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: UdpOutNodeConfig,
 }
 
 impl UdpOutNode {
     fn create(
         _flow: &Flow,
-        state: FlowNodeState,
+        state: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let udp_config = UdpOutNodeConfig::deserialize(&_config.json)?;
 
         let node = UdpOutNode {
-            state,
+            base: state,
             config: udp_config,
         };
         Ok(Arc::new(node))
@@ -121,8 +121,8 @@ impl UdpOutNode {
 
 #[async_trait]
 impl FlowNodeBehavior for UdpOutNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

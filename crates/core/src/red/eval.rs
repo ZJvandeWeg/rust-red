@@ -86,7 +86,7 @@ fn get_setting(
         };
     }
 
-    if let Some(flow_ref) = flow.or_else(|| node.map(|n| &n.state().flow)) {
+    if let Some(flow_ref) = flow.or_else(|| node.map(|n| &n.get_node().flow)) {
         if let Some(node) = node {
             if let Some(group) = node.group().upgrade() {
                 return group.get_setting(name);
@@ -115,7 +115,7 @@ fn get_setting(
  * @return {String} The parsed string
  */
 fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Variant {
-    let flow = node.map(|n| &n.state().flow);
+    let flow = node.map(|n| &n.get_node().flow);
     if value.starts_with("${") && value.ends_with("}") {
         // ${ENV_VAR}
         let name = &value[2..(value.len() - 1)];

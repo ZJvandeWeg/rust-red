@@ -8,8 +8,7 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::define_builtin_flow_node;
 use crate::red::eval;
-use crate::red::json::RedPropertyTriple;
-use crate::red::json::RedPropertyType;
+use crate::red::json::*;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
@@ -37,14 +36,14 @@ struct InjectNodeConfig {
 
 #[derive(Debug)]
 struct InjectNode {
-    state: FlowNodeState,
+    base: FlowNode,
     config: InjectNodeConfig,
 }
 
 impl InjectNode {
     fn create(
         _flow: &Flow,
-        base_node: FlowNodeState,
+        base_node: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let json = handle_legacy_json(&_config.json);
@@ -56,7 +55,7 @@ impl InjectNode {
         }
 
         let node = InjectNode {
-            state: base_node,
+            base: base_node,
             config: inject_node_config,
         };
         Ok(Arc::new(node))
@@ -169,7 +168,7 @@ impl InjectNode {
 
         let envelope = Envelope {
             port: 0,
-            msg: Msg::new_with_body(self.state.id, msg_body),
+            msg: Msg::new_with_body(self.base.id, msg_body),
         };
 
         {
@@ -184,8 +183,8 @@ impl InjectNode {
 
 #[async_trait]
 impl FlowNodeBehavior for InjectNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
@@ -209,8 +208,8 @@ impl FlowNodeBehavior for InjectNode {
         } else {
             log::warn!(
                 "The inject node [id='{}', name='{}'] has no trigger.",
-                self.state.id,
-                self.state.name
+                self.base.id,
+                self.base.name
             );
             stop_token.cancelled().await;
         }

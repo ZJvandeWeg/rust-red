@@ -58,7 +58,7 @@ struct RbeNodeState {
 }
 
 struct RbeNode {
-    state: FlowNodeState,
+    base: FlowNode,
     func: RbeFunc,
     gap: f64,
     start_value: Option<f64>,
@@ -73,11 +73,11 @@ struct RbeNode {
 impl RbeNode {
     fn create(
         _flow: &Flow,
-        base_node: FlowNodeState,
+        base_node: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
         let node = RbeNode {
-            state: base_node,
+            base: base_node,
             // scope: BTreeMap::new(),
             func: _config
                 .json
@@ -283,8 +283,8 @@ impl RbeNode {
 
 #[async_trait]
 impl FlowNodeBehavior for RbeNode {
-    fn state(&self) -> &FlowNodeState {
-        &self.state
+    fn get_node(&self) -> &FlowNode {
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

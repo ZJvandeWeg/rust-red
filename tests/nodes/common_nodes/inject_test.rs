@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use crate::*;
-use edgelink_core::utils::async_util::delay;
 use edgelink_core as el;
 use edgelink_core::runtime::flow::*;
 use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::nodes::*;
+use edgelink_core::utils::async_util::delay;
 use serde::ser::Serialize;
 use serde_json::*;
 
@@ -29,7 +29,7 @@ async fn basic_test(type_: &str, val: Variant, rval: Option<&str>) -> el::Result
     let helper = TestHelper::with_json(&flow)?;
     let n1 = helper.get_node(&ElementId::with_u64(1)).unwrap();
     let n2 = helper.get_node(&ElementId::with_u64(2)).unwrap();
-    let mut received_rx = n2.state().on_received.subscribe();
+    let mut received_rx = n2.get_node().on_received.subscribe();
 
     println!("Starting engine...");
     helper.start_engine().await?;
