@@ -82,7 +82,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 ### Node-RED Features Roadmap:
 
 - [x] Flow
-- [x] Sublow
+- [x] Sub-flow
 - [x] Group
 - [ ] Environment Variables (WIP)
 - [ ] Context
