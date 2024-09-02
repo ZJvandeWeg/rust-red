@@ -143,39 +143,46 @@ impl FunctionNode {
 
     fn convert_return_value(&self, js_result: &js::Value) -> SmallVec<[(usize, Msg); 4]> {
         let mut items = SmallVec::<[(usize, Msg); 4]>::new();
-        if let Some(obj) = js_result.as_object() {
-            // Returns single Msg
-            let item = (0, Msg::from(obj));
-            items.push(item);
-        } else if let Some(arr) = js_result.as_array() {
-            // Returns an array of Msgs
-            for (port, ele) in arr.iter::<js::Value>().enumerate() {
-                match ele {
-                    Ok(ref ele) => {
-                        if let Some(obj) = ele.as_object() {
-                            items.push((port, Msg::from(obj)));
-                        } else if let Some(subarr) = ele.as_array() {
-                            for subele in subarr.iter::<js::Object>() {
-                                match subele {
-                                    Ok(ref obj) => {
-                                        items.push((port, Msg::from(obj)));
-                                    }
-                                    Err(ref e) => {
-                                        log::warn!("Bad array item: \n{:#?}", e);
+        match js_result.type_of() {
+            js::Type::Object => {
+                // Returns single Msg
+                let item = (0, Msg::from(js_result.as_object().unwrap()));
+                items.push(item);
+            }
+            js::Type::Array => {
+                // Returns an array of Msgs
+                for (port, ele) in js_result.as_array().unwrap().iter::<js::Value>().enumerate() {
+                    match ele {
+                        Ok(ref ele) => {
+                            if let Some(obj) = ele.as_object() {
+                                items.push((port, Msg::from(obj)));
+                            } else if let Some(subarr) = ele.as_array() {
+                                for subele in subarr.iter::<js::Object>() {
+                                    match subele {
+                                        Ok(ref obj) => {
+                                            items.push((port, Msg::from(obj)));
+                                        }
+                                        Err(ref e) => {
+                                            log::warn!("Bad array item: \n{:#?}", e);
+                                        }
                                     }
                                 }
+                            } else {
+                                log::warn!("Bad array item: \n{:#?}", ele);
                             }
-                        } else {
-                            log::warn!("Bad array item: \n{:#?}", ele);
                         }
-                    }
-                    Err(ref e) => {
-                        log::warn!("Bad array item: \n{:#?}", e);
+                        Err(ref e) => {
+                            log::warn!("Bad array item: \n{:#?}", e);
+                        }
                     }
                 }
             }
-        } else {
-            log::warn!("Wrong type of the return values");
+            _ => {
+                log::warn!(
+                    "Wrong type of the return values: Javascript type={}",
+                    js_result.type_of()
+                );
+            }
         }
         items
     }
