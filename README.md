@@ -169,6 +169,10 @@ Check out our [roadmap](ROADMAP.md) to get a glimpse of the upcoming features an
 
 Contributions are welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
 
+If you want to support the development of this project, you could consider buying me a coffee.
+
+[![Support via PayPal.me](assets/paypal_button.svg)](https://www.paypal.me/oldrev)
+
 
 ## Known Issues
 
