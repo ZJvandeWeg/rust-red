@@ -7,7 +7,7 @@
 
 ### 概述
 
-EdgeLink 是一个以 Rust<sub>†</sub> 为底层语言开发的 Node-RED 后端运行时引擎，旨在为 Node-RED 设计的 `flows.json` 流程提供高效的执行环境。EdgeLink 的设计聚焦于提高性能和降低内存消耗，使其能够顺利落地在 CPU 和内存资源受限的边缘计算设备中，从而实现从高性能桌面 PC 到边缘设备的全场景覆盖。
+EdgeLink 是一个以 Rust<sub>†</sub> 为底层语言开发的 [Node-RED](https://nodered.org/) 后端运行时引擎，旨在为 Node-RED 设计的 `flows.json` 流程提供高效的执行环境。EdgeLink 的设计聚焦于提高性能和降低内存消耗，使其能够顺利落地在 CPU 和内存资源受限的边缘计算设备中，从而实现从高性能桌面 PC 到边缘设备的全场景覆盖。
 
 通过在高性能的桌面 PC 上复盘和测试工作流，用户可以将 EdgeLink 与 `flows.json` 工作流文件快速部署到资源有限的边缘计算设备中，实现关键路径的价值转化。
 

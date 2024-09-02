@@ -7,7 +7,7 @@ English | [简体中文](README.zh-cn.md)
 
 ## Overview
 
-This is a Node-RED compatible run-time engine implemented in Rust<sub>†</sub>. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
+EdgeLink is a [Node-RED](https://nodered.org/) compatible run-time engine implemented in Rust<sub>†</sub>. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
 
 In summary, you can first test the workflow on a normal desktop PC,
 and subsequently deploy EdgeLink along with the `flows.json` workflow file
@@ -170,6 +170,8 @@ Check out our [roadmap](ROADMAP.md) to get a glimpse of the upcoming features an
 Contributions are welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
 
 If you want to support the development of this project, you could consider buying me a beer.
+
+<a href='https://ko-fi.com/O5O2U4W4E' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
 [![Support via PayPal.me](assets/paypal_button.svg)](https://www.paypal.me/oldrev)
 
