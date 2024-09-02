@@ -11,6 +11,10 @@ pub struct EdgelinkConfig {
     /// Path of the log configuration file
     #[arg(short, long)]
     pub log_path: Option<String>,
+
+    /// Verbose level
+    #[arg(short, long, default_value_t = 1)]
+    pub verbose: usize,
 }
 
 fn default_flows_path() -> String {

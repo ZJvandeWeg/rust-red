@@ -58,27 +58,28 @@ pub(crate) fn log_init(elargs: &EdgelinkConfig) {
     if let Some(ref log_path) = elargs.log_path {
         log4rs::init_file(log_path, Default::default()).unwrap();
     } else {
-        let stdout = log4rs::append::console::ConsoleAppender::builder()
+        let stderr = log4rs::append::console::ConsoleAppender::builder()
+            .target(log4rs::append::console::Target::Stderr)
             .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
                 "[{h({l})}]\t{m}{n}",
             )))
             .build();
 
         let config = log4rs::Config::builder()
-            .appender(log4rs::config::Appender::builder().build("stdout", Box::new(stdout)))
+            .appender(log4rs::config::Appender::builder().build("stderr", Box::new(stderr)))
             .build(
                 log4rs::config::Root::builder()
-                    .appender("stdout")
+                    .appender("stderr")
                     .build(log::LevelFilter::Debug),
             )
-            .unwrap();
+            .unwrap(); // TODO FIXME
 
         let _ = log4rs::init_config(config).unwrap();
     }
 }
 
 struct Runtime {
-    args: Arc<EdgelinkConfig>,
+    app_config: Arc<EdgelinkConfig>,
     registry: Arc<dyn Registry>,
     engine: RwLock<Option<Arc<FlowEngine>>>,
 }
@@ -86,7 +87,7 @@ struct Runtime {
 impl Runtime {
     fn new(elargs: Arc<EdgelinkConfig>) -> Self {
         Runtime {
-            args: elargs.clone(),
+            app_config: elargs.clone(),
             registry: Arc::new(RegistryImpl::new()),
             engine: RwLock::new(None),
         }
@@ -94,15 +95,17 @@ impl Runtime {
 
     async fn main_flow_task(self: Arc<Self>, cancel: CancellationToken) -> crate::Result<()> {
         let mut engine_holder = self.engine.write().await;
-        log::info!("Loading flows file: {}", &self.args.flows_path);
-        let engine =
-            match FlowEngine::new_with_flows_file(self.registry.clone(), &self.args.flows_path) {
-                Ok(eng) => eng,
-                Err(e) => {
-                    log::error!("Failed to create engine: {:?}", e);
-                    return Err(e);
-                }
-            };
+        log::info!("Loading flows file: {}", &self.app_config.flows_path);
+        let engine = match FlowEngine::new_with_flows_file(
+            self.registry.clone(),
+            &self.app_config.flows_path,
+        ) {
+            Ok(eng) => eng,
+            Err(e) => {
+                log::error!("Failed to create engine: {:?}", e);
+                return Err(e);
+            }
+        };
         *engine_holder = Option::Some(engine.clone());
         engine.start().await?;
 
@@ -148,15 +151,18 @@ async fn run_main_task(
 }
 
 async fn app_main() -> edgelink_core::Result<()> {
-    println!(
-        "EdgeLink V{} - #{}\n",
-        consts::APP_VERSION,
-        consts::GIT_HASH
-    );
-
     let elargs = Arc::new(EdgelinkConfig::parse());
 
-    println!("Initializing logging subsystem...\n");
+    if elargs.verbose > 0 {
+        println!(
+            "EdgeLink V{} - #{}\n",
+            consts::APP_VERSION,
+            consts::GIT_HASH
+        );
+
+        println!("Initializing logging subsystem...\n");
+    }
+
     log_init(&elargs);
 
     // let m = Modal {};
