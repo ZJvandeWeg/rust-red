@@ -56,4 +56,4 @@ pub enum EdgelinkError {
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = anyhow::Error> = anyhow::Result<T, E>;

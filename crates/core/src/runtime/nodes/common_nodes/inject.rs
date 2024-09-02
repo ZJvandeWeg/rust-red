@@ -83,7 +83,9 @@ impl InjectNode {
 
         if self.config.crontab.is_empty() {
             log::error!("Cron expression is missing");
-            return Err("Cron expression is missing".into());
+            return Err(
+                EdgelinkError::BadFlowsJson("Cron expression is missing".to_string()).into(),
+            );
         }
 
         log::debug!("cron_expr='{}'", &self.config.crontab);

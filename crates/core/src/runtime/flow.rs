@@ -691,12 +691,12 @@ impl Flow {
         for red_port in node_config.wires.iter() {
             let mut wires = Vec::new();
             for nid in red_port.node_ids.iter() {
-                let node_entry = state.nodes.get(nid).ok_or(format!(
+                let node_entry = state.nodes.get(nid).ok_or(EdgelinkError::InvalidData(format!(
                     "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
                     node_config.id,
                     node_config.name,
                     nid
-                ))?;
+                )))?;
                 let tx = node_entry.state().msg_tx.to_owned();
                 let pw = PortWire {
                     // target_node_id: *nid,
