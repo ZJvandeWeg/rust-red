@@ -21,6 +21,12 @@ pub struct RegistryBuilder {
     meta_nodes: HashMap<&'static str, &'static MetaNode>,
 }
 
+impl Default for RegistryBuilder {
+    fn default() -> Self {
+        Self::new().with_builtins()
+    }
+}
+
 impl RegistryBuilder {
     pub fn new() -> Self {
         Self {
@@ -28,12 +34,8 @@ impl RegistryBuilder {
         }
     }
 
-    pub fn default() -> Self {
-        Self::new().with_builtins()
-    }
-
     pub fn register(mut self, meta_node: &'static MetaNode) -> Self {
-        self.meta_nodes.insert(meta_node.type_, &meta_node);
+        self.meta_nodes.insert(meta_node.type_, meta_node);
         self
     }
 
@@ -65,6 +67,6 @@ impl Registry for RegistryImpl {
     }
 
     fn get(&self, type_name: &str) -> Option<&'static MetaNode> {
-        self.meta_nodes.get(type_name).map(|x| *x)
+        self.meta_nodes.get(type_name).copied()
     }
 }

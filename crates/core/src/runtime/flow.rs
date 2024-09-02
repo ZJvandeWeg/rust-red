@@ -400,23 +400,7 @@ impl Flow {
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<()> {
         match node.get_node().type_.as_str() {
-            "complete" => {
-                state.complete_nodes.insert(node_config.id, node.clone());
-
-                if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
-                    for src_id in scope {
-                        if let Some(src_id) = helpers::parse_red_id_value(src_id) {
-                            if let Some(set) = state.complete_nodes_map.get_mut(&src_id) {
-                                set.insert(node.id());
-                            } else {
-                                state
-                                    .complete_nodes_map
-                                    .insert(src_id, HashSet::from([node.id()]));
-                            }
-                        }
-                    }
-                }
-            }
+            "complete" => self.register_complete_node(node, state, node_config)?,
             "catch" => {
                 state.catch_nodes.insert(node_config.id, node.clone());
             }
@@ -424,6 +408,35 @@ impl Flow {
             &_ => {}
         }
         Ok(())
+    }
+
+    fn register_complete_node(
+        &self,
+        node: Arc<dyn FlowNodeBehavior>,
+        state: &mut FlowState,
+        node_config: &RedFlowNodeConfig,
+    ) -> crate::Result<()> {
+        if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
+            for src_id in scope {
+                if let Some(src_id) = helpers::parse_red_id_value(src_id) {
+                    if let Some(set) = state.complete_nodes_map.get_mut(&src_id) {
+                        set.insert(node.id());
+                    } else {
+                        state
+                            .complete_nodes_map
+                            .insert(src_id, HashSet::from([node.id()]));
+                    }
+                }
+            }
+            state.complete_nodes.insert(node_config.id, node.clone());
+            Ok(())
+        } else {
+            Err(EdgelinkError::BadFlowsJson(format!(
+                "CompleteNode has no 'scope' property: {}",
+                node
+            ))
+            .into())
+        }
     }
 
     pub fn id(&self) -> &ElementId {
@@ -447,7 +460,13 @@ impl Flow {
     }
 
     pub fn get_all_flow_nodes(&self) -> Vec<Arc<dyn FlowNodeBehavior>> {
-        self.state.read().expect("Must be readable").nodes.values().cloned().collect()
+        self.state
+            .read()
+            .expect("Must be readable")
+            .nodes
+            .values()
+            .cloned()
+            .collect()
     }
 
     pub fn get_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {

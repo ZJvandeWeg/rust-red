@@ -93,7 +93,7 @@ impl LinkCallNode {
             base: state,
             config: link_call_config,
             event_id_atomic: AtomicU64::new(1),
-            linked_nodes: linked_nodes,
+            linked_nodes,
             mut_state: Mutex::new(LinkCallMutState {
                 msg_events: HashMap::new(),
                 timeout_tasks: JoinSet::new(),
@@ -111,7 +111,7 @@ impl LinkCallNode {
         let stack_top_entry = {
             let locked_msg = msg.read().await;
             if let Some(stack) = &locked_msg.link_call_stack {
-                stack.last().map(|x| x.clone())
+                stack.last().copied()
             } else {
                 None
             }
@@ -217,8 +217,8 @@ impl LinkCallNode {
                     // Now we got the dynamic target
                     target_node.inject_msg(msg.clone(), cancel.clone()).await?;
                 } else {
-                    let err_msg = format!("Cannot found node by msg.target");
-                    return Err(EdgelinkError::InvalidOperation(err_msg).into());
+                    let err_msg = "Cannot found node by msg.target";
+                    return Err(EdgelinkError::InvalidOperation(err_msg.to_string()).into());
                 }
             }
         }
@@ -237,20 +237,17 @@ impl LinkCallNode {
             Variant::String(target_name) => {
                 let engine = self.get_engine().expect("The engine must be instanced!");
                 // Firstly, we are looking into the node ids
-                if let Some(parsed_id) = parse_red_id_str(&target_name) {
+                if let Some(parsed_id) = parse_red_id_str(target_name) {
                     let found = engine.find_flow_node_by_id(&parsed_id);
                     if found.is_some() {
                         found
                     } else {
                         None
                     }
-                }
-                // Secondly, we are looking into the node names
-                else if let Some(found) = engine.find_flow_node_by_name(&target_name)? {
-                    Some(found)
                 } else {
+                    // Secondly, we are looking into the node names
                     // Otherwises, there is no such target node
-                    None
+                    engine.find_flow_node_by_name(target_name)?
                 }
             }
             _ => {
