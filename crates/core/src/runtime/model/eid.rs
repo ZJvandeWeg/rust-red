@@ -5,9 +5,7 @@ use std::str::FromStr;
 
 use crate::utils;
 
-#[derive(
-    Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde:: Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ElementId(u64);
 
 impl BitXor for ElementId {
@@ -70,5 +68,41 @@ impl ElementId {
         } else {
             Ok(*lhs ^ *rhs)
         }
+    }
+}
+
+impl serde::Serialize for ElementId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let s = self.to_string();
+        serializer.serialize_str(&s)
+    }
+}
+
+struct ElementIdVisitor;
+
+impl<'de> serde::de::Visitor<'de> for ElementIdVisitor {
+    type Value = ElementId;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string representing an ElementId")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        ElementId::from_str(value).map_err(|_| E::custom("failed to parse ElementId"))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ElementId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(ElementIdVisitor)
     }
 }

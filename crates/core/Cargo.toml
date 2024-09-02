@@ -19,6 +19,7 @@ tokio = { workspace = true, features = [
     "net",
     "sync",
     "io-util",
+    "io-std",
 ] }
 async-trait = "0.1.81"
 log.workspace = true

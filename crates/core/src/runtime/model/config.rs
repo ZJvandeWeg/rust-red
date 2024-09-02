@@ -4,17 +4,21 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct EdgelinkConfig {
-    /// Path of the 'flows.json' file
+    /// Path of the 'flows.json' file.
     #[arg(short, long, default_value_t = default_flows_path())]
     pub flows_path: String,
 
-    /// Path of the log configuration file
+    /// Path of the log configuration file.
     #[arg(short, long)]
     pub log_path: Option<String>,
 
-    /// Verbose level
-    #[arg(short, long, default_value_t = 1)]
+    /// Verbose level.
+    #[arg(short, long, default_value_t = 2)]
     pub verbose: usize,
+
+    /// Read workflow JSON from stdin.
+    #[arg(short, long, default_value_t = false)]
+    pub stdin: bool,
 }
 
 fn default_flows_path() -> String {

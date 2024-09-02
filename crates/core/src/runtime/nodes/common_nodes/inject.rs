@@ -154,7 +154,7 @@ impl InjectNode {
     }
 
     async fn inject_msg(&self, stop_token: CancellationToken) -> crate::Result<()> {
-        let msg_body: BTreeMap<String, Variant> = self
+        let mut msg_body: BTreeMap<String, Variant> = self
             .config
             .props
             .iter()
@@ -165,6 +165,10 @@ impl InjectNode {
                 )
             })
             .collect();
+        msg_body.insert(
+            wellknown::MSG_ID_PROPERTY.to_string(),
+            Variant::String(Msg::generate_id().to_string()),
+        );
 
         let envelope = Envelope {
             port: 0,

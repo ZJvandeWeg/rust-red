@@ -1,4 +1,5 @@
 mod complete;
+mod console_json;
 mod debug;
 mod inject;
 mod junction;

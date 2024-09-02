@@ -65,12 +65,20 @@ pub(crate) fn log_init(elargs: &EdgelinkConfig) {
             )))
             .build();
 
+        let level = match elargs.verbose {
+            0 => log::LevelFilter::Off,
+            1 => log::LevelFilter::Warn,
+            2 => log::LevelFilter::Info,
+            3 => log::LevelFilter::Debug,
+            _ => log::LevelFilter::Trace,
+        };
+
         let config = log4rs::Config::builder()
             .appender(log4rs::config::Appender::builder().build("stderr", Box::new(stderr)))
             .build(
                 log4rs::config::Root::builder()
                     .appender("stderr")
-                    .build(log::LevelFilter::Debug),
+                    .build(level),
             )
             .unwrap(); // TODO FIXME
 
@@ -155,13 +163,13 @@ async fn app_main() -> edgelink_core::Result<()> {
     let elargs = Arc::new(EdgelinkConfig::parse());
 
     if elargs.verbose > 0 {
-        println!(
+        eprintln!(
             "EdgeLink V{} - #{}\n",
             consts::APP_VERSION,
             consts::GIT_HASH
         );
 
-        println!("Initializing logging subsystem...\n");
+        eprintln!("Initializing logging subsystem...\n");
     }
 
     log_init(&elargs);
@@ -185,7 +193,7 @@ async fn app_main() -> edgelink_core::Result<()> {
             .await
             .expect("Failed to install CTRL+C signal handler");
         log::info!("CTRL+C pressed, cancelling tasks...");
-        ctrl_c_token.cancel(); // 触发取消
+        ctrl_c_token.cancel();
     });
 
     let res = run_main_task(elargs.clone(), cancel.child_token()).await;

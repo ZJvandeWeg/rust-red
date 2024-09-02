@@ -14,9 +14,7 @@ pub struct TestHelper {
 
 impl TestHelper {
     fn default_registry() -> Result<Arc<dyn Registry>> {
-        let builder = RegistryBuilder::new();
-        builder.with_builtins();
-        builder.build()
+        RegistryBuilder::default().build()
     }
 
     pub fn with_flows_file(flows_path: &str) -> Result<Self> {

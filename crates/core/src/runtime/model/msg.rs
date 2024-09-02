@@ -1,17 +1,22 @@
 use rquickjs::{self as js, prelude::*};
+use serde::ser::SerializeMap;
 use std::collections::BTreeMap;
 
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::runtime::model::*;
 use crate::EdgelinkError;
+use crate::{red::json::deser::parse_red_id_str, runtime::model::*};
 
 use super::{
     propex::{self, PropexSegment},
     ElementId,
 };
+
+pub mod wellknown {
+    pub const MSG_ID_PROPERTY: &str = "_msgid";
+}
 
 pub struct Envelope {
     pub port: usize,
@@ -20,7 +25,7 @@ pub struct Envelope {
 
 pub type MsgBody = BTreeMap<String, Variant>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct LinkSourceEntry {
     pub id: ElementId,
     pub link_call_node_id: ElementId,
@@ -28,7 +33,6 @@ pub struct LinkSourceEntry {
 
 #[derive(Debug)]
 pub struct Msg {
-    pub id: ElementId,
     pub birth_place: ElementId,
     pub body: BTreeMap<String, Variant>,
     pub link_call_stack: Option<Vec<LinkSourceEntry>>,
@@ -37,10 +41,15 @@ pub struct Msg {
 impl Msg {
     pub fn new_default(birth_place: ElementId) -> Arc<RwLock<Self>> {
         let msg = Msg {
-            id: Msg::generate_id(),
             birth_place,
             link_call_stack: None,
-            body: BTreeMap::from([("payload".to_string(), Variant::Null)]),
+            body: BTreeMap::from([
+                (
+                    wellknown::MSG_ID_PROPERTY.to_string(),
+                    Msg::generate_id_variant(),
+                ),
+                ("payload".to_string(), Variant::Null),
+            ]),
         };
         Arc::new(RwLock::new(msg))
     }
@@ -50,7 +59,6 @@ impl Msg {
         body: BTreeMap<String, Variant>,
     ) -> Arc<RwLock<Self>> {
         let msg = Msg {
-            id: Msg::generate_id(),
             birth_place,
             link_call_stack: None,
             body,
@@ -60,16 +68,32 @@ impl Msg {
 
     pub fn new_with_payload(birth_place: ElementId, payload: Variant) -> Arc<RwLock<Self>> {
         let msg = Msg {
-            id: Msg::generate_id(),
             birth_place,
             link_call_stack: None,
-            body: BTreeMap::from([("payload".to_string(), payload)]),
+            body: BTreeMap::from([
+                (
+                    wellknown::MSG_ID_PROPERTY.to_string(),
+                    Msg::generate_id_variant(),
+                ),
+                ("payload".to_string(), payload),
+            ]),
         };
         Arc::new(RwLock::new(msg))
     }
 
+    pub fn id(&self) -> Option<ElementId> {
+        self.body
+            .get(wellknown::MSG_ID_PROPERTY)
+            .and_then(|x| x.as_string())
+            .and_then(parse_red_id_str)
+    }
+
     pub fn generate_id() -> ElementId {
         ElementId::new()
+    }
+
+    pub fn generate_id_variant() -> Variant {
+        Variant::String(ElementId::new().to_string())
     }
 
     pub fn get_property(&self, prop: &str) -> Option<&Variant> {
@@ -212,6 +236,7 @@ impl Msg {
         }
 
         {
+            /*
             let msg_id_atom = "_msgid"
                 .into_atom(ctx)
                 .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
@@ -222,6 +247,7 @@ impl Msg {
                 .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
             obj.set(msg_id_atom, msg_id_value)
                 .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            */
 
             /*
             let link_source_atom = "_linkSource"
@@ -269,7 +295,6 @@ impl Msg {
 impl Clone for Msg {
     fn clone(&self) -> Self {
         Self {
-            id: self.id,
             birth_place: self.birth_place,
             link_call_stack: self.link_call_stack.clone(),
             body: self.body.clone(),
@@ -281,12 +306,10 @@ impl<'js> From<&js::Object<'js>> for Msg {
     fn from(jo: &js::Object<'js>) -> Self {
         let mut map = BTreeMap::new();
         let mut birth_place = None;
-        let mut msg_id = None;
         let link_call_stack = None;
         for result in jo.props::<String, js::Value>() {
             match result {
                 Ok((k, v)) => match k.as_ref() {
-                    "_msgid" => msg_id = v.as_string().and_then(|x| x.to_string().ok()),
                     "_birth_place" => {
                         birth_place = v
                             .as_string()
@@ -308,13 +331,29 @@ impl<'js> From<&js::Object<'js>> for Msg {
         }
 
         Msg {
+            /*
             id: msg_id
                 .and_then(|hex_str| hex_str.parse().ok())
                 .unwrap_or(ElementId::new()),
-
+                */
             birth_place: birth_place.unwrap_or(ElementId::empty()),
             body: map,
             link_call_stack,
         }
+    }
+}
+
+impl serde::Serialize for Msg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("_birth_place", &self.birth_place)?;
+        map.serialize_entry("_linkSource", &self.link_call_stack)?;
+        for (k, v) in self.body.iter() {
+            map.serialize_entry(k, v)?;
+        }
+        map.end()
     }
 }
