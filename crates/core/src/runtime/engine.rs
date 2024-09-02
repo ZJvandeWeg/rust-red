@@ -16,8 +16,9 @@ use crate::red::json::{RedFlowConfig, RedGlobalNodeConfig};
 
 pub(crate) struct FlowEngineState {
     flows: HashMap<ElementId, Arc<Flow>>,
-    env_vars: BTreeMap<String, Variant>,
     global_nodes: HashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
+    all_flow_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    env_vars: BTreeMap<String, Variant>,
     _context: Variant,
     _shutdown: bool,
 }
@@ -42,6 +43,7 @@ impl FlowEngine {
             state: std::sync::RwLock::new(FlowEngineState {
                 flows: HashMap::new(),
                 global_nodes: HashMap::new(),
+                all_flow_nodes: HashMap::new(),
                 env_vars: BTreeMap::from_iter(FlowEngine::get_env_vars()),
                 _context: Variant::new_empty_object(),
                 _shutdown: false,
@@ -94,6 +96,20 @@ impl FlowEngine {
             let flow = Flow::new(self.clone(), flow_config, reg.clone())?;
             {
                 let mut state = self.state.write().unwrap();
+
+                // register all nodes
+                for fnode in flow.get_all_flow_nodes().iter() {
+                    if state.all_flow_nodes.contains_key(&fnode.id()) {
+                        return Err(EdgelinkError::InvalidData(format!(
+                            "This flow node already existed: {}",
+                            fnode
+                        ))
+                        .into());
+                    }
+                    state.all_flow_nodes.insert(fnode.id(), fnode.clone());
+                }
+
+                //register the flow
                 state.flows.insert(flow.id, flow);
             }
             log::debug!(
@@ -215,13 +231,8 @@ impl FlowEngine {
     }
 
     pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        let flows = &self.state.read().ok()?.flows;
-        for (_, flow) in flows.iter() {
-            if let Some(node) = flow.get_node_by_id(id) {
-                return Some(node.clone());
-            }
-        }
-        None
+        let nodes = &self.state.read().ok()?.all_flow_nodes;
+        nodes.get(id).cloned()
     }
 
     pub fn find_flow_node_by_name(
@@ -236,6 +247,21 @@ impl FlowEngine {
             }
         }
         Ok(None)
+    }
+
+    pub async fn inject_msg(
+        &self,
+        flow_node_id: &ElementId,
+        msg: Arc<RwLock<Msg>>,
+        cancel: CancellationToken,
+    ) -> crate::Result<()> {
+        let node = self
+            .find_flow_node_by_id(flow_node_id)
+            .ok_or(EdgelinkError::BadArguments(format!(
+                "Cannot found the flow node, id='{}'",
+                flow_node_id
+            )))?;
+        node.inject_msg(msg, cancel).await
     }
 
     fn get_env_vars() -> impl Iterator<Item = (String, Variant)> {

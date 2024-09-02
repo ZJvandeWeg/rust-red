@@ -26,7 +26,7 @@ struct LinkOutNodeConfig {
 #[derive(Debug)]
 struct LinkOutNode {
     base: FlowNode,
-    config: LinkOutNodeConfig,
+    mode: LinkOutMode,
     linked_nodes: Vec<Weak<dyn FlowNodeBehavior>>,
 }
 
@@ -59,14 +59,14 @@ impl LinkOutNode {
 
         let node = LinkOutNode {
             base: state,
-            config: link_out_config,
+            mode: link_out_config.mode,
             linked_nodes,
         };
         Ok(Arc::new(node))
     }
 
     async fn uow(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
-        match self.config.mode {
+        match self.mode {
             LinkOutMode::Link => {
                 for link_node in self.linked_nodes.iter() {
                     if let Some(link_node) = link_node.upgrade() {

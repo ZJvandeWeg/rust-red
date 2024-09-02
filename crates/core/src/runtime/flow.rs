@@ -446,6 +446,10 @@ impl Flow {
         self.subflow_state.is_some()
     }
 
+    pub fn get_all_flow_nodes(&self) -> Vec<Arc<dyn FlowNodeBehavior>> {
+        self.state.read().expect("Must be readable").nodes.values().cloned().collect()
+    }
+
     pub fn get_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
         self.state.read().ok()?.nodes.get(id).cloned()
     }
