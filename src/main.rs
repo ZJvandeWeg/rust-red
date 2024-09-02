@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 // use libloading::Library;
 
 use edgelink_core::runtime::engine::FlowEngine;
-use edgelink_core::runtime::model::EdgelinkConfig;
+use edgelink_core::runtime::model::Settings;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::Result;
 
@@ -54,7 +54,7 @@ fn main() {
 }
 
 */
-pub(crate) fn log_init(elargs: &EdgelinkConfig) {
+pub(crate) fn log_init(elargs: &Settings) {
     if let Some(ref log_path) = elargs.log_path {
         log4rs::init_file(log_path, Default::default()).unwrap();
     } else {
@@ -87,13 +87,13 @@ pub(crate) fn log_init(elargs: &EdgelinkConfig) {
 }
 
 struct Runtime {
-    app_config: Arc<EdgelinkConfig>,
+    app_config: Arc<Settings>,
     registry: Arc<dyn Registry>,
     engine: RwLock<Option<Arc<FlowEngine>>>,
 }
 
 impl Runtime {
-    fn default(elargs: Arc<EdgelinkConfig>) -> edgelink_core::Result<Self> {
+    fn default(elargs: Arc<Settings>) -> edgelink_core::Result<Self> {
         let reg = RegistryBuilder::default().build()?;
         Ok(Runtime {
             app_config: elargs.clone(),
@@ -152,7 +152,7 @@ impl Runtime {
 }
 
 async fn run_main_task(
-    elargs: Arc<EdgelinkConfig>,
+    elargs: Arc<Settings>,
     cancel: CancellationToken,
 ) -> crate::Result<()> {
     let rt = Arc::new(Runtime::default(elargs)?);
@@ -160,7 +160,7 @@ async fn run_main_task(
 }
 
 async fn app_main() -> edgelink_core::Result<()> {
-    let elargs = Arc::new(EdgelinkConfig::parse());
+    let elargs = Arc::new(Settings::parse());
 
     if elargs.verbose > 0 {
         eprintln!(

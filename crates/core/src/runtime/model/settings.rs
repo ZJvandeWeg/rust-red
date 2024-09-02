@@ -3,7 +3,7 @@ use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
-pub struct EdgelinkConfig {
+pub struct Settings {
     /// Path of the 'flows.json' file.
     #[arg(short, long, default_value_t = default_flows_path())]
     pub flows_path: String,
