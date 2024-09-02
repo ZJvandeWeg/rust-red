@@ -175,7 +175,6 @@ If you want to support the development of this project, you could consider buyin
 
 [![Support via PayPal.me](assets/paypal_button.svg)](https://www.paypal.me/oldrev)
 
-
 ## Known Issues
 
 Please refer to [ISSUES.md](docs/ISSUES.md) for a list of known issues and workarounds.
@@ -184,6 +183,10 @@ Please refer to [ISSUES.md](docs/ISSUES.md) for a list of known issues and worka
 
 We welcome your feedback! If you encounter any issues or have suggestions, please open an [issue](https://github.com/edge-link/edgelink.rs/issues).
 
+E-mail: oldrev(at)gmail.com
+
 ## License
 
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for more details.
+
+Copyright © Li Wei and other contributors. All rights reserved.

@@ -91,6 +91,15 @@ python -B -m pytest tests
 
 我们欢迎任何反馈！如果你遇到任何技术问题或者 bug，请提交 [issue](https://github.com/edge-link/edgelink.rs/issues)。
 
+### 联系作者
+
+- 邮箱：oldrev(at)gmail.com
+- QQ：55431671
+
+> 超巨型广告：没事儿时可以承接网站前端开发/管理系统开发/PCB 画板打样/单片机开发/压水晶头/中老年陪聊/工地打灰等软硬件项目。
+
 ## 许可证
 
 此项目基于 Apache 2.0 许可证 - 详见 [LICENSE](LICENSE) 文件以获取更多详细信息。
+
+版权所有©李维及其他贡献者，保留所有权利。
