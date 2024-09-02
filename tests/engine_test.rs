@@ -23,7 +23,9 @@ impl NodeBehavior for TestGlobalNode {
 #[tokio::test]
 async fn can_create_flow_manually() {
     // data::
-    let reg = Arc::new(RegistryImpl::new());
+    let reg_builder = RegistryBuilder::new();
+    let reg = reg_builder.build();
+
     let engine = FlowEngine::new_with_flows_file(reg, "tests/data/flows.json").unwrap();
 
     let flow = engine

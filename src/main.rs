@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use edgelink_core::runtime::engine::FlowEngine;
 use edgelink_core::runtime::model::EdgelinkConfig;
-use edgelink_core::runtime::registry::{Registry, RegistryImpl};
+use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::Result;
 
 mod consts;
@@ -86,9 +86,10 @@ struct Runtime {
 
 impl Runtime {
     fn new(elargs: Arc<EdgelinkConfig>) -> Self {
+        let reg = RegistryBuilder::default().build();
         Runtime {
             app_config: elargs.clone(),
-            registry: Arc::new(RegistryImpl::new()),
+            registry: reg,
             engine: RwLock::new(None),
         }
     }

@@ -13,20 +13,26 @@ pub struct TestHelper {
 }
 
 impl TestHelper {
+    fn default_registry() -> Arc<dyn Registry> {
+        let builder = RegistryBuilder::new();
+        builder.with_builtins();
+        builder.build()
+    }
+
     pub fn with_flows_file(flows_path: &str) -> Result<Self> {
-        let registry = Arc::new(RegistryImpl::new());
+        let registry = TestHelper::default_registry();
         let engine = FlowEngine::new_with_flows_file(registry.clone(), flows_path)?;
         Ok(Self { registry, engine })
     }
 
     pub fn with_json(json: &serde_json::Value) -> Result<Self> {
-        let registry = Arc::new(RegistryImpl::new());
+        let registry = TestHelper::default_registry();
         let engine = FlowEngine::new_with_json(registry.clone(), json).unwrap();
         Ok(Self { registry, engine })
     }
 
     pub fn with_json_text(json_text: &str) -> Result<Self> {
-        let registry = Arc::new(RegistryImpl::new());
+        let registry = TestHelper::default_registry();
         let engine = FlowEngine::new_with_json_string(registry.clone(), json_text).unwrap();
         Ok(Self { registry, engine })
     }

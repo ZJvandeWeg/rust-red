@@ -7,35 +7,62 @@ use inventory;
 use crate::runtime::nodes::BuiltinNodeDescriptor;
 
 pub trait Registry: Send + Sync {
-    fn all(&self) -> &HashMap<&'static str, MetaNode>;
-    fn get(&self, type_name: &str) -> Option<&MetaNode>;
+    fn all(&self) -> &HashMap<&'static str, &'static MetaNode>;
+    fn get(&self, type_name: &str) -> Option<&'static MetaNode>;
 }
 
-#[derive(Default)]
-pub struct RegistryImpl {
-    meta_nodes: Arc<HashMap<&'static str, MetaNode>>,
+#[derive(Debug)]
+struct RegistryImpl {
+    meta_nodes: Arc<HashMap<&'static str, &'static MetaNode>>,
 }
 
-impl RegistryImpl {
+#[derive(Debug)]
+pub struct RegistryBuilder {
+    meta_nodes: HashMap<&'static str, &'static MetaNode>,
+}
+
+impl RegistryBuilder {
     pub fn new() -> Self {
-        let mut nodes = HashMap::new();
+        Self {
+            meta_nodes: HashMap::new(),
+        }
+    }
+
+    pub fn default() -> Self {
+        Self::new().with_builtins()
+    }
+
+    pub fn register(mut self, meta_node: &'static MetaNode) -> Self {
+        self.meta_nodes.insert(meta_node.type_, &meta_node);
+        self
+    }
+
+    pub fn with_builtins(mut self) -> Self {
         for bnd in inventory::iter::<BuiltinNodeDescriptor> {
             log::debug!("Found builtin Node: '{}'", bnd.meta.type_);
-            nodes.insert(bnd.meta.type_, bnd.meta);
+            self.meta_nodes.insert(bnd.meta.type_, &bnd.meta);
         }
+        self
+    }
 
-        RegistryImpl {
-            meta_nodes: Arc::new(nodes),
+    pub fn build(self) -> Arc<dyn Registry> {
+        if self.meta_nodes.is_empty() {
+            log::warn!("There are no meta node in the Registry!");
         }
+        Arc::new(RegistryImpl {
+            meta_nodes: Arc::new(self.meta_nodes),
+        })
     }
 }
 
+impl RegistryImpl {}
+
 impl Registry for RegistryImpl {
-    fn all(&self) -> &HashMap<&'static str, MetaNode> {
+    fn all(&self) -> &HashMap<&'static str, &'static MetaNode> {
         &self.meta_nodes
     }
 
-    fn get(&self, type_name: &str) -> Option<&MetaNode> {
-        self.meta_nodes.get(type_name)
+    fn get(&self, type_name: &str) -> Option<&'static MetaNode> {
+        self.meta_nodes.get(type_name).map(|x| *x)
     }
 }

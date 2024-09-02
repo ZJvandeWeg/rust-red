@@ -57,7 +57,7 @@ pub enum NodeFactory {
     Flow(FlowNodeFactoryFn),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct MetaNode {
     /// The tag of the element
     pub kind: NodeKind,
