@@ -50,6 +50,25 @@ Or:
 
 By default, EdgeLink will read `~/.node-red/flows.json` and execute it.
 
+#### Run Unit Tests
+
+```bash
+cargo test --all
+```
+
+#### Run Integration Tests
+
+Running integration tests requires first installing Python 3.9+ and the corresponding Pytest dependencies:
+
+```bash
+pip install -U -r ./tests/requirements.txt
+```
+
+Then execute the following command:
+
+```bash
+python -B -m pytest tests
+```
 
 ## Configuration
 

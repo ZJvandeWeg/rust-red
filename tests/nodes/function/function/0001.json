@@ -1,0 +1,49 @@
+[
+    {
+        "id": "0",
+        "type": "tab"
+    },
+    {
+        "id": "1",
+        "type": "inject",
+        "z": "0",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0,
+        "topic": "bar",
+        "payload": "foo",
+        "payloadType": "str",
+        "wires": [
+            [
+                "2"
+            ]
+        ]
+    },
+    {
+        "id": "2",
+        "type": "function",
+        "z": "0",
+        "func": "return msg;",
+        "wires": [
+            [
+                "3"
+            ]
+        ]
+    },
+    {
+        "id": "3",
+        "type": "console-json",
+        "z": "0"
+    }
+]

@@ -6,7 +6,7 @@ import subprocess
 import signal
 
 
-async def read_json_from_process(num_json):
+async def read_json_from_process(flows_path: str, num_json: int):
     # Get the path of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,11 +21,11 @@ async def read_json_from_process(num_json):
         raise OSError("Unsupported operating system")
 
     # Construct the full path to the myprog executable
-    myprog_path = os.path.join(script_dir, '../target/release', myprog_name)
+    myprog_path = os.path.join(script_dir, '..', 'target', 'release', myprog_name)
 
     # Start the process
     process = await asyncio.create_subprocess_exec(
-        myprog_path, '-v', '0',
+        myprog_path, '-v', '0', '-f', flows_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         creationflags=createion_flags
@@ -67,28 +67,14 @@ async def read_json_from_process(num_json):
         print("Timeout: No more output in 8 seconds")
         process.kill()
         raise e
-        #await asyncio.sleep(2)  # Wait for the process to respond and exit
+        # await asyncio.sleep(2)  # Wait for the process to respond and exit
 
     # Ensure the process exits completely
     await process.wait()
 
-async def run_edgelink_and_collect_msgs(num_msgs=2) -> list[dict]:
+
+async def run_edgelink(flows_path: str, num_msgs: int = 2) -> list[dict]:
     msgs = []
-    async for msg in read_json_from_process(num_json=2):
+    async for msg in read_json_from_process(flows_path, num_msgs):
         msgs.append(msg)
     return msgs
-
-
-if __name__ == '__main__':
-    async def async_main():
-        try:
-            msgs = await run_edgelink_and_collect_msgs(num_msgs=2)
-            print("Received msg JSON:")
-            for msg in msgs:
-                print(msg)
-        except Exception as e:
-            print(f"Exception in async_main: {e}")
-
-
-    # Run the main function
-    asyncio.run(async_main())

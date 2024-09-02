@@ -50,6 +50,27 @@ cargo run -r
 
 在默认情况下，EdgeLink 将会读取 ~/.node-red/flows.json 并执行它。
 
+#### 运行单元测试
+
+```bash
+cargo test --all
+```
+
+#### 运行集成测试
+
+运行集成测试需要首先安装 Python 3.9+ 和对应的 Pytest 依赖库：
+
+```bash
+pip install -U -r ./tests/requirements.txt
+```
+
+然后执行以下命令即可：
+
+```bash
+python -B -m pytest tests
+```
+
+
 ## 配置
 
 在配置文件中可以调整各种设置，例如端口号、`flows.json` 文件位置等。请参考 [CONFIG.md](docs/CONFIG.md) 获取更多信息。

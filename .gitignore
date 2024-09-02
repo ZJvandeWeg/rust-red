@@ -2,3 +2,4 @@
 /vendor
 /.cargo
 /log
+__pycache__

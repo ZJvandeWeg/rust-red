@@ -1,0 +1,40 @@
+[
+    {
+        "id": "0",
+        "type": "tab"
+    },
+    {
+        "id": "1",
+        "type": "inject",
+        "z": "0",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0,
+        "topic": "t1",
+        "payload": "10",
+        "payloadType": "num",
+        "wires": [
+            [
+                "2"
+            ]
+        ]
+    },
+    {
+        "id": "2",
+        "type": "console-json",
+        "z": "0",
+        "active": true,
+        "wires": []
+    }
+]
