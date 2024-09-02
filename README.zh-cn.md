@@ -13,8 +13,10 @@ EdgeLink 是一个以 Rust<sub>†</sub> 为底层语言开发的 Node-RED 后�
 
 ### 特性
 
+![Memory Usage](assets/memory.png)
+
 - **高性能**: 通过 Rust 语言赋能，EdgeLink 在性能上发力，提供原生代码的执行速度，为复杂工作流的执行提供快速响应的能力。
-- **低内存占用**: EdgeLink 采用原生代码生态环境，与 Node-RED 的 NodeJS 平台对标，在内存使用上实现了显著的优化，极大地降低了系统的资源倾斜。测试表明，运行同一个简单的工作流，EdgeLink 仅消耗 Node-RED 3% 的物理内存。
+- **低内存占用**: EdgeLink 采用原生代码生态环境，与 Node-RED 的 NodeJS 平台对标，在内存使用上实现了显著的优化，极大地降低了系统的资源倾斜。测试表明，运行同一个简单的工作流，EdgeLink 仅消耗 Node-RED 10% 的物理内存。
 - **可扩展性**: 保持 Node-RED 的中台扩展性，通过插件化机制拉通自定义节点的开发。采用紧凑高效的 QuickJS Javascript 解释器为 `function` 节点的 Javascript 脚本提供支持，实现了从点到面的能力协同。
 - **尽量兼容 Node-RED**: 在工作流兼容性上尽力对齐 Node-RED 的现有工作流文件，允许用户复用 Node-RED 的设计器进行工作流的开发和测试。考虑到 Rust 是静态语言，Javascript 是动态语言，完全 100% 兼容存在挑战，但在多数场景中已实现较好的兼容性，确保了开发者心智的无缝过渡。
 

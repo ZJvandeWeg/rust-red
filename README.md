@@ -15,8 +15,10 @@ to an edge computing device that is constrained by limited resources for operati
 
 ## Features
 
+![Memory Usage](assets/memory.png)
+
 - **High Performance**: Leverage the advantages of the Rust language for excellent performance.
-- **Low Memory Footprint**: Reduce memory usage compared to the NodeJS backend. Tests indicate that, for running a same simple workflow, the physical memory usage of EdgeLink is only 3% of that of Node-RED.
+- **Low Memory Footprint**: Reduce memory usage compared to the NodeJS backend. Tests indicate that, for running a same simple workflow, the physical memory usage of EdgeLink is only 10% of that of Node-RED.
 - **Scalability**: Retain the extensibility of Node-RED, supporting custom nodes.
 - **Easy Migration**: Easily replace the existing Node-RED backend with minimal modifications.
 
