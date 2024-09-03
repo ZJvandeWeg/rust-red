@@ -94,6 +94,10 @@ python -B -m pytest tests
 
 我们欢迎任何反馈！如果你遇到任何技术问题或者 bug，请提交 [issue](https://github.com/edge-link/edgelink.rs/issues)。
 
+### 社交网络聊天群：
+
+QQ 群：198723197
+
 ### 联系作者
 
 - 邮箱：oldrev(at)gmail.com
