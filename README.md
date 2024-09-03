@@ -11,8 +11,6 @@ EdgeLink is a [Node-RED](https://nodered.org/) compatible run-time engine implem
 
 This program is designed to execute `flows.json` file that have been designed and exported/deployed using Node-RED, without any editor or other HTML/Web-related functionalities. The purpose of its development is to deploy tested Node-RED flows to devices with limited memory for execution.
 
-In other words, I need to use Rust to reimplement all the nodes used in the `flows.json`.
-
 Only the "function" node will use the lightweight QuickJS JS interpreter to run their code; all other functionalities are implemented in native Rust code.
 
 ## Features
