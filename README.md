@@ -97,6 +97,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 
 - Core nodes:
     - Common nodes:
+        - [x] Console-JSON (For integration tests)
         - [x] Inject
         - [x] Debug (WIP)
         - [x] Complete

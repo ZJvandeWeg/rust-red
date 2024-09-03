@@ -86,6 +86,9 @@ python -B -m pytest tests
 
 欢迎贡献！请阅读 [CONTRIBUTING.md](.github/CONTRIBUTING.md) 获取更多信息。
 
+如果你想支持本项目的开发，可以考虑请我喝杯啤酒：
+
+[![爱发电支持](assets/aifadian.jpg)](https://afdian.com/a/mingshu)
 
 ## 反馈与技术支持
 
