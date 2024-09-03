@@ -47,7 +47,7 @@ pub struct FlowEngine {
 
     stop_token: CancellationToken,
 
-    args: FlowEngineArgs,
+    _args: FlowEngineArgs,
 }
 
 impl FlowEngine {
@@ -71,7 +71,7 @@ impl FlowEngine {
                 _context: Variant::new_empty_object(),
                 _shutdown: false,
             }),
-            args: FlowEngineArgs::load(elcfg)?,
+            _args: FlowEngineArgs::load(elcfg)?,
         });
 
         engine
