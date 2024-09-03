@@ -84,6 +84,8 @@ python -B -m pytest tests
 
 ## 贡献
 
+![Alt](https://repobeats.axiom.co/api/embed/cd18a784e88be20d79778703bda8858523c4257e.svg "Repobeats analytics image")
+
 欢迎贡献！请阅读 [CONTRIBUTING.md](.github/CONTRIBUTING.md) 获取更多信息。
 
 如果你想支持本项目的开发，可以考虑请我喝杯啤酒：

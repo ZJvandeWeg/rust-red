@@ -168,7 +168,9 @@ Check out our [roadmap](ROADMAP.md) to get a glimpse of the upcoming features an
 
 ## Contribution
 
-Contributions are welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
+![Alt](https://repobeats.axiom.co/api/embed/cd18a784e88be20d79778703bda8858523c4257e.svg "Repobeats analytics image")
+
+Contributions are always welcome! Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
 
 If you want to support the development of this project, you could consider buying me a beer.
 
