@@ -1,5 +1,5 @@
 [package]
-name = "edgelink-core"
+name = "edgelink_core"
 version = "0.1.0"
 edition = "2021"
 readme = "README.md"
@@ -39,7 +39,7 @@ bumpalo = "3.16.0"
 tokio-cron-scheduler = "0.11.0"
 topological-sort = "0.2.2"
 chrono = "0.4.38"
-rquickjs = { version = "0.6.2", features = ["full-async", "parallel", "macro", "bindgen"] }
+rquickjs = { version = "0.6.2", features = ["full-async", "parallel", "macro"] }
 rand = "0.8.5"
 semver.workspace = true
 base64 = "0.22.1"
@@ -53,6 +53,7 @@ tokio = { version = "1", features = ["test-util"] }
 
 [features]
 default = ["nodes_mqtt", "nodes_udp"]
+rqjs_bindgen = ["rquickjs/bindgen"]
 nodes_mqtt = []
 nodes_http = ["tokio/net"]
 nodes_tcp = ["tokio/net"]
