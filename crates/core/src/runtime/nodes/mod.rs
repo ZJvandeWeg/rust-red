@@ -104,7 +104,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 
     fn type_name(&self) -> &'static str {
-        &self.get_node().type_
+        self.get_node().type_
     }
 
     fn group(&self) -> &Weak<Group> {

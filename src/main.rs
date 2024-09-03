@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use edgelink_core::runtime::engine::FlowEngine;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
-use edgelink_core::Result;
+use edgelink_core::*;
 
 mod cliargs;
 mod consts;
@@ -88,7 +88,7 @@ pub(crate) fn log_init(elargs: &CliArgs) {
 }
 
 struct App {
-    registry: Arc<dyn Registry>,
+    _registry: Arc<dyn Registry>,
     engine: Arc<FlowEngine>,
 }
 
@@ -104,7 +104,7 @@ impl App {
         let engine = FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?;
 
         Ok(App {
-            registry: reg,
+            _registry: reg,
             engine,
         })
     }
@@ -147,18 +147,49 @@ impl App {
 
 fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
     // Load configuration from default, development, and production files
+    let home_dir = dirs_next::home_dir()
+        .map(|x| x.join(".edgelink").to_string_lossy().to_string())
+        .expect("Cannot got the `~/home` directory");
+
+    let edgelink_home_dir = cli_args
+        .home
+        .clone()
+        .or(std::env::var("EDGELINK_HOME").ok())
+        .or(Some(home_dir));
+
     let run_env = cli_args
         .env
         .clone()
         .and(std::env::var("EDGELINK_RUN_ENV").ok())
         .unwrap_or("dev".to_string());
-    let cfg = config::Config::builder()
-        .add_source(config::File::with_name("edgelinkd.toml"))
-        .add_source(config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false))
-        .set_override("run_env", run_env)?
-        .set_override("node.msg_queue_capacity", 1)?
-        .build()?;
-    Ok(Some(cfg))
+
+    if cli_args.verbose > 0 {
+        if let Some(ref x) = edgelink_home_dir {
+            eprintln!("$EDGELINK_HOME={}", x);
+        }
+    }
+
+    if let Some(md) = edgelink_home_dir
+        .as_ref()
+        .and_then(|x| std::fs::metadata(&x).ok())
+    {
+        if md.is_dir() {
+            let cfg = config::Config::builder()
+                .add_source(config::File::with_name("edgelinkd.toml"))
+                .add_source(
+                    config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false),
+                )
+                .set_override("home_dir", edgelink_home_dir)?
+                .set_override("run_env", run_env)?
+                .set_override("node.msg_queue_capacity", 1)?
+                .build()?;
+            return Ok(Some(cfg));
+        }
+    }
+    if cli_args.verbose > 0 {
+        eprintln!("The `$EDGELINK_HOME` does not existed!");
+    }
+    Ok(None)
 }
 
 async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
@@ -202,9 +233,8 @@ async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
         ctrl_c_token.cancel();
     });
 
-    if cli_args.verbose > 0 {
-        eprint!("Starting EdgeLink run-time...\nPress CTRL+C to terminate.\n")
-    }
+    log::info!("Starting EdgeLink run-time engine...");
+    log::info!("Press CTRL+C to terminate.");
 
     let app = Arc::new(App::default(cli_args, cfg.as_ref())?);
     let app_result = app.run(cancel.child_token()).await;

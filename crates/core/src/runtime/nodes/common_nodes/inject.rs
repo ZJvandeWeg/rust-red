@@ -192,13 +192,16 @@ impl FlowNodeBehavior for InjectNode {
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
+        let mut is_executed = false;
         if self.config.once {
+            is_executed = true;
             if let Err(e) = self.once_task(stop_token.child_token()).await {
                 log::warn!("The 'once_task' failed: {}", e.to_string());
             }
         }
 
         if let Some(repeat_interval) = self.config.repeat {
+            is_executed = true;
             if let Err(e) = self
                 .repeat_task(repeat_interval, stop_token.child_token())
                 .await
@@ -206,14 +209,17 @@ impl FlowNodeBehavior for InjectNode {
                 log::warn!("The 'repeat_task' failed: {}", e.to_string());
             }
         } else if !self.config.crontab.is_empty() {
+            is_executed = true;
             if let Err(e) = self.clone().cron_task(stop_token.child_token()).await {
                 log::warn!("The CRON task failed: {}", e.to_string());
             }
-        } else {
+        }
+
+        if !is_executed {
             log::warn!(
-                "The inject node [id='{}', name='{}'] has no trigger.",
-                self.base.id,
-                self.base.name
+                "The InjectNode(id='{}', name='{}') has no trigger.",
+                self.id(),
+                self.name()
             );
             stop_token.cancelled().await;
         }

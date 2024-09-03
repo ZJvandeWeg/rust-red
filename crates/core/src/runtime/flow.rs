@@ -285,7 +285,8 @@ impl Flow {
             }
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
-                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
+                let (msg_root_tx, msg_rx) =
+                    tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
 
                 subflow_state.tx_ports.push(Arc::new(SubflowOutputPort {
                     index,
@@ -357,9 +358,10 @@ impl Flow {
                     .expect("The `subflow` node must be existed")
             } else {
                 log::warn!(
-                    "Unknown flow node type: (type='{}', id='{}')",
+                    "Unknown flow node type: (type='{}', id='{}', name='{}')",
                     node_config.type_name,
-                    node_config.id
+                    node_config.id,
+                    node_config.name
                 );
                 reg.get("unknown.flow")
                     .expect("The `unknown.flow` node must be existed")

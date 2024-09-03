@@ -15,12 +15,12 @@ pub use msg::*;
 mod eid;
 mod error;
 pub mod propex;
-mod variant;
 mod settings;
+mod variant;
 
-pub use settings::*;
 pub use eid::*;
 pub use error::*;
+pub use settings::*;
 pub use variant::*;
 
 use super::flow::Flow;

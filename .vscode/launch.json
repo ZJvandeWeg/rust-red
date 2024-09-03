@@ -20,6 +20,9 @@
                 }
             },
             "args": [],
+            "env": {
+                "EDGELINK_HOME": "${workspaceFolder}"
+            },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },

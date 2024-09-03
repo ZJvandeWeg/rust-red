@@ -161,9 +161,10 @@ impl FlowEngine {
                 meta_node
             } else {
                 log::warn!(
-                    "Unknown flow node type: (type='{}', id='{}')",
+                    "Unknown global configuration node type: (type='{}', id='{}', name='{}')",
                     global_config.type_name,
-                    global_config.id
+                    global_config.id,
+                    global_config.name
                 );
                 reg.get("unknown.global").unwrap()
             };

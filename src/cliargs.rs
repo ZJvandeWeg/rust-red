@@ -1,7 +1,7 @@
 // use clap::{Parser, Subcommand};
 use clap::Parser;
 
-const LONG_ABOUT: &'static str = r#"
+const LONG_ABOUT: &str = r#"
 EdgeLink Daemon Program
 
 EdgeLink is a Node-RED compatible run-time engine implemented in Rust.

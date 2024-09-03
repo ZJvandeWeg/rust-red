@@ -1,3 +1,5 @@
 
+[engine]
+
 [flow]
-msg_queue_capacity = 16
+node_msg_queue_capacity = 16

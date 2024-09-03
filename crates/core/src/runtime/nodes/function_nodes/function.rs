@@ -151,7 +151,12 @@ impl FunctionNode {
             }
             js::Type::Array => {
                 // Returns an array of Msgs
-                for (port, ele) in js_result.as_array().unwrap().iter::<js::Value>().enumerate() {
+                for (port, ele) in js_result
+                    .as_array()
+                    .unwrap()
+                    .iter::<js::Value>()
+                    .enumerate()
+                {
                     match ele {
                         Ok(ref ele) => {
                             if let Some(obj) = ele.as_object() {

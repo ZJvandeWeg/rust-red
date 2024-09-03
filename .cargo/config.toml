@@ -64,6 +64,10 @@
 #
 # For more information, see the blog post at <https://blog.rust-lang.org/2023/11/09/parallel-rustc.html>.
 
+[env]
+EDGELINK_HOME = "./"
+EDGELINK_RUN_ENV = "dev"
+
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = [
