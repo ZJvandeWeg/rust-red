@@ -7,11 +7,13 @@ English | [简体中文](README.zh-cn.md)
 
 ## Overview
 
-EdgeLink is a [Node-RED](https://nodered.org/) compatible run-time engine implemented in Rust<sub>†</sub>. By replacing the original NodeJS backend with this Rust-based implementation, you can achieve better performance and a smaller memory footprint.
+EdgeLink is a [Node-RED](https://nodered.org/) compatible run-time engine implemented in Rust<sub>†</sub>.
 
-In summary, you can first test the workflow on a normal desktop PC,
-and subsequently deploy EdgeLink along with the `flows.json` workflow file
-to an edge computing device that is constrained by limited resources for operational execution.
+This program is designed to execute `flows.json` file that have been designed and exported/deployed using Node-RED, without any editor or other HTML/Web-related functionalities. The purpose of its development is to deploy tested Node-RED flows to devices with limited memory for execution.
+
+In other words, I need to use Rust to reimplement all the nodes used in the `flows.json`.
+
+Only the "function" node will use the lightweight QuickJS JS interpreter to run their code; all other functionalities are implemented in native Rust code.
 
 ## Features
 
