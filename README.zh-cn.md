@@ -96,7 +96,7 @@ python -B -m pytest tests
 
 ### 社交网络聊天群：
 
-QQ 群：(198723197)[http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=o3gEbpSHbFB6xjtC1Pm2mu0gZG62JNyr&authKey=D1qG9o0Nm%2FlDM8TQJXjr0aYluQ2TQp52wM9RDbNj83jzOy5OpCbHkwEI96SMMJxd&noverify=0&group_code=198723197]
+* [EdgeLink 开发交流 QQ 群：198723197](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=o3gEbpSHbFB6xjtC1Pm2mu0gZG62JNyr&authKey=D1qG9o0Nm%2FlDM8TQJXjr0aYluQ2TQp52wM9RDbNj83jzOy5OpCbHkwEI96SMMJxd&noverify=0&group_code=198723197)
 
 ### 联系作者
 
