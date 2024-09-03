@@ -20,8 +20,10 @@ async def read_json_from_process(flows_path: str, num_json: int):
     else:
         raise OSError("Unsupported operating system")
 
+    target = os.getenv("EDGELINK_BUILD_TARGET", 'release')
+
     # Construct the full path to the myprog executable
-    myprog_path = os.path.join(script_dir, '..', 'target', 'release', myprog_name)
+    myprog_path = os.path.join(script_dir, '..', 'target', target, myprog_name)
 
     # Start the process
     process = await asyncio.create_subprocess_exec(

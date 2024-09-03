@@ -72,4 +72,6 @@ jobs:
         run: cargo test -r --target ${{ matrix.target }}
 
       - name: Run Python tests
+        env:
+          EDGELINK_BUILD_TARGET: ${{ matrix.target }}
         run: pytest ./tests
