@@ -1,0 +1,3 @@
+
+[flow]
+msg_queue_capacity = 16

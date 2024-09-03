@@ -1,31 +1,21 @@
-// use clap::{Parser, Subcommand};
-use clap::Parser;
+use serde::Deserialize;
 
-#[derive(Parser, Debug, Clone)]
-#[command(version, about, long_about = None)]
-pub struct Settings {
-    /// Path of the 'flows.json' file.
-    #[arg(short, long, default_value_t = default_flows_path())]
-    pub flows_path: String,
-
-    /// Path of the log configuration file.
-    #[arg(short, long)]
-    pub log_path: Option<String>,
-
-    /// Verbose level.
-    #[arg(short, long, default_value_t = 2)]
-    pub verbose: usize,
-
-    /// Read workflow JSON from stdin.
-    #[arg(short, long, default_value_t = false)]
-    pub stdin: bool,
+#[derive(Debug, Clone, Deserialize)]
+pub struct NodeSettings {
+    pub msg_queue_capacity: usize,
 }
 
-fn default_flows_path() -> String {
-    dirs_next::home_dir()
-        .expect("Can not found the $HOME dir!!!")
-        .join(".node-red")
-        .join("flows.json")
-        .to_string_lossy()
-        .to_string()
+#[derive(Debug, Clone, Deserialize)]
+pub enum RunEnv {
+    #[serde(rename = "dev")]
+    Development,
+
+    #[serde(rename = "prod")]
+    Production,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EngineSettings {
+    pub run_env: RunEnv,
+    pub node: NodeSettings,
 }

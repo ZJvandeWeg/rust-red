@@ -4,17 +4,18 @@ use std::sync::Arc;
 
 // 3rd-party libs
 use clap::Parser;
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 // use libloading::Library;
 
 use edgelink_core::runtime::engine::FlowEngine;
-use edgelink_core::runtime::model::Settings;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::Result;
 
+mod cliargs;
 mod consts;
+
+pub use cliargs::*;
 
 /*
 use core::{Plugin, PluginRegistrar};
@@ -54,7 +55,7 @@ fn main() {
 }
 
 */
-pub(crate) fn log_init(elargs: &Settings) {
+pub(crate) fn log_init(elargs: &CliArgs) {
     if let Some(ref log_path) = elargs.log_path {
         log4rs::init_file(log_path, Default::default()).unwrap();
     } else {
@@ -86,41 +87,34 @@ pub(crate) fn log_init(elargs: &Settings) {
     }
 }
 
-struct Runtime {
-    app_config: Arc<Settings>,
+struct App {
     registry: Arc<dyn Registry>,
-    engine: RwLock<Option<Arc<FlowEngine>>>,
+    engine: Arc<FlowEngine>,
 }
 
-impl Runtime {
-    fn default(elargs: Arc<Settings>) -> edgelink_core::Result<Self> {
+impl App {
+    fn default(
+        elargs: Arc<CliArgs>,
+        app_config: Option<&config::Config>,
+    ) -> edgelink_core::Result<Self> {
+        log::info!("Loading node registry...");
         let reg = RegistryBuilder::default().build()?;
-        Ok(Runtime {
-            app_config: elargs.clone(),
+
+        log::info!("Loading flows file: {}", elargs.flows_path);
+        let engine = FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?;
+
+        Ok(App {
             registry: reg,
-            engine: RwLock::new(None),
+            engine,
         })
     }
 
     async fn main_flow_task(self: Arc<Self>, cancel: CancellationToken) -> crate::Result<()> {
-        let mut engine_holder = self.engine.write().await;
-        log::info!("Loading flows file: {}", &self.app_config.flows_path);
-        let engine = match FlowEngine::new_with_flows_file(
-            self.registry.clone(),
-            &self.app_config.flows_path,
-        ) {
-            Ok(eng) => eng,
-            Err(e) => {
-                log::error!("Failed to create engine: {:?}", e);
-                return Err(e);
-            }
-        };
-        *engine_holder = Option::Some(engine.clone());
-        engine.start().await?;
+        self.engine.start().await?;
 
         cancel.cancelled().await;
 
-        engine.stop().await?;
+        self.engine.stop().await?;
         log::info!("The flows engine stopped.");
         Ok(())
     }
@@ -151,33 +145,45 @@ impl Runtime {
     }
 }
 
-async fn run_main_task(
-    elargs: Arc<Settings>,
-    cancel: CancellationToken,
-) -> crate::Result<()> {
-    let rt = Arc::new(Runtime::default(elargs)?);
-    rt.run(cancel.clone()).await
+fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
+    // Load configuration from default, development, and production files
+    let run_env = cli_args
+        .env
+        .clone()
+        .and(std::env::var("EDGELINK_RUN_ENV").ok())
+        .unwrap_or("dev".to_string());
+    let cfg = config::Config::builder()
+        .add_source(config::File::with_name("edgelinkd.toml"))
+        .add_source(config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false))
+        .set_override("run_env", run_env)?
+        .set_override("node.msg_queue_capacity", 1)?
+        .build()?;
+    Ok(Some(cfg))
 }
 
-async fn app_main() -> edgelink_core::Result<()> {
-    let elargs = Arc::new(Settings::parse());
-
-    if elargs.verbose > 0 {
+async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
+    if cli_args.verbose > 0 {
         eprintln!(
-            "EdgeLink V{} - #{}\n",
+            "EdgeLink v{} - #{}\n",
             consts::APP_VERSION,
             consts::GIT_HASH
         );
-
-        eprintln!("Initializing logging subsystem...\n");
+        eprintln!("Loading configuration..");
     }
+    let cfg = load_config(&cli_args)?;
 
-    log_init(&elargs);
+    if cli_args.verbose > 0 {
+        eprintln!("Initializing logging sub-system...\n");
+    }
+    log_init(&cli_args);
+    if cli_args.verbose > 0 {
+        eprintln!("Logging sub-system initialized.\n");
+    }
 
     // let m = Modal {};
     // m.run().await;
     log::info!(
-        "EdgeLink Version: {} - #{}",
+        "EdgeLink Version={}-#{}",
         consts::APP_VERSION,
         consts::GIT_HASH
     );
@@ -196,17 +202,23 @@ async fn app_main() -> edgelink_core::Result<()> {
         ctrl_c_token.cancel();
     });
 
-    let res = run_main_task(elargs.clone(), cancel.child_token()).await;
+    if cli_args.verbose > 0 {
+        eprint!("Starting EdgeLink run-time...\nPress CTRL+C to terminate.\n")
+    }
+
+    let app = Arc::new(App::default(cli_args, cfg.as_ref())?);
+    let app_result = app.run(cancel.child_token()).await;
 
     tokio::time::timeout(tokio::time::Duration::from_secs(10), cancel.cancelled()).await?;
     log::info!("All done!");
 
-    res
+    app_result
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    if let Err(ref err) = app_main().await {
+    let args = Arc::new(CliArgs::parse());
+    if let Err(ref err) = app_main(args).await {
         eprintln!("Application error: {}", err);
         process::exit(-1);
     }

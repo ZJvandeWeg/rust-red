@@ -1,17 +1,24 @@
 [package]
 name = "edgelinkd"
 version = "0.1.0"
-authors = ["Li Wei <oldrev@gmail.com>"]
 edition = "2021"
 rust_version = "1.77.2"
 readme = "README.md"
 homepage = "https://github.com/oldrev/edgelink.rs"
-description = "EdgeLink: A Node-RED compatible runtime engine in Rust"
+description = "EdgeLink is a Node-RED compatible run-time engine in Rust."
 build = "build.rs"
+license = "Apache 2.0"
+authors = [
+    "Li Wei <oldrev@gmail.com>"
+]
 
 [[bin]]
 name = "edgelinkd"
 path = "src/main.rs"
+
+[env]
+EDGELINK_HOME = "./"
+EDGELINK_RUN_ENV = "dev"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
@@ -41,16 +48,21 @@ anyhow = { version = "1.0.86", features = ["backtrace"] }
 log = "0.4.20"
 tokio = "1.40.0"
 tokio-util = "0.7.11"
-clap = "4.5.16"
 semver = "1.0.23"
+config = { version = "0.14.0", default-features = false, features = [
+    "convert-case",
+    "toml",
+] }
 
 [dependencies]
+dirs-next = "2.0.0"
+clap = { version = "4.5.16", features = ["derive"] }
 anyhow.workspace = true
 log.workspace = true
-clap.workspace = true
 libloading = "0.8.5"
 tokio = { workspace = true, features = ["signal"] }
 tokio-util.workspace = true
+config.workspace = true
 log4rs = { version = "1.3.0", features = [
     "console_appender",
     "file_appender",

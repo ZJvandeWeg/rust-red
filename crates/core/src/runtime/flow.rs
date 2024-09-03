@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
@@ -20,6 +21,32 @@ const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
 pub type FlowNodeTask = tokio::task::JoinHandle<()>;
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct FlowArgs {
+    node_msg_queue_capacity: usize,
+}
+
+impl FlowArgs {
+    pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
+        match cfg {
+            Some(cfg) => {
+                let res = cfg.get::<Self>("flow")?;
+                Ok(res)
+            }
+            _ => Ok(FlowArgs::default()),
+        }
+    }
+}
+
+impl Default for FlowArgs {
+    fn default() -> Self {
+        Self {
+            node_msg_queue_capacity: 16,
+        }
+    }
+}
+
+#[derive(Debug)]
 struct SubflowOutputPort {
     index: usize,
     owner: Weak<Flow>,
@@ -27,6 +54,7 @@ struct SubflowOutputPort {
     msg_rx: MsgReceiverHolder,
 }
 
+#[derive(Debug)]
 struct SubflowState {
     instance_node: Option<Arc<dyn FlowNodeBehavior>>,
     in_nodes: Vec<Arc<dyn FlowNodeBehavior>>,
@@ -34,6 +62,7 @@ struct SubflowState {
     tx_ports: Vec<Arc<SubflowOutputPort>>,
 }
 
+#[derive(Debug)]
 pub(crate) struct FlowState {
     pub(crate) groups: HashMap<ElementId, Arc<Group>>,
     pub(crate) nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
@@ -51,11 +80,13 @@ enum FlowKind {
     Subflow,
 }
 
+#[derive(Debug)]
 pub struct Flow {
     pub id: ElementId,
     pub parent: Option<Weak<Self>>,
     pub label: String,
     pub disabled: bool,
+    pub args: FlowArgs,
 
     pub engine: Weak<FlowEngine>,
 
@@ -204,6 +235,7 @@ impl Flow {
         engine: Arc<FlowEngine>,
         flow_config: &RedFlowConfig,
         reg: Arc<dyn Registry>,
+        options: Option<&config::Config>,
     ) -> crate::Result<Arc<Self>> {
         let flow_kind = match flow_config.type_name.as_str() {
             "tab" => FlowKind::GlobalFlow,
@@ -219,6 +251,7 @@ impl Flow {
             engine: Arc::downgrade(&engine),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
+            args: FlowArgs::load(options)?,
             state: std::sync::RwLock::new(FlowState {
                 groups: HashMap::new(),
                 nodes: HashMap::new(),
@@ -252,7 +285,7 @@ impl Flow {
             }
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
-                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
+                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
 
                 subflow_state.tx_ports.push(Arc::new(SubflowOutputPort {
                     index,
@@ -336,7 +369,7 @@ impl Flow {
                 NodeFactory::Flow(factory) => {
                     let mut node_state = self
                         .clone()
-                        .new_flow_node_state(state, node_config)
+                        .new_flow_node_state(meta_node, state, node_config)
                         .map_err(|e| {
                             log::error!(
                                 "Failed to create flow node(id='{}'): {:?}",
@@ -399,7 +432,7 @@ impl Flow {
         state: &mut FlowState,
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<()> {
-        match node.get_node().type_.as_str() {
+        match node.get_node().type_ {
             "complete" => self.register_complete_node(node, state, node_config)?,
             "catch" => {
                 state.catch_nodes.insert(node_config.id, node.clone());
@@ -704,6 +737,7 @@ impl Flow {
 
     fn new_flow_node_state(
         self: Arc<Self>,
+        meta_node: &MetaNode,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<FlowNode> {
@@ -748,7 +782,7 @@ impl Flow {
         Ok(FlowNode {
             id: node_config.id,
             name: node_config.name.clone(),
-            type_: node_config.type_name.clone(),
+            type_: meta_node.type_,
             disabled: node_config.disabled,
             flow: Arc::downgrade(&self),
             msg_tx: tx_root,

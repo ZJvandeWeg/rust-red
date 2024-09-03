@@ -69,7 +69,7 @@ pub struct MetaNode {
 pub struct FlowNode {
     pub id: ElementId,
     pub name: String,
-    pub type_: String,
+    pub type_: &'static str,
     pub disabled: bool,
     pub flow: Weak<Flow>,
     pub msg_tx: MsgSender,
@@ -88,6 +88,7 @@ impl FlowNode {}
 pub trait GlobalNodeBehavior: Any + Send + Sync {
     fn id(&self) -> &ElementId;
     fn name(&self) -> &str;
+    fn type_name(&self) -> &'static str;
 }
 
 #[async_trait]
@@ -102,7 +103,7 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         &self.get_node().name
     }
 
-    fn type_name(&self) -> &str {
+    fn type_name(&self) -> &'static str {
         &self.get_node().type_
     }
 
@@ -204,6 +205,28 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
             self.fan_out_one(e, cancel.child_token()).await?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for dyn GlobalNodeBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "GlobalNode(id='{}', type='{}', name='{}')",
+            self.id(),
+            self.type_name(),
+            self.name(),
+        ))
+    }
+}
+
+impl fmt::Display for dyn GlobalNodeBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "FlowNode(id='{}', type='{}', name='{}')",
+            self.id(),
+            self.type_name(),
+            self.name(),
+        ))
     }
 }
 

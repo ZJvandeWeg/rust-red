@@ -1,8 +1,12 @@
 [package]
 name = "edgelink-core"
 version = "0.1.0"
-authors = ["Li Wei <oldrev@gmail.com>"]
 edition = "2021"
+readme = "README.md"
+authors = [
+    "Li Wei <oldrev@gmail.com>"
+]
+
 
 
 [lib]
@@ -21,6 +25,7 @@ tokio = { workspace = true, features = [
     "io-util",
     "io-std",
 ] }
+config.workspace = true
 async-trait = "0.1.81"
 log.workspace = true
 inventory = "0.3.15"
@@ -38,8 +43,6 @@ rquickjs = { version = "0.6.2", features = ["full-async", "parallel", "macro"] }
 rand = "0.8.5"
 semver.workspace = true
 base64 = "0.22.1"
-dirs-next = "2.0.0"
-clap = { workspace = true, features = ["derive"] }
 smallvec = "1.13.2"
 bytes = { version = "1.7.1", features = ["std", "serde"] }
 

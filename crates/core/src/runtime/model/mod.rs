@@ -12,11 +12,11 @@ use crate::EdgelinkError;
 mod msg;
 
 pub use msg::*;
-mod settings;
 mod eid;
 mod error;
 pub mod propex;
 mod variant;
+mod settings;
 
 pub use settings::*;
 pub use eid::*;

@@ -4,9 +4,11 @@ use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 use crate::{define_builtin_flow_node, define_builtin_global_node};
 
+const UNKNOWN_GLOBAL_NODE_TYPE: &'static str = "unknown.global";
 struct UnknownGlobalNode {
     id: ElementId,
     name: String,
+    type_: &'static str,
 }
 
 impl UnknownGlobalNode {
@@ -17,6 +19,7 @@ impl UnknownGlobalNode {
         let node = UnknownGlobalNode {
             id: _config.id,
             name: _config.name.clone(),
+            type_: UNKNOWN_GLOBAL_NODE_TYPE,
         };
         Ok(Arc::new(node))
     }
@@ -27,8 +30,13 @@ impl GlobalNodeBehavior for UnknownGlobalNode {
     fn id(&self) -> &ElementId {
         &self.id
     }
+
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn type_name(&self) -> &'static str {
+        self.type_
     }
 }
 

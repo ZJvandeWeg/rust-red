@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 use std::sync::Arc;
@@ -14,6 +15,24 @@ use super::model::{ElementId, Msg};
 use super::nodes::FlowNodeBehavior;
 use crate::red::json::{RedFlowConfig, RedGlobalNodeConfig};
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct FlowEngineArgs {
+    //node_msg_queue_capacity: usize,
+}
+
+impl FlowEngineArgs {
+    pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
+        match cfg {
+            Some(cfg) => {
+                let res = cfg.get::<Self>("engine")?;
+                Ok(res)
+            }
+            _ => Ok(FlowEngineArgs::default()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct FlowEngineState {
     flows: HashMap<ElementId, Arc<Flow>>,
     global_nodes: HashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
@@ -25,13 +44,17 @@ pub(crate) struct FlowEngineState {
 
 pub struct FlowEngine {
     pub(crate) state: std::sync::RwLock<FlowEngineState>,
-    pub(crate) stop_token: CancellationToken,
+
+    stop_token: CancellationToken,
+
+    args: FlowEngineArgs,
 }
 
 impl FlowEngine {
     pub fn new_with_json(
         reg: Arc<dyn Registry>,
         json: &serde_json::Value,
+        elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<FlowEngine>> {
         let json_values = crate::red::json::deser::load_flows_json_value(json).map_err(|e| {
             log::error!("Failed to load NodeRED JSON value: {}", e);
@@ -48,9 +71,12 @@ impl FlowEngine {
                 _context: Variant::new_empty_object(),
                 _shutdown: false,
             }),
+            args: FlowEngineArgs::load(elcfg)?,
         });
 
-        engine.clone().load_flows(&json_values.flows, reg.clone())?;
+        engine
+            .clone()
+            .load_flows(&json_values.flows, reg.clone(), elcfg)?;
 
         engine
             .clone()
@@ -62,19 +88,21 @@ impl FlowEngine {
     pub fn new_with_flows_file(
         reg: Arc<dyn Registry>,
         flows_json_path: &str,
+        elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<FlowEngine>> {
         let mut file = std::fs::File::open(flows_json_path)?;
         let mut json_str = String::new();
         file.read_to_string(&mut json_str)?;
-        Self::new_with_json_string(reg, &json_str)
+        Self::new_with_json_string(reg, &json_str, elcfg)
     }
 
     pub fn new_with_json_string(
         reg: Arc<dyn Registry>,
         json_str: &str,
+        elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<FlowEngine>> {
         let json: serde_json::Value = serde_json::from_str(json_str)?;
-        Self::new_with_json(reg, &json)
+        Self::new_with_json(reg, &json, elcfg)
     }
 
     pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
@@ -85,6 +113,7 @@ impl FlowEngine {
         self: Arc<Self>,
         flow_configs: &[RedFlowConfig],
         reg: Arc<dyn Registry>,
+        elcfg: Option<&config::Config>,
     ) -> crate::Result<()> {
         // load flows
         for flow_config in flow_configs.iter() {
@@ -93,7 +122,7 @@ impl FlowEngine {
                 flow_config.id,
                 flow_config.label
             );
-            let flow = Flow::new(self.clone(), flow_config, reg.clone())?;
+            let flow = Flow::new(self.clone(), flow_config, reg.clone(), elcfg)?;
             {
                 let mut state = self.state.write().unwrap();
 

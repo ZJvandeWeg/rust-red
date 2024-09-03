@@ -6,11 +6,13 @@ use super::{
 };
 use crate::red::json::RedGroupConfig;
 
+#[derive(Debug)]
 pub enum GroupParent {
     Flow(Weak<Flow>),
     Group(Weak<Group>),
 }
 
+#[derive(Debug)]
 pub struct Group {
     pub id: ElementId,
     pub name: String,

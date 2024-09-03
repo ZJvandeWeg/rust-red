@@ -266,6 +266,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "config"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7328b20597b53c2454f0b1919720c25c7339051c02b72b7e05409e00b14132be"
+dependencies = [
+ "convert_case",
+ "lazy_static",
+ "nom",
+ "pathdiff",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -368,8 +382,7 @@ dependencies = [
  "bumpalo",
  "bytes",
  "chrono",
- "clap",
- "dirs-next",
+ "config",
  "inventory",
  "log",
  "nom",
@@ -400,6 +413,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "config",
+ "dirs-next",
  "edgelink-core",
  "edgelink_red_sqlite_node",
  "libloading",
@@ -770,6 +785,12 @@ dependencies = [
  "smallvec",
  "windows-targets",
 ]
+
+[[package]]
+name = "pathdiff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "phf"
