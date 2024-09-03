@@ -80,6 +80,9 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run Rust tests
         run: cargo test -r --workspace --target ${{ matrix.target }} --features rqjs_bindgen
 
