@@ -20,7 +20,11 @@ async def read_json_from_process(flows_path: str, num_json: int):
     else:
         raise OSError("Unsupported operating system")
 
-    target = os.getenv("EDGELINK_BUILD_TARGET", 'release')
+    target = os.environ.get('EDGELINK_BUILD_TARGET')
+    if target is None:
+        target = 'release'
+    else:
+        target = os.path.join(target, 'release')
 
     # Construct the full path to the myprog executable
     myprog_path = os.path.join(script_dir, '..', 'target', target, myprog_name)
