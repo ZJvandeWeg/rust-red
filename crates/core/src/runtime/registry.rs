@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::runtime::nodes::MetaNode;
-use inventory;
+use crate::runtime::nodes::*;
 
-use crate::runtime::nodes::BuiltinNodeDescriptor;
+#[linkme::distributed_slice]
+pub static META_NODES: [MetaNode];
 
 pub trait Registry: Send + Sync {
     fn all(&self) -> &HashMap<&'static str, &'static MetaNode>;
@@ -40,9 +40,9 @@ impl RegistryBuilder {
     }
 
     pub fn with_builtins(mut self) -> Self {
-        for bnd in inventory::iter::<BuiltinNodeDescriptor> {
-            log::debug!("Found builtin Node: '{}'", bnd.meta.type_);
-            self.meta_nodes.insert(bnd.meta.type_, &bnd.meta);
+        for meta in META_NODES.iter() {
+            log::debug!("Found builtin Node: '{}'", meta.type_);
+            self.meta_nodes.insert(meta.type_, meta);
         }
         self
     }
@@ -70,5 +70,3 @@ impl Registry for RegistryImpl {
         self.meta_nodes.get(type_name).copied()
     }
 }
-
-inventory::collect!(BuiltinNodeDescriptor);

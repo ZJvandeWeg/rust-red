@@ -10,6 +10,8 @@ use edgelink_core::runtime::engine::FlowEngine;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::*;
 
+include!(concat!(env!("OUT_DIR"), "/__use_node_plugins.rs"));
+
 mod cliargs;
 mod consts;
 
@@ -57,6 +59,8 @@ impl App {
         elargs: Arc<CliArgs>,
         app_config: Option<&config::Config>,
     ) -> edgelink_core::Result<Self> {
+        log::info!("Discovering all nodes...");
+        // edgelink_core::runtime::registry::collect_nodes();
         log::info!("Loading node registry...");
         let reg = RegistryBuilder::default().build()?;
 

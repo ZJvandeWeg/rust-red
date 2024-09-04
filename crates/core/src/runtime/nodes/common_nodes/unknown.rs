@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use crate::runtime::registry::*;
 use edgelink_macro::*;
 
 const UNKNOWN_GLOBAL_NODE_TYPE: &'static str = "unknown.global";
