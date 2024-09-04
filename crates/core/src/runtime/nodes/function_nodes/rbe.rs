@@ -161,31 +161,23 @@ impl RbeNode {
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-        // If the `topic` cannot be retrieved or is an empty string, convert it to `None`.
+        // Retrieve and clean the topic
         let topic = match msg.get_trimmed_nav_property(&self.topic) {
-            Some(Variant::String(topic)) => {
-                if !topic.is_empty() {
-                    Some(topic)
-                } else {
-                    None
-                }
-            }
+            Some(Variant::String(ref topic)) if !topic.is_empty() => Some(topic.as_str()),
             _ => None,
         };
 
-        // reset previous storage
+        // Reset previous storage if necessary
         if msg.get_property("reset").is_some() {
             match (self.sep_topics, topic) {
                 (true, Some(topic_value)) => {
                     state.prev.remove(topic_value);
                 }
-                (_, _) => {
+                _ => {
                     state.prev.clear();
                 }
-            };
+            }
         }
-
-        // TODO: The following code is directly copied from Node-RED JS and needs to be rewritten and optimized.
 
         if let Some(prop_value) = msg.get_trimmed_nav_property(&self.property) {
             let t = match (self.sep_topics, topic) {
@@ -193,82 +185,55 @@ impl RbeNode {
                 _ => "_no_topic",
             };
 
-            //let mut prev_value = state.prev.entry(t.to_string()).or_insert(Variant::Null);
-
             match self.func {
                 RbeFunc::Rbe | RbeFunc::Rbei => {
                     let do_send = self.func != RbeFunc::Rbei || state.prev.contains_key(t);
-                    match prop_value {
-                        Variant::Object(_) => todo!(),
-                        Variant::Null => panic!("DEBUG ME!"),
-                        _ => {
-                            if *prop_value != *state.prev.get(t).unwrap_or(&Variant::Null) {
-                                state.prev.insert(t.to_string(), prop_value.clone());
-                                if do_send {
-                                    return true;
-                                }
-                            }
+                    if let Variant::Null = prop_value {
+                        panic!("DEBUG ME!");
+                    }
+
+                    if *prop_value != *state.prev.get(t).unwrap_or(&Variant::Null) {
+                        state.prev.insert(t.to_string(), prop_value.clone());
+                        if do_send {
+                            return true;
                         }
                     }
                 }
                 _ => {
                     if let Some(n) = prop_value.as_number().filter(|x| !x.is_nan()) {
-                        if let (false, RbeFunc::Narrowband | RbeFunc::NarrowbandEq) =
-                            (state.prev.contains_key(t), &self.func)
-                        {
-                            let value_to_insert = match self.start_value {
-                                None => Variant::Rational(n),
-                                Some(sv) => Variant::Rational(sv),
-                            };
-                            state.prev.insert(t.to_string(), value_to_insert);
+                        let initial_value = self.start_value.unwrap_or(n);
+                        state
+                            .prev
+                            .entry(t.to_string())
+                            .or_insert(Variant::Rational(initial_value));
+
+                        // Process percent
+                        if self.percent {
+                            state.gap = state.prev[t].as_number().unwrap_or(0.0) * self.gap / 100.0;
                         }
 
-                        // process percent
-                        state.gap = if self.percent {
-                            f64::abs(state.prev[t].as_number().unwrap_or(0.0) * self.gap / 100.0)
-                        } else {
-                            state.gap
-                        };
-
-                        if !state.prev.contains_key(t) && self.func == RbeFunc::NarrowbandEq {
-                            state.prev.insert(t.to_string(), Variant::Rational(n));
-                        }
-
-                        if !state.prev.contains_key(t) {
-                            state
-                                .prev
-                                .insert(t.to_string(), Variant::Rational(n - state.gap - 1.0));
-                        }
-
-                        let _gap_delta =
-                            f64::abs(n - state.prev[t].as_number().unwrap_or(f64::NAN));
+                        let gap_delta = f64::abs(n - state.prev[t].as_number().unwrap_or(f64::NAN));
 
                         let do_send = match (&self.func, &self.inout) {
                             (RbeFunc::DeadbandEq | RbeFunc::Narrowband, Inout::Out)
-                                if _gap_delta == state.gap =>
+                                if gap_delta == state.gap =>
                             {
-                                state.prev.insert(t.to_string(), Variant::Rational(n));
                                 true
                             }
-
                             (RbeFunc::DeadBand | RbeFunc::DeadbandEq, Inout::Out)
-                                if _gap_delta > state.gap =>
+                                if gap_delta > state.gap =>
                             {
-                                state.prev.insert(t.to_string(), Variant::Rational(n));
                                 true
                             }
-
                             (RbeFunc::Narrowband | RbeFunc::NarrowbandEq, Inout::Out)
-                                if _gap_delta < state.gap =>
+                                if gap_delta < state.gap =>
                             {
-                                state.prev.insert(t.to_string(), Variant::Rational(n));
                                 true
                             }
-
-                            (_, _) => false,
+                            _ => false,
                         };
 
-                        if self.inout == Inout::In {
+                        if self.inout == Inout::In || do_send {
                             state.prev.insert(t.to_string(), Variant::Rational(n));
                         }
 
@@ -276,13 +241,137 @@ impl RbeNode {
                     } else {
                         log::warn!("rbe.warn.nonumber");
                     }
-
-                    todo!()
                 }
             }
         }
         false
     }
+
+    /*
+        fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
+            // If the `topic` cannot be retrieved or is an empty string, convert it to `None`.
+            let topic = match msg.get_trimmed_nav_property(&self.topic) {
+                Some(Variant::String(topic)) => {
+                    if !topic.is_empty() {
+                        Some(topic)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+
+            // reset previous storage
+            if msg.get_property("reset").is_some() {
+                match (self.sep_topics, topic) {
+                    (true, Some(topic_value)) => {
+                        state.prev.remove(topic_value);
+                    }
+                    (_, _) => {
+                        state.prev.clear();
+                    }
+                };
+            }
+
+            // TODO: The following code is directly copied from Node-RED JS and needs to be rewritten and optimized.
+
+            if let Some(prop_value) = msg.get_trimmed_nav_property(&self.property) {
+                let t = match (self.sep_topics, topic) {
+                    (true, Some(topic)) => topic,
+                    _ => "_no_topic",
+                };
+
+                //let mut prev_value = state.prev.entry(t.to_string()).or_insert(Variant::Null);
+
+                match self.func {
+                    RbeFunc::Rbe | RbeFunc::Rbei => {
+                        let do_send = self.func != RbeFunc::Rbei || state.prev.contains_key(t);
+                        match prop_value {
+                            Variant::Object(_) => todo!(),
+                            Variant::Null => panic!("DEBUG ME!"),
+                            _ => {
+                                if *prop_value != *state.prev.get(t).unwrap_or(&Variant::Null) {
+                                    state.prev.insert(t.to_string(), prop_value.clone());
+                                    if do_send {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        if let Some(n) = prop_value.as_number().filter(|x| !x.is_nan()) {
+                            if let (false, RbeFunc::Narrowband | RbeFunc::NarrowbandEq) =
+                                (state.prev.contains_key(t), &self.func)
+                            {
+                                let value_to_insert = match self.start_value {
+                                    None => Variant::Rational(n),
+                                    Some(sv) => Variant::Rational(sv),
+                                };
+                                state.prev.insert(t.to_string(), value_to_insert);
+                            }
+
+                            // process percent
+                            state.gap = if self.percent {
+                                f64::abs(state.prev[t].as_number().unwrap_or(0.0) * self.gap / 100.0)
+                            } else {
+                                state.gap
+                            };
+
+                            if !state.prev.contains_key(t) && self.func == RbeFunc::NarrowbandEq {
+                                state.prev.insert(t.to_string(), Variant::Rational(n));
+                            }
+
+                            if !state.prev.contains_key(t) {
+                                state
+                                    .prev
+                                    .insert(t.to_string(), Variant::Rational(n - state.gap - 1.0));
+                            }
+
+                            let _gap_delta =
+                                f64::abs(n - state.prev[t].as_number().unwrap_or(f64::NAN));
+
+                            let do_send = match (&self.func, &self.inout) {
+                                (RbeFunc::DeadbandEq | RbeFunc::Narrowband, Inout::Out)
+                                    if _gap_delta == state.gap =>
+                                {
+                                    state.prev.insert(t.to_string(), Variant::Rational(n));
+                                    true
+                                }
+
+                                (RbeFunc::DeadBand | RbeFunc::DeadbandEq, Inout::Out)
+                                    if _gap_delta > state.gap =>
+                                {
+                                    state.prev.insert(t.to_string(), Variant::Rational(n));
+                                    true
+                                }
+
+                                (RbeFunc::Narrowband | RbeFunc::NarrowbandEq, Inout::Out)
+                                    if _gap_delta < state.gap =>
+                                {
+                                    state.prev.insert(t.to_string(), Variant::Rational(n));
+                                    true
+                                }
+
+                                (_, _) => false,
+                            };
+
+                            if self.inout == Inout::In {
+                                state.prev.insert(t.to_string(), Variant::Rational(n));
+                            }
+
+                            return do_send;
+                        } else {
+                            log::warn!("rbe.warn.nonumber");
+                        }
+
+                        todo!()
+                    }
+                }
+            }
+            false
+        }
+    */
 }
 
 #[async_trait]

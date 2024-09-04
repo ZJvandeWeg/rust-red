@@ -34,12 +34,12 @@ pub struct CliArgs {
     #[arg(short, long)]
     pub log_path: Option<String>,
 
-    /// Verbose level.
+    /// Use verbose output, '0' means quiet, no output printed to stdout.
     #[arg(short, long, default_value_t = 2)]
     pub verbose: usize,
 
-    /// Read workflow JSON from stdin.
-    #[arg(short, long, default_value_t = false)]
+    /// Read flows JSON from stdin.
+    #[arg(long, default_value_t = false)]
     pub stdin: bool,
 
     /// Set the running environment in 'dev' or 'prod', default is `dev`

@@ -25,8 +25,8 @@ config.workspace = true
 async-trait.workspace = true
 log.workspace = true
 linkme.workspace = true
-serde = { version = "1.0.209", features = ["derive"] }
-serde_json = "1.0.127"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 thiserror = "1.0.63"
 tokio-util.workspace = true
 nom = "7.1.3"

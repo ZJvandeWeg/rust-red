@@ -1,4 +1,5 @@
 // use std::env;
+use std::io::{self, Read};
 use std::process;
 use std::sync::Arc;
 
@@ -65,7 +66,15 @@ impl App {
         let reg = RegistryBuilder::default().build()?;
 
         log::info!("Loading flows file: {}", elargs.flows_path);
-        let engine = FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?;
+        let engine = if elargs.stdin {
+            let mut buffer = Vec::new();
+            io::stdin().read_to_end(&mut buffer)?;
+            let json_str = String::from_utf8_lossy(&buffer);
+            let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
+            FlowEngine::new_with_json(reg.clone(), &json_value, app_config)?
+        } else {
+            FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?
+        };
 
         Ok(App {
             _registry: reg,

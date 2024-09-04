@@ -31,7 +31,7 @@ async def test_inject_basic_str():
 @pytest.mark.asyncio
 async def test_inject_basic_bool():
     flows_path = os.path.join(SCRIPT_DIR, 'basic_bool.json')
-    msgs = await run_edgelink(flows_path, 2)
+    msgs = await run_edgelink(flows_path, 1)
     assert_msg_topic_payload(msgs[0], True)
 
 
@@ -39,12 +39,12 @@ async def test_inject_basic_bool():
 async def test_inject_basic_json():
     flows_path = os.path.join(SCRIPT_DIR, 'basic_json.json')
     expected = json.loads('{ "x":"vx", "y":"vy", "z":"vz" }')
-    msgs = await run_edgelink(flows_path, )
+    msgs = await run_edgelink(flows_path, 1)
     assert_msg_topic_payload(msgs[0], expected)
 
 @pytest.mark.asyncio
 async def test_inject_basic_bin():
     flows_path = os.path.join(SCRIPT_DIR, 'basic_bin.json')
     expected = json.loads('[1,2,3,4,5]')
-    msgs = await run_edgelink(flows_path, )
+    msgs = await run_edgelink(flows_path, 1)
     assert_msg_topic_payload(msgs[0], expected)
