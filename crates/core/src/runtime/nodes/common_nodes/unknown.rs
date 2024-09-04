@@ -5,7 +5,7 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
-const UNKNOWN_GLOBAL_NODE_TYPE: &'static str = "unknown.global";
+const UNKNOWN_GLOBAL_NODE_TYPE: &str = "unknown.global";
 
 #[derive(Debug)]
 #[global_node("unknown.global")]

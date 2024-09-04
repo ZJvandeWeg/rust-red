@@ -135,7 +135,7 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
 
     if let Some(md) = edgelink_home_dir
         .as_ref()
-        .and_then(|x| std::fs::metadata(&x).ok())
+        .and_then(|x| std::fs::metadata(x).ok())
     {
         if md.is_dir() {
             let cfg = config::Config::builder()
