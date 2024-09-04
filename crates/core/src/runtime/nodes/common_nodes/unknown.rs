@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::define_builtin_global_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 use edgelink_macro::*;
@@ -8,6 +7,7 @@ use edgelink_macro::*;
 const UNKNOWN_GLOBAL_NODE_TYPE: &'static str = "unknown.global";
 
 #[derive(Debug)]
+#[global_node("unknown.global")]
 struct UnknownGlobalNode {
     id: ElementId,
     name: String,
@@ -42,8 +42,6 @@ impl GlobalNodeBehavior for UnknownGlobalNode {
         self.type_
     }
 }
-
-define_builtin_global_node!("unknown.global", UnknownGlobalNode::create);
 
 #[flow_node("unknown.flow")]
 struct UnknownFlowNode {

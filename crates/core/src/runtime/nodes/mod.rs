@@ -286,21 +286,6 @@ where
     }
 }
 
-#[macro_export]
-macro_rules! define_builtin_global_node {
-    ($type_:literal, $factory:expr) => {
-        inventory::submit! {
-            BuiltinNodeDescriptor {
-                meta: MetaNode {
-                    kind: NodeKind::Global,
-                    type_: $type_,
-                    factory: NodeFactory::Global($factory),
-                },
-            }
-        }
-    };
-}
-
 pub struct BuiltinNodeDescriptor {
     pub meta: MetaNode,
 }
