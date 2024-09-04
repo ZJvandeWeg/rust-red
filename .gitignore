@@ -1,5 +1,5 @@
 /target
 /vendor
-/.cargo
 /log
 __pycache__
+/.pytest_cache
