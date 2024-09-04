@@ -425,7 +425,6 @@ dependencies = [
  "dirs-next",
  "edgelink-core",
  "edgelink-dummy-node",
- "libloading",
  "log",
  "log4rs",
  "semver",

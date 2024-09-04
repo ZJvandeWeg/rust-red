@@ -49,7 +49,6 @@ dirs-next = "2.0.0"
 clap = { version = "4.5.16", features = ["derive"] }
 anyhow.workspace = true
 log.workspace = true
-libloading = "0.8.5"
 tokio = { workspace = true, features = ["signal"] }
 tokio-util.workspace = true
 config.workspace = true
