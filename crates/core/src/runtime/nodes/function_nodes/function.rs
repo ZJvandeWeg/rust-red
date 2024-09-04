@@ -4,11 +4,11 @@ use serde::Deserialize;
 use smallvec::SmallVec;
 use std::sync::Arc;
 
-use crate::define_builtin_flow_node;
 // use crate::red::js::*;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
@@ -24,6 +24,8 @@ struct FunctionNodeConfig {
     outputs: usize,
 }
 
+#[derive(Debug)]
+#[flow_node("function")]
 struct FunctionNode {
     base: FlowNode,
     config: FunctionNodeConfig,
@@ -259,5 +261,3 @@ function __el_user_func(context, msg) {{
         .await
     }
 }
-
-define_builtin_flow_node!("function", FunctionNode::create);

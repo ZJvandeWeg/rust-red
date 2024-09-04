@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum LinkOutMode {
@@ -24,6 +24,7 @@ struct LinkOutNodeConfig {
 }
 
 #[derive(Debug)]
+#[flow_node("link out")]
 struct LinkOutNode {
     base: FlowNode,
     mode: LinkOutMode,
@@ -138,5 +139,3 @@ impl FlowNodeBehavior for LinkOutNode {
         }
     }
 }
-
-define_builtin_flow_node!("link out", LinkOutNode::create);

@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
+#[flow_node("junction")]
 struct JunctionNode {
     base: FlowNode,
 }
@@ -41,5 +42,3 @@ impl FlowNodeBehavior for JunctionNode {
         }
     }
 }
-
-define_builtin_flow_node!("junction", JunctionNode::create);

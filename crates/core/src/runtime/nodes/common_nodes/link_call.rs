@@ -7,10 +7,10 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
-use crate::define_builtin_flow_node;
 use crate::red::json::deser::parse_red_id_str;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum LinkType {
@@ -54,6 +54,7 @@ struct LinkCallMutState {
 }
 
 #[derive(Debug)]
+#[flow_node("link call")]
 struct LinkCallNode {
     base: FlowNode,
     config: LinkCallNodeConfig,
@@ -313,5 +314,3 @@ impl FlowNodeBehavior for LinkCallNode {
         }
     }
 }
-
-define_builtin_flow_node!("link call", LinkCallNode::create);

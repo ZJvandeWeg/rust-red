@@ -2,10 +2,10 @@ use serde;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::define_builtin_flow_node;
 use crate::red::json::RedFlowNodeConfig;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Deserialize, Debug)]
 struct DebugNodeConfig {
@@ -21,6 +21,7 @@ struct DebugNodeConfig {
 }
 
 #[derive(Debug)]
+#[flow_node("debug")]
 struct DebugNode {
     base: FlowNode,
     config: DebugNodeConfig,
@@ -73,5 +74,3 @@ impl FlowNodeBehavior for DebugNode {
         }
     }
 }
-
-define_builtin_flow_node!("debug", DebugNode::create);

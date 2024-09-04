@@ -252,7 +252,7 @@ impl fmt::Display for dyn FlowNodeBehavior {
     }
 }
 
-async fn with_uow<'a, B, F, T>(node: &'a B, cancel: CancellationToken, proc: F)
+pub async fn with_uow<'a, B, F, T>(node: &'a B, cancel: CancellationToken, proc: F)
 where
     B: FlowNodeBehavior,
     F: FnOnce(&'a B, Arc<RwLock<Msg>>) -> T,
@@ -287,21 +287,6 @@ where
 }
 
 #[macro_export]
-macro_rules! define_builtin_flow_node {
-    ($type_:literal, $factory:expr) => {
-        inventory::submit! {
-            BuiltinNodeDescriptor {
-                meta: MetaNode {
-                    kind: NodeKind::Flow,
-                    type_: $type_,
-                    factory: NodeFactory::Flow($factory),
-                },
-            }
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! define_builtin_global_node {
     ($type_:literal, $factory:expr) => {
         inventory::submit! {
@@ -316,10 +301,8 @@ macro_rules! define_builtin_global_node {
     };
 }
 
-pub(crate) struct BuiltinNodeDescriptor {
-    pub(crate) meta: MetaNode,
+pub struct BuiltinNodeDescriptor {
+    pub meta: MetaNode,
 }
 
 impl BuiltinNodeDescriptor {}
-
-inventory::collect!(BuiltinNodeDescriptor);

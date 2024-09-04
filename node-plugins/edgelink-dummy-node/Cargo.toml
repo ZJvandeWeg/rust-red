@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+inventory.workspace = true
+async-trait.workspace = true
+tokio-util.workspace = true
+log.workspace = true
 edgelink-core = { path = "../../crates/core" }
+edgelink-macro = { path = "../../crates/macro" }

@@ -34,6 +34,8 @@ strip = true      # Automatically strip symbols from the binary.
 opt-level = 1 # Enables thin local LTO and some optimizations.
 
 [workspace.dependencies]
+async-trait = "0.1.81"
+inventory = "0.3.15"
 anyhow = { version = "1.0.86", features = ["backtrace"] }
 log = "0.4.20"
 tokio = "1.40.0"

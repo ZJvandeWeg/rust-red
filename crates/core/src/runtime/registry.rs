@@ -70,3 +70,5 @@ impl Registry for RegistryImpl {
         self.meta_nodes.get(type_name).copied()
     }
 }
+
+inventory::collect!(BuiltinNodeDescriptor);

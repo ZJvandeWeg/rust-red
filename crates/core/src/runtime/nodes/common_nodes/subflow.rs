@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use crate::define_builtin_flow_node;
 use crate::red::json::helpers;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
+#[derive(Debug)]
+#[flow_node("subflow")]
 struct SubflowNode {
     base: FlowNode,
     subflow_id: ElementId,
@@ -62,5 +64,3 @@ impl FlowNodeBehavior for SubflowNode {
         }
     }
 }
-
-define_builtin_flow_node!("subflow", SubflowNode::create);

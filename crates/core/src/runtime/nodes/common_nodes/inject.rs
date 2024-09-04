@@ -6,12 +6,12 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
-use crate::define_builtin_flow_node;
 use crate::red::eval;
 use crate::red::json::*;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(serde::Deserialize, Debug)]
 struct InjectNodeConfig {
@@ -35,6 +35,7 @@ struct InjectNodeConfig {
 }
 
 #[derive(Debug)]
+#[flow_node("inject")]
 struct InjectNode {
     base: FlowNode,
     config: InjectNodeConfig,
@@ -264,5 +265,3 @@ fn handle_legacy_json(orig: &Value) -> Value {
     }
     n
 }
-
-define_builtin_flow_node!("inject", InjectNode::create);

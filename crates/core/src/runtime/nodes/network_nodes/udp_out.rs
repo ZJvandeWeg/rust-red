@@ -5,9 +5,9 @@ use tokio::net::UdpSocket;
 use base64::prelude::*;
 use serde::Deserialize;
 
-use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Debug)]
 enum UdpMulticast {
@@ -44,6 +44,7 @@ enum UdpIpV {
 }
 
 #[derive(Debug)]
+#[flow_node("udp out")]
 struct UdpOutNode {
     base: FlowNode,
     config: UdpOutNodeConfig,
@@ -154,5 +155,3 @@ impl FlowNodeBehavior for UdpOutNode {
         }
     }
 }
-
-define_builtin_flow_node!("udp out", UdpOutNode::create);

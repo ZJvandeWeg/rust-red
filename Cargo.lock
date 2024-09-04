@@ -446,6 +446,7 @@ dependencies = [
  "bytes",
  "chrono",
  "config",
+ "edgelink-macro",
  "inventory",
  "log",
  "nom",
@@ -467,7 +468,21 @@ dependencies = [
 name = "edgelink-dummy-node"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "edgelink-core",
+ "edgelink-macro",
+ "inventory",
+ "log",
+ "tokio-util",
+]
+
+[[package]]
+name = "edgelink-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.86",
+ "quote 1.0.37",
+ "syn 1.0.109",
 ]
 
 [[package]]

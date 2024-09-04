@@ -1,10 +1,12 @@
 use std::sync::Arc;
 use tokio::io::{self, AsyncWriteExt};
 
-use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
+#[derive(Debug)]
+#[flow_node("console-json")]
 struct ConsoleJsonNode {
     base: FlowNode,
 }
@@ -45,5 +47,3 @@ impl FlowNodeBehavior for ConsoleJsonNode {
         }
     }
 }
-
-define_builtin_flow_node!("console-json", ConsoleJsonNode::create);

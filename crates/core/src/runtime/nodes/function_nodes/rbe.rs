@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::define_builtin_flow_node;
 use crate::runtime::flow::Flow;
-use crate::runtime::model::{Msg, Variant};
+use crate::runtime::model::*;
 use crate::runtime::nodes::*;
+use edgelink_macro::*;
 
 #[derive(Debug, PartialEq, PartialOrd, Eq)]
 enum RbeFunc {
@@ -52,11 +52,14 @@ impl FromStr for Inout {
     }
 }
 
+#[derive(Debug)]
 struct RbeNodeState {
     gap: f64,
     prev: HashMap<String, Variant>,
 }
 
+#[derive(Debug)]
+#[flow_node("rbe")]
 struct RbeNode {
     base: FlowNode,
     func: RbeFunc,
@@ -317,5 +320,3 @@ impl FlowNodeBehavior for RbeNode {
         log::debug!("DebugNode process() task has been terminated.");
     }
 }
-
-define_builtin_flow_node!("rbe", RbeNode::create);
