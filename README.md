@@ -91,7 +91,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 - [ ] RED.util (WIP)
     - [x] `RED.util.cloneMessage()`
     - [x] `RED.util.generateId()`
-- [ ] Plug-in subsystem (WIP)
+- [x] Plug-in subsystem (Only static-linked plug-in only currently)
 
 ### The Current Status of Nodes:
 

@@ -114,22 +114,27 @@ async def run_edgelink(flows_path: str, nexpected: int) -> list[dict]:
         raise e
 
 
-async def run_with_single_node_ntimes(payload_type: str, payload: any, node_json: object, nexpected: int, once: bool = False, topic: str = 'topic1'):
+async def run_with_single_node_ntimes(payload_type: str | None, payload, node_json: object,
+                                      nexpected: int, once: bool = False, topic: str | None = None):
     inject = {
         "id": "1",
         "type": "inject",
         "z": "0",
         "name": "",
-        "props": [{"p": "payload"}, {"p": "topic", "vt": "str"}],
+        "props": [], # [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": once and '' or '0',
         "crontab": "",
         "once": once,
         "onceDelay": 0,
         "topic": topic,
-        "payload": str(payload),
-        "payloadType": payload_type,
         "wires": [["2"]]
     }
+    if payload != None:
+        inject['props'].append({'p': 'payload'})
+        inject["payload"] = str(payload)
+        inject["payloadType"] = payload_type
+    if topic != None:
+        inject['props'].append({'p': 'topic', 'vt': 'str'})
     user_node = copy.deepcopy(node_json)
     user_node["id"] = "2"
     user_node["z"] = "0"

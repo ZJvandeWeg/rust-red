@@ -78,10 +78,11 @@ impl RangeNode {
         Ok(Arc::new(node))
     }
 
-    fn do_range(&self, msg: &mut Msg) {
+    fn do_range(&self, msg: &mut Msg) -> bool {
         if let Some(value) = msg.get_trimmed_nav_property_mut(&self.config.property) {
             let mut n: f64 = match value {
                 Variant::Rational(num_value) => *num_value,
+                Variant::Integer(num_value) => *num_value as f64,
                 Variant::String(s) => s.parse::<f64>().unwrap(),
                 _ => f64::NAN,
             };
@@ -90,7 +91,7 @@ impl RangeNode {
                 match self.config.action {
                     RangeAction::Drop => {
                         if n < self.config.minin || n > self.config.maxin {
-                            return;
+                            return false;
                         }
                     }
 
@@ -114,7 +115,13 @@ impl RangeNode {
                 }
 
                 *value = Variant::Rational(new_value);
+                return true;
+            } else {
+                log::info!("The value is not a numner: {:?}", value); //FIXME TODO
+                return false;
             }
+        } else {
+            return true;
         }
     }
 }
@@ -146,12 +153,14 @@ impl FlowNodeBehavior for RangeNode {
                 self.as_ref(),
                 cancel.child_token(),
                 |node, msg| async move {
-                    {
+                    let do_send = {
                         let mut msg_guard = msg.write().await;
-                        node.do_range(&mut msg_guard);
+                        node.do_range(&mut msg_guard)
+                    };
+                    if do_send {
+                        node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
+                            .await?;
                     }
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
-                        .await?;
                     Ok(())
                 },
             )

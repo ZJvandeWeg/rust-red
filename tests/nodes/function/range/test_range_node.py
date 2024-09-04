@@ -72,3 +72,29 @@ async def test_0008():
 async def test_0009():
     '''clamps numbers within a range - below min'''
     await _generic_range_test("clamp", 0, 10, 0, 1000, False, -1, 0)
+
+
+@ pytest.mark.asyncio
+async def test_0010():
+    '''drops msg if in drop mode and input outside range'''
+    node = {
+        "id": "rangeNode1", "type": "range", "minin": 2, "maxin": 8, "minout": 20, "maxout": 80,
+        "action": "drop", "round": True, "name": "rangeNode"
+    }
+    # msgs = await run_with_single_node_ntimes('num', 1, node, 1, once=True)
+    # msgs = await run_with_single_node_ntimes('num', 9, node, 1, once=True)
+    msgs = await run_with_single_node_ntimes('num', 5, node, 1, once=True)
+    assert msgs[0]['payload'] == 50
+
+
+@ pytest.mark.asyncio
+async def test_0011():
+    '''just passes on msg if payload not present'''
+    node = {
+        "id": "rangeNode1", "type": "range", "minin": 0, "maxin": 100, "minout": 0, "maxout": 100,
+        "action": "scale", "round": True, "name": "rangeNode"
+    }
+    msgs = await run_with_single_node_ntimes(None, None, node, 1, once=True, topic='pass on')
+    assert 'payload' not in msgs[0]
+
+# TODO: 'reports if input is not a number'
