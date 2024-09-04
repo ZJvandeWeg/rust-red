@@ -14,20 +14,15 @@ async def read_json_from_process(flows_path: str, num_json: int):
     if platform.system() == 'Windows':
         createion_flags = subprocess.CREATE_NEW_PROCESS_GROUP
         myprog_name = 'edgelinkd.exe'
-    elif platform.system() == 'Linux':
-        myprog_name = 'edgelinkd'
+    else:
         createion_flags = 0
-    else:
-        raise OSError("Unsupported operating system")
+        myprog_name = 'edgelinkd'
 
-    target = os.environ.get('EDGELINK_BUILD_TARGET')
-    if target is None:
-        target = 'release'
-    else:
-        target = os.path.join(target, 'release')
+    target = os.getenv('EDGELINK_BUILD_TARGET', '')
+    profile = os.getenv('EDGELINK_BUILD_PROFILE', 'release')
 
     # Construct the full path to the myprog executable
-    myprog_path = os.path.join(script_dir, '..', 'target', target, myprog_name)
+    myprog_path = os.path.join(script_dir, '..', 'target', target, profile, myprog_name)
 
     # Start the process
     process = await asyncio.create_subprocess_exec(

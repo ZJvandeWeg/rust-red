@@ -31,7 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install Python dependencies
@@ -68,12 +68,13 @@ jobs:
         run: cargo fmt --check --all
 
       - name: Build
-        run: cargo build -r --workspace --target ${{ matrix.target }} --features rqjs_bindgen
+        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features rqjs_bindgen
 
       - name: Run Rust tests
-        run: cargo test -r --workspace --target ${{ matrix.target }} --features rqjs_bindgen
+        run: cargo test --profile ci --workspace --target ${{ matrix.target }} --features rqjs_bindgen
 
       - name: Run Python tests
         env:
           EDGELINK_BUILD_TARGET: ${{ matrix.target }}
+          EDGELINK_BUILD_PROFILE: ci
         run: pytest ./tests
