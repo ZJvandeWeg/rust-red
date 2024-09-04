@@ -82,6 +82,7 @@ async def read_json_from_process(process, nexpected: int):
 async def run_edgelink_with_json_object(jobj: object, nexpected: int) -> list[dict]:
     json_text = json.dumps(jobj, ensure_ascii=False)
     json_bytes = json_text.encode('utf-8')
+    print("INPUT_JSON:\n", json_text)
     el_args = ['-v', '0', '--stdin']
     msgs = []
     process = await start_edgelink_process(el_args)

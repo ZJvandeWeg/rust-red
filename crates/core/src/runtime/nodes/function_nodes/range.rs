@@ -1,3 +1,4 @@
+use core::f64;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -6,90 +7,79 @@ use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+enum RangeAction {
+    #[serde(rename = "scale")]
+    Scale,
+
+    #[serde(rename = "drop")]
+    Drop,
+
+    #[serde(rename = "clamp")]
+    Clamp,
+
+    #[serde(rename = "roll")]
+    Roll,
+}
+
+impl Default for RangeAction {
+    fn default() -> Self {
+        RangeAction::Scale
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct RangeNodeConfig {
+    action: RangeAction,
+
+    #[serde(default)]
+    round: bool,
+
+    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    minin: f64,
+
+    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    maxin: f64,
+
+    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    minout: f64,
+
+    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    maxout: f64,
+
+    #[serde(default = "default_config_property")]
+    property: String,
+}
+
+fn default_config_property() -> String {
+    "payload".to_string()
+}
 
 #[derive(Debug)]
 #[flow_node("range")]
 struct RangeNode {
     base: FlowNode,
-
-    action: RangeAction,
-    round: bool,
-    minin: f64,
-    maxin: f64,
-    minout: f64,
-    maxout: f64,
-    property: String,
+    config: RangeNodeConfig,
 }
 
 impl RangeNode {
     fn create(
         _flow: &Flow,
         base_node: FlowNode,
-        _config: &RedFlowNodeConfig,
+        config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+        let range_config = RangeNodeConfig::deserialize(&config.json)?;
         let node = RangeNode {
             base: base_node,
-            action: _config
-                .json
-                .get("action")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| RangeAction::from_str(value).ok())
-                .ok_or(EdgelinkError::NotSupported(
-                    "Bad range node action".to_string(),
-                ))?,
-
-            round: _config
-                .json
-                .get("round")
-                .and_then(|jv| jv.as_bool())
-                .unwrap_or(false),
-
-            minin: _config
-                .json
-                .get("minin")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| value.parse::<f64>().ok())
-                .unwrap_or(0.0),
-
-            maxin: _config
-                .json
-                .get("maxin")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| value.parse::<f64>().ok())
-                .unwrap_or(0.0),
-
-            minout: _config
-                .json
-                .get("minout")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| value.parse::<f64>().ok())
-                .unwrap_or(0.0),
-
-            maxout: _config
-                .json
-                .get("maxout")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| value.parse::<f64>().ok())
-                .unwrap_or(0.0),
-
-            property: _config
-                .json
-                .get("property")
-                .and_then(|jv| jv.as_str())
-                .and_then(|v| {
-                    if v.is_empty() {
-                        None
-                    } else {
-                        Some(v.to_string())
-                    }
-                })
-                .unwrap_or("payload".to_string()),
+            config: range_config,
         };
         Ok(Arc::new(node))
     }
 
     fn do_range(&self, msg: &mut Msg) {
-        if let Some(value) = msg.get_trimmed_nav_property_mut(&self.property) {
+        if let Some(value) = msg.get_trimmed_nav_property_mut(&self.config.property) {
             let mut n: f64 = match value {
                 Variant::Rational(num_value) => *num_value,
                 Variant::String(s) => s.parse::<f64>().unwrap(),
@@ -97,27 +87,29 @@ impl RangeNode {
             };
 
             if !n.is_nan() {
-                match self.action {
+                match self.config.action {
                     RangeAction::Drop => {
-                        if n < self.minin || n > self.maxin {
+                        if n < self.config.minin || n > self.config.maxin {
                             return;
                         }
                     }
 
-                    RangeAction::Clamp => n = n.clamp(self.minin, self.maxin),
+                    RangeAction::Clamp => n = n.clamp(self.config.minin, self.config.maxin),
 
                     RangeAction::Roll => {
-                        let divisor = self.maxin - self.minin;
-                        n = ((n - self.minin) % divisor + divisor) % divisor + self.minin;
+                        let divisor = self.config.maxin - self.config.minin;
+                        n = ((n - self.config.minin) % divisor + divisor) % divisor
+                            + self.config.minin;
                     }
 
                     _ => {}
                 };
 
-                let mut new_value = ((n - self.minin) / (self.maxin - self.minin)
-                    * (self.maxout - self.minout))
-                    + self.minout;
-                if self.round {
+                let mut new_value = ((n - self.config.minin)
+                    / (self.config.maxin - self.config.minin)
+                    * (self.config.maxout - self.config.minout))
+                    + self.config.minout;
+                if self.config.round {
                     new_value = new_value.round();
                 }
 
@@ -125,14 +117,6 @@ impl RangeNode {
             }
         }
     }
-}
-
-#[derive(Debug)]
-enum RangeAction {
-    Scale,
-    Drop,
-    Clamp,
-    Roll,
 }
 
 impl FromStr for RangeAction {

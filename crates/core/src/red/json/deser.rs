@@ -1,3 +1,4 @@
+use core::f64;
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
@@ -600,6 +601,62 @@ where
         }
         None => Ok(None),
     }
+}
+
+pub fn deser_f64_or_string_nan<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct F64Visitor;
+
+    impl<'de> de::Visitor<'de> for F64Visitor {
+        type Value = f64;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a float, a string containing a float, or an empty string")
+        }
+
+        fn visit_f64<E>(self, value: f64) -> Result<f64, E>
+        where
+            E: de::Error,
+        {
+            Ok(value)
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<f64, E>
+        where
+            E: de::Error,
+        {
+            if value.trim().is_empty() {
+                Ok(f64::NAN)
+            } else {
+                value.parse::<f64>().map_err(de::Error::custom)
+            }
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<f64, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&value)
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<f64, E>
+        where
+            E: de::Error,
+        {
+            Ok(value as f64)
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<f64, E>
+        where
+            E: de::Error,
+        {
+            Ok(value as f64)
+        }
+    }
+
+    deserializer.deserialize_any(F64Visitor)
 }
 
 pub fn str_to_option_u16<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
