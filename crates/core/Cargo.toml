@@ -7,7 +7,6 @@ authors = ["Li Wei <oldrev@gmail.com>"]
 
 [lib]
 name = "edgelink_core"
-crate-type = ["rlib"]
 
 [dependencies]
 anyhow.workspace = true
