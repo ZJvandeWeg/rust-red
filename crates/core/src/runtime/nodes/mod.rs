@@ -285,9 +285,3 @@ where
         }
     }
 }
-
-pub struct BuiltinNodeDescriptor {
-    pub meta: MetaNode,
-}
-
-impl BuiltinNodeDescriptor {}
