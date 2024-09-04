@@ -416,7 +416,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "edgelink_core"
+name = "edgelink-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "config",
+ "dirs-next",
+ "edgelink-core",
+ "edgelink-dummy-node",
+ "libloading",
+ "log",
+ "log4rs",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_json_path",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "edgelink-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -444,31 +465,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "edgelink_red_sqlite_node"
+name = "edgelink-dummy-node"
 version = "0.1.0"
 dependencies = [
- "edgelink_core",
-]
-
-[[package]]
-name = "edgelinkd"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "config",
- "dirs-next",
- "edgelink_core",
- "edgelink_red_sqlite_node",
- "libloading",
- "log",
- "log4rs",
- "semver",
- "serde",
- "serde_json",
- "serde_json_path",
- "tokio",
- "tokio-util",
+ "edgelink-core",
 ]
 
 [[package]]
@@ -914,13 +914,6 @@ name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bda66fc9667c18cb2758a2ac84d1167245054bcf85d5d1aaa6923f45801bdd02"
-
-[[package]]
-name = "plugin_b"
-version = "0.1.0"
-dependencies = [
- "edgelink_core",
-]
 
 [[package]]
 name = "ppv-lite86"

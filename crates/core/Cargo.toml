@@ -1,5 +1,5 @@
 [package]
-name = "edgelink_core"
+name = "edgelink-core"
 version = "0.1.0"
 edition = "2021"
 readme = "README.md"
@@ -7,10 +7,9 @@ authors = [
     "Li Wei <oldrev@gmail.com>"
 ]
 
-
-
 [lib]
-crate-type = ["dylib", "rlib"]
+name = "edgelink_core"
+crate-type = ["rlib"]
 
 [dependencies]
 anyhow.workspace = true

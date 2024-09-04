@@ -1,3 +1,6 @@
 [env]
 EDGELINK_HOME = "./"
 EDGELINK_RUN_ENV = "dev"
+
+[build]
+#rustflags='-C prefer-dynamic'
