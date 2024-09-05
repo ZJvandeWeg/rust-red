@@ -81,9 +81,12 @@ async def test_0010():
         "id": "rangeNode1", "type": "range", "minin": 2, "maxin": 8, "minout": 20, "maxout": 80,
         "action": "drop", "round": True, "name": "rangeNode"
     }
-    # msgs = await run_with_single_node_ntimes('num', 1, node, 1, once=True)
-    # msgs = await run_with_single_node_ntimes('num', 9, node, 1, once=True)
-    msgs = await run_with_single_node_ntimes('num', 5, node, 1, once=True)
+    injections = [
+        {'payload': 1.0},
+        {'payload': 9.0},
+        {'payload': 5.0},
+    ]
+    msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)
     assert msgs[0]['payload'] == 50
 
 
@@ -94,7 +97,8 @@ async def test_0011():
         "id": "rangeNode1", "type": "range", "minin": 0, "maxin": 100, "minout": 0, "maxout": 100,
         "action": "scale", "round": True, "name": "rangeNode"
     }
-    msgs = await run_with_single_node_ntimes(None, None, node, 1, once=True, topic='pass on')
+    injections = [ {} ]
+    msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)
     assert 'payload' not in msgs[0]
 
 # TODO: 'reports if input is not a number'

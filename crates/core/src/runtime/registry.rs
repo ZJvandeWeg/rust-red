@@ -70,3 +70,11 @@ impl Registry for RegistryImpl {
         self.meta_nodes.get(type_name).copied()
     }
 }
+
+impl std::fmt::Debug for dyn Registry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Registry")
+            .field("meta_nodes", self.all())
+            .finish()
+    }
+}

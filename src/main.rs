@@ -1,14 +1,21 @@
 // use std::env;
 use std::io::{self, Read};
 use std::process;
+use std::str::FromStr;
 use std::sync::Arc;
 
 // 3rd-party libs
 use clap::Parser;
+use red::json::deser::parse_red_id_value;
+use runtime::model::ElementId;
+use serde::Deserialize;
+use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
 use edgelink_core::runtime::engine::FlowEngine;
+use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
+use edgelink_core::utils::json_seq;
 use edgelink_core::*;
 
 include!(concat!(env!("OUT_DIR"), "/__use_node_plugins.rs"));
@@ -50,13 +57,23 @@ pub(crate) fn log_init(elargs: &CliArgs) {
     }
 }
 
+// TODO move to debug.rs
+#[derive(Debug, Clone)]
+pub struct MsgInjectionEntry {
+    pub nid: ElementId,
+
+    pub msg: Arc<RwLock<Msg>>,
+}
+
+#[derive(Debug)]
 struct App {
     _registry: Arc<dyn Registry>,
     engine: Arc<FlowEngine>,
+    msgs_to_inject: Mutex<Vec<MsgInjectionEntry>>,
 }
 
 impl App {
-    fn default(
+    pub fn default(
         elargs: Arc<CliArgs>,
         app_config: Option<&config::Config>,
     ) -> edgelink_core::Result<Self> {
@@ -65,13 +82,54 @@ impl App {
         log::info!("Loading node registry...");
         let reg = RegistryBuilder::default().build()?;
 
+        let mut msgs_to_inject = Vec::new();
+
         log::info!("Loading flows file: {}", elargs.flows_path);
         let engine = if elargs.stdin {
             let mut buffer = Vec::new();
             io::stdin().read_to_end(&mut buffer)?;
-            let json_str = String::from_utf8_lossy(&buffer);
-            let json_value: serde_json::Value = serde_json::from_str(&json_str)?;
-            FlowEngine::new_with_json(reg.clone(), &json_value, app_config)?
+
+            // This is a flow JSON and following some messages to inject
+            let flows_json_value = if !buffer.is_empty() && buffer[0] == json_seq::RS_CHAR {
+                log::info!("Loading JSON sequences from stdin...");
+                let mut start = 0;
+                let mut in_braces = false;
+                let mut is_first = false;
+                let mut flows_value: serde_json::Value = serde_json::Value::Null;
+
+                for (i, c) in buffer.iter().enumerate() {
+                    if *c == json_seq::RS_CHAR {
+                        if in_braces {
+                            panic!("Nested braces are not supported");
+                        }
+                        in_braces = true;
+                        start = i + 1;
+                    } else if *c == json_seq::NL_CHAR {
+                        if !in_braces {
+                            panic!("Unmatched closing brace");
+                        }
+                        in_braces = false;
+                        let json_entry_text = String::from_utf8_lossy(&buffer[start..i]);
+                        let json_value = serde_json::Value::from_str(&json_entry_text)?;
+                        if !is_first {
+                            flows_value = json_value.clone();
+                            is_first = true;
+                        } else {
+                            let entry = MsgInjectionEntry {
+                                nid: parse_red_id_value(&json_value["nid"]).unwrap(),
+                                msg: Arc::new(RwLock::new(Msg::deserialize(&json_value["msg"])?)),
+                            };
+                            msgs_to_inject.push(entry);
+                        }
+                    }
+                }
+                flows_value
+            } else {
+                log::info!("Loading flows JSON stdin...");
+                let json_str = String::from_utf8_lossy(&buffer);
+                serde_json::from_str(&json_str)?
+            };
+            FlowEngine::new_with_json(reg.clone(), &flows_json_value, app_config)?
         } else {
             FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?
         };
@@ -79,11 +137,23 @@ impl App {
         Ok(App {
             _registry: reg,
             engine,
+            msgs_to_inject: Mutex::new(msgs_to_inject),
         })
     }
 
     async fn main_flow_task(self: Arc<Self>, cancel: CancellationToken) -> crate::Result<()> {
         self.engine.start().await?;
+
+        // Inject msgs
+        {
+            let mut entries = self.msgs_to_inject.lock().await;
+            for e in entries.iter() {
+                self.engine
+                    .inject_msg(&e.nid, e.msg.clone(), cancel.clone())
+                    .await?;
+            }
+            entries.clear();
+        }
 
         cancel.cancelled().await;
 

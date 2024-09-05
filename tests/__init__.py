@@ -79,15 +79,12 @@ async def read_json_from_process(process, nexpected: int):
     await process.wait()
 
 
-async def run_edgelink_with_json_object(jobj: object, nexpected: int) -> list[dict]:
-    json_text = json.dumps(jobj, ensure_ascii=False)
-    json_bytes = json_text.encode('utf-8')
-    print("INPUT_JSON:\n", json_text)
+async def run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> list[dict]:
     el_args = ['-v', '0', '--stdin']
     msgs = []
     process = await start_edgelink_process(el_args)
     try:
-        process.stdin.write(json_bytes)
+        process.stdin.write(input_data)
         process.stdin.close()
         async for i in read_json_from_process(process, nexpected):
             msgs.append(i)
@@ -121,7 +118,7 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
         "type": "inject",
         "z": "0",
         "name": "",
-        "props": [], # [{"p": "payload"}, {"p": "topic", "vt": "str"}],
+        "props": [],  # [{"p": "payload"}, {"p": "topic", "vt": "str"}],
         "repeat": once and '' or '0',
         "crontab": "",
         "once": once,
@@ -141,5 +138,35 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
     if 'wires' not in node_json:
         user_node["wires"] = [["3"]]
     console_node = {"id": "3", "type": "console-json", "z": "0"}
-    final_json = [{"id": "0", "type": "tab"}, inject, user_node, console_node]
-    return await run_edgelink_with_json_object(final_json, nexpected)
+    final_flows_json = [{"id": "0", "type": "tab"},
+                        inject, user_node, console_node]
+    flows_text = json.dumps(final_flows_json, ensure_ascii=False)
+    print("INPUT_JSON:\n", flows_text)
+    flow_bytes = flows_text.encode('utf-8')
+
+    return await run_edgelink_with_stdin(flow_bytes, nexpected)
+
+
+async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object] | None, nexpected: int):
+    user_node = copy.deepcopy(node_json)
+    user_node["id"] = "1"
+    user_node["z"] = "0"
+    if 'wires' not in node_json:
+        user_node["wires"] = [["2"]]
+    console_node = {"id": "2", "type": "console-json", "z": "0"}
+    final_flows_json = [{"id": "0", "type": "tab"}, user_node, console_node]
+    flow_bytes = json.dumps(
+        final_flows_json, ensure_ascii=False).encode('utf-8')
+
+    input_bytes = bytearray()
+    input_bytes.append(0x1E)
+    input_bytes.extend(flow_bytes)
+    input_bytes.append(0x0A) # \n
+    for msg in msgs:
+        msg_injection = { 'nid': '1', 'msg': msg }
+        inj_bytes = json.dumps(msg_injection, ensure_ascii=False).encode('utf-8')
+        input_bytes.append(0x1E)
+        input_bytes.extend(inj_bytes)
+        input_bytes.append(0x0A) # \n
+    print("INPUT_JSON_SEQ:\n", input_bytes)
+    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)

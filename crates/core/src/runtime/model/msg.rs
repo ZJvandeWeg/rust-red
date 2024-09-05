@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
+use std::fmt;
 use std::sync::Arc;
+
+use serde::de;
 
 use serde::ser::SerializeMap;
 use tokio::sync::RwLock;
@@ -34,7 +37,9 @@ pub struct LinkSourceEntry {
 #[derive(Debug)]
 pub struct Msg {
     pub birth_place: ElementId,
+
     pub body: BTreeMap<String, Variant>,
+
     pub link_call_stack: Option<Vec<LinkSourceEntry>>,
 }
 
@@ -359,5 +364,60 @@ impl serde::Serialize for Msg {
             map.serialize_entry(k, v)?;
         }
         map.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Msg {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MsgVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for MsgVisitor {
+            type Value = Msg;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct Msg")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Msg, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                let mut birth_place = None;
+                let mut link_call_stack = None;
+                let mut body: BTreeMap<String, Variant> = BTreeMap::new();
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "_birth_place" => {
+                            if birth_place.is_some() {
+                                return Err(de::Error::duplicate_field("_birth_place"));
+                            }
+                            birth_place = Some(map.next_value()?);
+                        }
+                        "_linkSource" => {
+                            if link_call_stack.is_some() {
+                                return Err(de::Error::duplicate_field("_linkSource"));
+                            }
+                            link_call_stack = Some(map.next_value()?);
+                        }
+                        _ => {
+                            let value = map.next_value()?;
+                            body.insert(key.to_string(), value);
+                        }
+                    }
+                }
+
+                Ok(Msg {
+                    birth_place: birth_place.unwrap_or_default(),
+                    body,
+                    link_call_stack,
+                })
+            }
+        }
+
+        deserializer.deserialize_map(MsgVisitor)
     }
 }

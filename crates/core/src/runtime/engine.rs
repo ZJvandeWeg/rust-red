@@ -298,3 +298,11 @@ impl FlowEngine {
         std::env::vars().map(|(k, v)| (k.to_string(), Variant::String(v)))
     }
 }
+
+impl std::fmt::Debug for FlowEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TODO
+        f.debug_struct("FlowEngine")
+            .finish()
+    }
+}

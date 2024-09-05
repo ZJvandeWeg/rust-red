@@ -1,7 +1,10 @@
-use serde::ser::{SerializeMap, SerializeSeq};
-use serde::Serialize;
 use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::ser::{SerializeMap, SerializeSeq};
+use serde::{self, de, Deserializer};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::runtime::model::propex;
@@ -536,7 +539,7 @@ impl Variant {
 
     #[cfg(feature = "js")]
     pub fn as_js_array<'js>(&self, ctx: &js::Ctx<'js>) -> crate::Result<js::Array<'js>> {
-        use js::FromIteratorJs; 
+        use js::FromIteratorJs;
         if let Variant::Array(items) = self {
             let iter = items.iter().map(|e| e.as_js_value(ctx).unwrap()); // TODO FIXME
             js::Array::from_iter_js(ctx, iter)
@@ -733,6 +736,90 @@ impl From<&serde_json::Value> for Variant {
     }
 }
 
+impl<'de> Deserialize<'de> for Variant {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct VariantVisitor;
+
+        impl<'de> de::Visitor<'de> for VariantVisitor {
+            type Value = Variant;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a variant value")
+            }
+
+            fn visit_unit<E>(self) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::Null)
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::Bool(value))
+            }
+
+            fn visit_i32<E>(self, value: i32) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::Integer(value))
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::Rational(value))
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::String(value.to_owned()))
+            }
+
+            fn visit_bytes<E>(self, value: &[u8]) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                Ok(Variant::Bytes(value.to_vec()))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Variant, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                let mut vec = Vec::new();
+                while let Some(item) = seq.next_element()? {
+                    vec.push(item);
+                }
+                Ok(Variant::Array(vec))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Variant, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                let mut btreemap = BTreeMap::new();
+                while let Some((key, value)) = map.next_entry()? {
+                    btreemap.insert(key, value);
+                }
+                Ok(Variant::Object(btreemap))
+            }
+        }
+
+        deserializer.deserialize_any(VariantVisitor)
+    }
+}
+
+#[cfg(feature = "js")]
 impl<'js> From<&js::Value<'js>> for Variant {
     fn from(jv: &js::Value<'js>) -> Self {
         match jv.type_of() {

@@ -5,6 +5,7 @@ pub mod async_util;
 pub mod json;
 pub mod parser;
 pub mod time;
+pub mod json_seq;
 
 pub fn generate_uid() -> u64 {
     let mut rng = rand::thread_rng();
