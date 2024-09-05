@@ -25,8 +25,6 @@ config.workspace = true
 async-trait.workspace = true
 log.workspace = true
 linkme.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 thiserror = "1.0.63"
 tokio-util.workspace = true
 nom = "7.1.3"
@@ -35,12 +33,21 @@ bumpalo = "3.16.0"
 tokio-cron-scheduler = "0.11.0"
 topological-sort = "0.2.2"
 chrono = "0.4.38"
-rquickjs = { version = "0.6.2", features = ["full-async", "parallel", "macro"] }
+rquickjs = { version = "0.6.2", features = [
+    "full-async",
+    "parallel",
+    "macro",
+], optional = true }
 rand = "0.8.5"
 semver.workspace = true
 base64 = "0.22.1"
 smallvec = "1.13.2"
 bytes = { version = "1.7.1", features = ["std", "serde"] }
+# Serialization stuff
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+bincode.workspace = true
+# Crates in this project
 edgelink-macro = { path = "../macro" }
 
 [dev-dependencies]
@@ -49,7 +56,8 @@ tokio = { version = "1", features = ["test-util"] }
 
 
 [features]
-default = ["nodes_mqtt", "nodes_udp"]
+default = ["js", "nodes_mqtt", "nodes_udp"]
+js = ["rquickjs"]
 rqjs_bindgen = ["rquickjs/bindgen"]
 nodes_mqtt = []
 nodes_http = ["tokio/net"]

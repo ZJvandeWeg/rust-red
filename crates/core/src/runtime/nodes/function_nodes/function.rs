@@ -1,8 +1,11 @@
-use rquickjs as js;
-use rquickjs::CatchResultExt;
 use serde::Deserialize;
 use smallvec::SmallVec;
 use std::sync::Arc;
+
+mod js {
+    pub use rquickjs::*;
+}
+use js::CatchResultExt;
 
 // use crate::red::js::*;
 use crate::runtime::flow::Flow;

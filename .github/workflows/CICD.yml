@@ -68,10 +68,10 @@ jobs:
         run: cargo fmt --check --all
 
       - name: Build
-        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features rqjs_bindgen
+        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo test --profile ci --workspace --target ${{ matrix.target }} --features rqjs_bindgen
+        run: cargo test --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Python tests
         env:

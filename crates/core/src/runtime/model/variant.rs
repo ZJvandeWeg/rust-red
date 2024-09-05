@@ -1,4 +1,3 @@
-use rquickjs::{self as js, FromIteratorJs, IntoAtom, IntoJs};
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::Serialize;
 use std::borrow::BorrowMut;
@@ -9,6 +8,11 @@ use crate::runtime::model::propex;
 use crate::EdgelinkError;
 
 use super::propex::PropexSegment;
+
+#[cfg(feature = "js")]
+mod js {
+    pub use rquickjs::*;
+}
 
 #[derive(Error, Clone, Debug, PartialEq, PartialOrd)]
 pub enum VariantError {
@@ -506,7 +510,9 @@ impl Variant {
         }
     }
 
+    #[cfg(feature = "js")]
     pub fn as_js_value<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Value<'js>> {
+        use js::IntoJs;
         match self {
             Variant::Array(_) => Ok(js::Value::from_array(self.as_js_array(ctx)?)),
 
@@ -528,7 +534,9 @@ impl Variant {
         }
     }
 
+    #[cfg(feature = "js")]
     pub fn as_js_array<'js>(&self, ctx: &js::Ctx<'js>) -> crate::Result<js::Array<'js>> {
+        use js::FromIteratorJs; 
         if let Variant::Array(items) = self {
             let iter = items.iter().map(|e| e.as_js_value(ctx).unwrap()); // TODO FIXME
             js::Array::from_iter_js(ctx, iter)
@@ -538,7 +546,9 @@ impl Variant {
         }
     }
 
+    #[cfg(feature = "js")]
     pub fn as_js_object<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Object<'js>> {
+        use js::IntoAtom;
         if let Variant::Object(map) = self {
             let obj = js::Object::new(ctx.clone())?;
             for (k, v) in map {
@@ -762,6 +772,7 @@ impl<'js> From<&js::Value<'js>> for Variant {
     }
 }
 
+#[cfg(feature = "js")]
 impl<'js> From<&js::Object<'js>> for Variant {
     fn from(jo: &js::Object<'js>) -> Self {
         let mut map = BTreeMap::new();
@@ -780,6 +791,7 @@ impl<'js> From<&js::Object<'js>> for Variant {
     }
 }
 
+#[cfg(feature = "js")]
 impl<'js> From<&js::Array<'js>> for Variant {
     fn from(ja: &js::Array<'js>) -> Self {
         let items = ja
@@ -790,6 +802,7 @@ impl<'js> From<&js::Array<'js>> for Variant {
     }
 }
 
+#[cfg(feature = "js")]
 impl<'js> From<&js::ArrayBuffer<'js>> for Variant {
     fn from(buf: &js::ArrayBuffer<'js>) -> Self {
         buf.as_bytes()

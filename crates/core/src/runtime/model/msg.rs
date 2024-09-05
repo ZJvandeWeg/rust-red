@@ -1,23 +1,23 @@
-use rquickjs::{self as js, prelude::*};
-use serde::ser::SerializeMap;
 use std::collections::BTreeMap;
-
 use std::sync::Arc;
 
+use serde::ser::SerializeMap;
 use tokio::sync::RwLock;
 
-use crate::EdgelinkError;
-use crate::{red::json::deser::parse_red_id_str, runtime::model::*};
+#[cfg(feature = "js")]
+mod js {
+    pub use rquickjs::{prelude::*, *};
+}
 
-use super::{
-    propex::{self, PropexSegment},
-    ElementId,
-};
+use crate::red::json::deser::parse_red_id_str;
+use crate::runtime::model::propex::*;
+use crate::runtime::model::*;
 
 pub mod wellknown {
     pub const MSG_ID_PROPERTY: &str = "_msgid";
 }
 
+#[derive(Debug)]
 pub struct Envelope {
     pub port: usize,
     pub msg: Arc<RwLock<Msg>>,
@@ -220,7 +220,9 @@ impl Msg {
         }
     }
 
+    #[cfg(feature = "js")]
     pub fn as_js_object<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Object<'js>> {
+        use js::IntoAtom;
         let obj = js::Object::new(ctx.clone())?;
         for (k, v) in self.body.iter() {
             let prop_name = k
@@ -265,6 +267,7 @@ impl Msg {
         Ok(obj)
     }
 
+    #[cfg(feature = "js")]
     pub fn as_js_value<'js>(&self, ctx: &js::Ctx<'js>) -> crate::Result<js::Value<'js>> {
         Ok(js::Value::from_object(self.as_js_object(ctx)?))
     }
@@ -302,6 +305,7 @@ impl Clone for Msg {
     }
 }
 
+#[cfg(feature = "js")]
 impl<'js> From<&js::Object<'js>> for Msg {
     fn from(jo: &js::Object<'js>) -> Self {
         let mut map = BTreeMap::new();
