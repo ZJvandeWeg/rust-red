@@ -89,7 +89,7 @@ impl Msg {
     pub fn id(&self) -> Option<ElementId> {
         self.body
             .get(wellknown::MSG_ID_PROPERTY)
-            .and_then(|x| x.as_string())
+            .and_then(|x| x.as_str())
             .and_then(parse_red_id_str)
     }
 

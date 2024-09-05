@@ -168,5 +168,8 @@ async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object]
         input_bytes.append(0x1E)
         input_bytes.extend(inj_bytes)
         input_bytes.append(0x0A) # \n
+
+    # with open("c:\\tmp\\hello.dat", "wb") as f:
+    #    f.write(input_bytes)
     print("INPUT_JSON_SEQ:\n", input_bytes)
     return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)

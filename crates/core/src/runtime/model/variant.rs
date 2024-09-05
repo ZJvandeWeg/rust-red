@@ -148,7 +148,7 @@ impl Variant {
         matches!(self, Variant::String(..))
     }
 
-    pub fn as_string(&self) -> Option<&str> {
+    pub fn as_str(&self) -> Option<&str> {
         match self {
             Variant::String(ref s) => Some(s),
             _ => None,
@@ -764,11 +764,11 @@ impl<'de> Deserialize<'de> for Variant {
                 Ok(Variant::Bool(value))
             }
 
-            fn visit_i32<E>(self, value: i32) -> Result<Variant, E>
+            fn visit_i64<E>(self, value: i64) -> Result<Variant, E>
             where
                 E: de::Error,
             {
-                Ok(Variant::Integer(value))
+                Ok(Variant::Rational((value as f64).into()))
             }
 
             fn visit_f64<E>(self, value: f64) -> Result<Variant, E>
@@ -1007,7 +1007,7 @@ mod tests {
             obj_address
                 .get_object_property("country")
                 .unwrap()
-                .as_string()
+                .as_str()
                 .unwrap(),
             "US"
         );
@@ -1015,7 +1015,7 @@ mod tests {
             obj_address
                 .get_object_property("zip")
                 .unwrap()
-                .as_string()
+                .as_str()
                 .unwrap(),
             "12345"
         );

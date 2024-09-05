@@ -1,3 +1,4 @@
+use core::f64;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -7,371 +8,301 @@ use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
+use serde::{Deserialize, Deserializer};
+use tokio::sync::Mutex;
 
-#[derive(Debug, PartialEq, PartialOrd, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
 enum RbeFunc {
+    #[serde(rename = "rbe")]
     Rbe,
+
+    #[serde(rename = "rbei")]
     Rbei,
+
+    #[serde(rename = "narrowband")]
     Narrowband,
+
+    #[serde(rename = "narrowbandEq")]
     NarrowbandEq,
-    DeadBand,
+
+    #[serde(rename = "deadband")]
+    Deadband,
+
+    #[serde(rename = "deadbandEq")]
     DeadbandEq,
 }
 
-impl FromStr for RbeFunc {
-    type Err = ();
-
-    #[allow(clippy::match_str_case_mismatch)]
-    fn from_str(input: &str) -> Result<RbeFunc, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "rbe" => Ok(RbeFunc::Rbe),
-            "rbei" => Ok(RbeFunc::Rbei),
-            "narrowband" => Ok(RbeFunc::Narrowband),
-            "narrowbandEq" => Ok(RbeFunc::NarrowbandEq),
-            "deadband" => Ok(RbeFunc::DeadBand),
-            "deadbandEq" => Ok(RbeFunc::DeadbandEq),
-            _ => Err(()),
+impl RbeFunc {
+    fn is_rbe(&self) -> bool {
+        match self {
+            RbeFunc::Rbe | RbeFunc::Rbei => true,
+            _ => false,
         }
+    }
+
+    fn is_narrowband(&self) -> bool {
+        match self {
+            RbeFunc::Narrowband | RbeFunc::NarrowbandEq => true,
+            _ => false,
+        }
+    }
+
+    /* Make compiler happy
+    fn is_deadband(&self) -> bool {
+        match self {
+            RbeFunc::Deadband | RbeFunc::DeadbandEq => true,
+            _ => false,
+        }
+    }
+    */
+}
+
+impl Default for RbeFunc {
+    fn default() -> Self {
+        RbeFunc::Rbe
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
 enum Inout {
+    #[serde(rename = "in")]
     In,
+
+    #[serde(rename = "out")]
     Out,
 }
 
-impl FromStr for Inout {
-    type Err = ();
+impl Default for Inout {
+    fn default() -> Self {
+        Inout::Out
+    }
+}
 
-    fn from_str(input: &str) -> Result<Inout, Self::Err> {
-        match input.to_lowercase().as_str() {
-            "in" => Ok(Inout::In),
-            "out" => Ok(Inout::Out),
-            _ => Err(()),
+#[derive(Debug, Clone, Deserialize)]
+struct RbeNodeConfig {
+    #[serde(default)]
+    func: RbeFunc,
+
+    #[serde(deserialize_with = "deser_f64_percent_or_0")]
+    gap: f64,
+
+    #[serde(skip, default)]
+    is_percent: bool,
+
+    #[serde(
+        default,
+        rename = "start",
+        deserialize_with = "crate::red::json::deser::str_to_option_f64"
+    )]
+    start_value: Option<f64>,
+
+    #[serde(rename = "septopics", default = "rbe_setopics_default")]
+    sep_topics: bool,
+
+    #[serde(rename = "property", default = "rbe_property_default")]
+    property: String,
+
+    #[serde(rename = "topi", default = "rbe_topi_default")]
+    topic: String,
+
+    #[serde(default)]
+    inout: Inout,
+}
+
+fn rbe_setopics_default() -> bool {
+    true
+}
+
+fn rbe_property_default() -> String {
+    "payload".to_string()
+}
+
+fn rbe_topi_default() -> String {
+    "topic".to_string()
+}
+
+fn deser_f64_percent_or_0<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: serde_json::Value = Deserialize::deserialize(deserializer)?;
+
+    match value {
+        // If it's already a float, return it directly
+        serde_json::Value::Number(num) => num
+            .as_f64()
+            .ok_or_else(|| serde::de::Error::custom("Invalid f64")),
+
+        // If it's a string, handle different cases
+        serde_json::Value::String(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                Ok(0.0)
+            } else if trimmed.ends_with('%') {
+                // Remove the '%' and parse the rest as a number, divide by 100
+                let percentage = &trimmed[..trimmed.len() - 1];
+                percentage
+                    .parse::<f64>()
+                    .map(|n| n / 100.0)
+                    .map_err(|_| serde::de::Error::custom("Invalid percentage format"))
+            } else {
+                // Try to parse the string directly as an f64
+                f64::from_str(trimmed).map_err(|_| serde::de::Error::custom("Invalid f64 format"))
+            }
         }
+
+        // Any other type is invalid for this deserialization
+        _ => Err(serde::de::Error::custom("Invalid type for f64")),
     }
 }
 
 #[derive(Debug)]
 struct RbeNodeState {
-    gap: f64,
+    current_gap: f64,
     prev: HashMap<String, Variant>,
+}
+
+impl Default for RbeNodeState {
+    fn default() -> Self {
+        Self {
+            current_gap: 0.0,
+            prev: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
 #[flow_node("rbe")]
 struct RbeNode {
     base: FlowNode,
-    func: RbeFunc,
-    gap: f64,
-    start_value: Option<f64>,
-    inout: Inout,
-    percent: bool,
-    property: String,
-    topic: String,
-    sep_topics: bool,
-    // scope: BTreeMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    config: RbeNodeConfig,
+    state: Mutex<RbeNodeState>,
 }
 
 impl RbeNode {
     fn create(
         _flow: &Flow,
         base_node: FlowNode,
-        _config: &RedFlowNodeConfig,
+        config: &RedFlowNodeConfig,
     ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+        let mut rbe_config = RbeNodeConfig::deserialize(&config.json)?;
+        rbe_config.is_percent = config
+            .json
+            .get("gap")
+            .and_then(|x| x.as_str())
+            .is_some_and(|x| x.trim().ends_with('%'));
+
         let node = RbeNode {
             base: base_node,
-            // scope: BTreeMap::new(),
-            func: _config
-                .json
-                .get("func")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| RbeFunc::from_str(value).ok())
-                .unwrap_or(RbeFunc::Rbe),
-
-            gap: _config
-                .json
-                .get("gap")
-                .and_then(|jv| jv.as_str())
-                .and_then(|s| s.strip_suffix("%"))
-                .and_then(|value| value.parse::<f64>().ok())
-                .unwrap_or(0.0),
-
-            start_value: _config
-                .json
-                .get("start")
-                .and_then(|jv| jv.as_str())
-                .and_then(|s| s.strip_suffix("%"))
-                .and_then(|value| value.parse::<f64>().ok()),
-
-            inout: _config
-                .json
-                .get("inout")
-                .and_then(|jv| jv.as_str())
-                .and_then(|value| Inout::from_str(value).ok())
-                .unwrap_or(Inout::Out),
-
-            percent: _config
-                .json
-                .get("gap")
-                .and_then(|jv| jv.as_str())
-                .map(|s| {
-                    if let Some(c) = s.chars().last() {
-                        c == '%'
-                    } else {
-                        false
-                    }
-                })
-                .expect("No way"),
-
-            property: _config
-                .json
-                .get("property")
-                .and_then(|jv| jv.as_str())
-                .and_then(|v| {
-                    if v.is_empty() {
-                        None
-                    } else {
-                        Some(v.to_string())
-                    }
-                })
-                .unwrap_or("payload".to_string()),
-
-            topic: _config
-                .json
-                .get("topi")
-                .and_then(|jv| jv.as_str())
-                .and_then(|v| {
-                    if v.is_empty() {
-                        None
-                    } else {
-                        Some(v.to_string())
-                    }
-                })
-                .unwrap_or("topic".to_string()),
-
-            sep_topics: _config
-                .json
-                .get("septopics")
-                .and_then(|jv| jv.as_bool())
-                .unwrap_or(false),
+            config: rbe_config,
+            state: Mutex::new(RbeNodeState::default()),
         };
+
         Ok(Arc::new(node))
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-        // Retrieve and clean the topic
-        let topic = match msg.get_trimmed_nav_property(&self.topic) {
-            Some(Variant::String(ref topic)) if !topic.is_empty() => Some(topic.as_str()),
-            _ => None,
-        };
+        let topic = msg.get_trimmed_nav_property(&self.config.topic);
+        let value = msg.get_trimmed_nav_property(&self.config.property);
 
-        // Reset previous storage if necessary
-        if msg.get_property("reset").is_some() {
-            match (self.sep_topics, topic) {
-                (true, Some(topic_value)) => {
-                    state.prev.remove(topic_value);
-                }
-                _ => {
-                    state.prev.clear();
-                }
+        // Handle reset logic
+        match (msg.get_property("reset"), self.config.sep_topics, topic) {
+            (Some(_), true, Some(Variant::String(topic))) if !topic.is_empty() => {
+                state.prev.remove(topic);
             }
+            (Some(_), _, _) => state.prev.clear(),
+            (_, _, _) => {}
         }
 
-        if let Some(prop_value) = msg.get_trimmed_nav_property(&self.property) {
-            let t = match (self.sep_topics, topic) {
-                (true, Some(topic)) => topic,
-                _ => "_no_topic",
+        // Process value if available
+        if let Some(value) = value {
+            let t = match (self.config.sep_topics, topic) {
+                (true, Some(Variant::String(topic))) => topic.as_str(),
+                (_, _) => "_no_topic",
             };
-
-            match self.func {
-                RbeFunc::Rbe | RbeFunc::Rbei => {
-                    let do_send = self.func != RbeFunc::Rbei || state.prev.contains_key(t);
-                    if let Variant::Null = prop_value {
-                        panic!("DEBUG ME!");
+            if self.config.func.is_rbe() {
+                let prev_value = state.prev.get_mut(t);
+                let do_send = self.config.func != RbeFunc::Rbei || prev_value.is_some();
+                // Compare and clone object/value if changed
+                return if let Some(pv) = prev_value {
+                    if *pv != *value {
+                        *pv = value.clone();
+                        do_send
+                    } else {
+                        false
                     }
-
-                    if *prop_value != *state.prev.get(t).unwrap_or(&Variant::Null) {
-                        state.prev.insert(t.to_string(), prop_value.clone());
-                        if do_send {
-                            return true;
-                        }
-                    }
-                }
-                _ => {
-                    if let Some(n) = prop_value.as_number().filter(|x| !x.is_nan()) {
-                        let initial_value = self.start_value.unwrap_or(n);
+                } else {
+                    state.prev.insert(t.to_string(), value.clone());
+                    do_send
+                };
+            } else {
+                let num_value = match value {
+                    Variant::Integer(v) => *v as f64,
+                    Variant::Rational(v) => *v,
+                    Variant::String(s) => s.parse::<f64>().unwrap_or(f64::NAN),
+                    _ => f64::NAN,
+                };
+                if !num_value.is_nan() {
+                    // Initialize previous value if undefined
+                    if state.prev.get(t).is_none() {
+                        let v_to_insert = if self.config.func.is_narrowband()
+                            && self.config.start_value.is_some()
+                        {
+                            self.config.start_value.unwrap()
+                        } else {
+                            num_value - state.current_gap - 1.0
+                        };
                         state
                             .prev
-                            .entry(t.to_string())
-                            .or_insert(Variant::Rational(initial_value));
-
-                        // Process percent
-                        if self.percent {
-                            state.gap = state.prev[t].as_number().unwrap_or(0.0) * self.gap / 100.0;
-                        }
-
-                        let gap_delta = f64::abs(n - state.prev[t].as_number().unwrap_or(f64::NAN));
-
-                        let do_send = match (&self.func, &self.inout) {
-                            (RbeFunc::DeadbandEq | RbeFunc::Narrowband, Inout::Out)
-                                if gap_delta == state.gap =>
-                            {
-                                true
-                            }
-                            (RbeFunc::DeadBand | RbeFunc::DeadbandEq, Inout::Out)
-                                if gap_delta > state.gap =>
-                            {
-                                true
-                            }
-                            (RbeFunc::Narrowband | RbeFunc::NarrowbandEq, Inout::Out)
-                                if gap_delta < state.gap =>
-                            {
-                                true
-                            }
-                            _ => false,
-                        };
-
-                        if self.inout == Inout::In || do_send {
-                            state.prev.insert(t.to_string(), Variant::Rational(n));
-                        }
-
-                        return do_send;
-                    } else {
-                        log::warn!("rbe.warn.nonumber");
+                            .insert(t.to_string(), Variant::Rational(v_to_insert));
                     }
+
+                    // Calculate gap value
+                    state.current_gap = if self.config.is_percent {
+                        state
+                            .prev
+                            .get(t)
+                            .and_then(|x| x.as_number())
+                            .map(|g| f64::abs(g * self.config.gap))
+                            .unwrap_or(0.0)
+                    } else {
+                        self.config.gap
+                    };
+
+                    // Handle different threshold logic based on function type
+                    if f64::abs(num_value - state.prev[t].as_number().unwrap()) == state.current_gap
+                        || f64::abs(num_value - state.prev[t].as_number().unwrap())
+                            > state.current_gap
+                    {
+                        if (self.config.func == RbeFunc::Deadband
+                            || self.config.func == RbeFunc::NarrowbandEq
+                            || self.config.func == RbeFunc::DeadbandEq)
+                            && self.config.inout == Inout::Out
+                        {
+                            state
+                                .prev
+                                .insert(t.to_string(), Variant::Rational(num_value));
+                        }
+                        return true;
+                    } else if f64::abs(num_value - state.prev[t].as_number().unwrap())
+                        < state.current_gap
+                        && self.config.func.is_narrowband()
+                    {
+                        if self.config.inout == Inout::Out {
+                            state
+                                .prev
+                                .insert(t.to_string(), Variant::Rational(num_value));
+                        }
+                        return true;
+                    }
+                } else {
+                    log::warn!("The value '{:?}' is not a number", value);
                 }
             }
         }
-        false
+
+        return false;
     }
-
-    /*
-        fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-            // If the `topic` cannot be retrieved or is an empty string, convert it to `None`.
-            let topic = match msg.get_trimmed_nav_property(&self.topic) {
-                Some(Variant::String(topic)) => {
-                    if !topic.is_empty() {
-                        Some(topic)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-
-            // reset previous storage
-            if msg.get_property("reset").is_some() {
-                match (self.sep_topics, topic) {
-                    (true, Some(topic_value)) => {
-                        state.prev.remove(topic_value);
-                    }
-                    (_, _) => {
-                        state.prev.clear();
-                    }
-                };
-            }
-
-            // TODO: The following code is directly copied from Node-RED JS and needs to be rewritten and optimized.
-
-            if let Some(prop_value) = msg.get_trimmed_nav_property(&self.property) {
-                let t = match (self.sep_topics, topic) {
-                    (true, Some(topic)) => topic,
-                    _ => "_no_topic",
-                };
-
-                //let mut prev_value = state.prev.entry(t.to_string()).or_insert(Variant::Null);
-
-                match self.func {
-                    RbeFunc::Rbe | RbeFunc::Rbei => {
-                        let do_send = self.func != RbeFunc::Rbei || state.prev.contains_key(t);
-                        match prop_value {
-                            Variant::Object(_) => todo!(),
-                            Variant::Null => panic!("DEBUG ME!"),
-                            _ => {
-                                if *prop_value != *state.prev.get(t).unwrap_or(&Variant::Null) {
-                                    state.prev.insert(t.to_string(), prop_value.clone());
-                                    if do_send {
-                                        return true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {
-                        if let Some(n) = prop_value.as_number().filter(|x| !x.is_nan()) {
-                            if let (false, RbeFunc::Narrowband | RbeFunc::NarrowbandEq) =
-                                (state.prev.contains_key(t), &self.func)
-                            {
-                                let value_to_insert = match self.start_value {
-                                    None => Variant::Rational(n),
-                                    Some(sv) => Variant::Rational(sv),
-                                };
-                                state.prev.insert(t.to_string(), value_to_insert);
-                            }
-
-                            // process percent
-                            state.gap = if self.percent {
-                                f64::abs(state.prev[t].as_number().unwrap_or(0.0) * self.gap / 100.0)
-                            } else {
-                                state.gap
-                            };
-
-                            if !state.prev.contains_key(t) && self.func == RbeFunc::NarrowbandEq {
-                                state.prev.insert(t.to_string(), Variant::Rational(n));
-                            }
-
-                            if !state.prev.contains_key(t) {
-                                state
-                                    .prev
-                                    .insert(t.to_string(), Variant::Rational(n - state.gap - 1.0));
-                            }
-
-                            let _gap_delta =
-                                f64::abs(n - state.prev[t].as_number().unwrap_or(f64::NAN));
-
-                            let do_send = match (&self.func, &self.inout) {
-                                (RbeFunc::DeadbandEq | RbeFunc::Narrowband, Inout::Out)
-                                    if _gap_delta == state.gap =>
-                                {
-                                    state.prev.insert(t.to_string(), Variant::Rational(n));
-                                    true
-                                }
-
-                                (RbeFunc::DeadBand | RbeFunc::DeadbandEq, Inout::Out)
-                                    if _gap_delta > state.gap =>
-                                {
-                                    state.prev.insert(t.to_string(), Variant::Rational(n));
-                                    true
-                                }
-
-                                (RbeFunc::Narrowband | RbeFunc::NarrowbandEq, Inout::Out)
-                                    if _gap_delta < state.gap =>
-                                {
-                                    state.prev.insert(t.to_string(), Variant::Rational(n));
-                                    true
-                                }
-
-                                (_, _) => false,
-                            };
-
-                            if self.inout == Inout::In {
-                                state.prev.insert(t.to_string(), Variant::Rational(n));
-                            }
-
-                            return do_send;
-                        } else {
-                            log::warn!("rbe.warn.nonumber");
-                        }
-
-                        todo!()
-                    }
-                }
-            }
-            false
-        }
-    */
 }
 
 #[async_trait]
@@ -381,21 +312,16 @@ impl FlowNodeBehavior for RbeNode {
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
-        let mut state = RbeNodeState {
-            gap: self.gap,
-            prev: HashMap::new(),
-        };
-
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            let sub_state = &mut state;
             with_uow(
                 self.as_ref(),
                 cancel.child_token(),
                 |node, msg| async move {
                     let can_send = {
                         let mut msg_guard = msg.write().await;
-                        node.do_filter(&mut msg_guard, sub_state)
+                        let mut state_guard = node.state.lock().await;
+                        node.do_filter(&mut msg_guard, &mut state_guard)
                     };
                     if can_send {
                         node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())

@@ -78,8 +78,8 @@ async def test_0009():
 async def test_0010():
     '''drops msg if in drop mode and input outside range'''
     node = {
-        "id": "rangeNode1", "type": "range", "minin": 2, "maxin": 8, "minout": 20, "maxout": 80,
-        "action": "drop", "round": True, "name": "rangeNode"
+        "type": "range", "minin": 2, "maxin": 8, "minout": 20, "maxout": 80,
+        "action": "drop", "round": True
     }
     injections = [
         {'payload': 1.0},
@@ -94,8 +94,8 @@ async def test_0010():
 async def test_0011():
     '''just passes on msg if payload not present'''
     node = {
-        "id": "rangeNode1", "type": "range", "minin": 0, "maxin": 100, "minout": 0, "maxout": 100,
-        "action": "scale", "round": True, "name": "rangeNode"
+        "type": "range", "minin": 0, "maxin": 100, "minout": 0, "maxout": 100,
+        "action": "scale", "round": True
     }
     injections = [ {} ]
     msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)

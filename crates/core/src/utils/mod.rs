@@ -3,9 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod async_util;
 pub mod json;
+pub mod json_seq;
 pub mod parser;
 pub mod time;
-pub mod json_seq;
 
 pub fn generate_uid() -> u64 {
     let mut rng = rand::thread_rng();
