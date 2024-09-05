@@ -116,24 +116,20 @@ impl SubflowOutputPort {
                 Ok(msg) => {
                     // Find out the subflow:xxx node
                     let instance_node = {
-                        // 升级 Weak<Flow> 到 Arc<Flow>
                         let flow = self
                             .owner
                             .upgrade()
                             .expect("The owner of this sub-flow node has been released already!!!");
 
-                        // 直接借用 flow，避免使用 clone
                         let subflow_state = flow
                             .subflow_state
                             .as_ref()
                             .expect("Subflow must have a subflow_state!");
 
-                        // 获取读锁定的引用
                         let subflow_state_guard = subflow_state
                             .read()
                             .expect("Cannot acquire the lock of field `subflow_state`!!!");
 
-                        // 克隆 instance_node，因为需要返回 Option<T> 的克隆
                         subflow_state_guard.instance_node.clone()
                     };
 
