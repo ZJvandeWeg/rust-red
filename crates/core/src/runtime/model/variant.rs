@@ -768,7 +768,7 @@ impl<'de> Deserialize<'de> for Variant {
             where
                 E: de::Error,
             {
-                Ok(Variant::Rational((value as f64).into()))
+                Ok(Variant::Rational(value as f64))
             }
 
             fn visit_f64<E>(self, value: f64) -> Result<Variant, E>

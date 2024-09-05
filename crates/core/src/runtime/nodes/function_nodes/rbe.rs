@@ -7,12 +7,14 @@ use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
+use crate::utils::float;
 use edgelink_macro::*;
 use serde::{Deserialize, Deserializer};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
 enum RbeFunc {
+    #[default]
     #[serde(rename = "rbe")]
     Rbe,
 
@@ -34,48 +36,26 @@ enum RbeFunc {
 
 impl RbeFunc {
     fn is_rbe(&self) -> bool {
-        match self {
-            RbeFunc::Rbe | RbeFunc::Rbei => true,
-            _ => false,
-        }
+        matches!(self, RbeFunc::Rbe | RbeFunc::Rbei)
     }
 
     fn is_narrowband(&self) -> bool {
-        match self {
-            RbeFunc::Narrowband | RbeFunc::NarrowbandEq => true,
-            _ => false,
-        }
+        matches!(self, RbeFunc::Narrowband | RbeFunc::NarrowbandEq)
     }
 
-    /* Make compiler happy
     fn is_deadband(&self) -> bool {
-        match self {
-            RbeFunc::Deadband | RbeFunc::DeadbandEq => true,
-            _ => false,
-        }
-    }
-    */
-}
-
-impl Default for RbeFunc {
-    fn default() -> Self {
-        RbeFunc::Rbe
+        matches!(self, RbeFunc::Deadband | RbeFunc::DeadbandEq)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
 enum Inout {
     #[serde(rename = "in")]
     In,
 
+    #[default]
     #[serde(rename = "out")]
     Out,
-}
-
-impl Default for Inout {
-    fn default() -> Self {
-        Inout::Out
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -138,9 +118,9 @@ where
             let trimmed = s.trim();
             if trimmed.is_empty() {
                 Ok(0.0)
-            } else if trimmed.ends_with('%') {
+            } else if let Some(stripped) = trimmed.strip_suffix('%') {
                 // Remove the '%' and parse the rest as a number, divide by 100
-                let percentage = &trimmed[..trimmed.len() - 1];
+                let percentage = stripped;
                 percentage
                     .parse::<f64>()
                     .map(|n| n / 100.0)
@@ -239,69 +219,79 @@ impl RbeNode {
                 let num_value = match value {
                     Variant::Integer(v) => *v as f64,
                     Variant::Rational(v) => *v,
-                    Variant::String(s) => s.parse::<f64>().unwrap_or(f64::NAN),
+                    Variant::String(s) => float::parse_float(s).unwrap_or(f64::NAN),
                     _ => f64::NAN,
                 };
-                if !num_value.is_nan() {
-                    // Initialize previous value if undefined
-                    if state.prev.get(t).is_none() {
-                        let v_to_insert = if self.config.func.is_narrowband()
-                            && self.config.start_value.is_some()
-                        {
-                            self.config.start_value.unwrap()
-                        } else {
-                            num_value - state.current_gap - 1.0
-                        };
-                        state
-                            .prev
-                            .insert(t.to_string(), Variant::Rational(v_to_insert));
-                    }
 
-                    // Calculate gap value
-                    state.current_gap = if self.config.is_percent {
-                        state
-                            .prev
-                            .get(t)
-                            .and_then(|x| x.as_number())
-                            .map(|g| f64::abs(g * self.config.gap))
-                            .unwrap_or(0.0)
-                    } else {
-                        self.config.gap
-                    };
-
-                    // Handle different threshold logic based on function type
-                    if f64::abs(num_value - state.prev[t].as_number().unwrap()) == state.current_gap
-                        || f64::abs(num_value - state.prev[t].as_number().unwrap())
-                            > state.current_gap
-                    {
-                        if (self.config.func == RbeFunc::Deadband
-                            || self.config.func == RbeFunc::NarrowbandEq
-                            || self.config.func == RbeFunc::DeadbandEq)
-                            && self.config.inout == Inout::Out
-                        {
-                            state
-                                .prev
-                                .insert(t.to_string(), Variant::Rational(num_value));
-                        }
-                        return true;
-                    } else if f64::abs(num_value - state.prev[t].as_number().unwrap())
-                        < state.current_gap
-                        && self.config.func.is_narrowband()
-                    {
-                        if self.config.inout == Inout::Out {
-                            state
-                                .prev
-                                .insert(t.to_string(), Variant::Rational(num_value));
-                        }
-                        return true;
-                    }
-                } else {
+                if num_value.is_nan() {
                     log::warn!("The value '{:?}' is not a number", value);
+                    return false;
                 }
+
+                // Read node.previous[t] value
+                let mut prev_value = state.prev.get(t).and_then(|x| x.as_number());
+
+                // Handle the initial value of previous_value
+                if prev_value.is_none() && self.config.func.is_narrowband() {
+                    prev_value = if let Some(sv) = self.config.start_value {
+                        Some(sv)
+                    } else {
+                        Some(num_value)
+                    };
+                }
+
+                // Calculate node.gap
+                state.current_gap = if self.config.is_percent {
+                    (prev_value.unwrap_or(0.0) * self.config.gap).abs()
+                } else {
+                    self.config.gap
+                };
+
+                // Ensure previous_value is set for narrowbandEq
+                if prev_value.is_none() && self.config.func == RbeFunc::NarrowbandEq {
+                    prev_value = Some(num_value);
+                }
+
+                // Handle the case where previous_value is undefined
+                if prev_value.is_none() {
+                    prev_value = Some(num_value - state.current_gap - 1.0);
+                }
+
+                let mut do_send = false;
+                // Process the difference and send messages accordingly
+                let diff = (num_value - prev_value.unwrap_or(0.0)).abs();
+
+                if (diff == state.current_gap
+                    && (self.config.func == RbeFunc::DeadbandEq
+                        || self.config.func == RbeFunc::Narrowband))
+                    || (diff > state.current_gap && self.config.func.is_deadband())
+                    || (diff < state.current_gap && self.config.func.is_narrowband())
+                {
+                    if self.config.inout == Inout::Out {
+                        prev_value = Some(num_value);
+                    }
+                    do_send = true;
+                }
+
+                // Finally, update node.previous[t]
+                if self.config.inout == Inout::In {
+                    prev_value = Some(num_value);
+                }
+
+                // Store the updated previous_value back to node.previous[t]
+                if let Some(pv) = prev_value {
+                    if let Some(prev) = state.prev.get_mut(t) {
+                        *prev = Variant::Rational(pv);
+                    } else {
+                        state.prev.insert(t.to_string(), Variant::Rational(pv));
+                    }
+                }
+
+                return do_send;
             }
         }
 
-        return false;
+        false
     }
 }
 

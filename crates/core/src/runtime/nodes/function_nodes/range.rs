@@ -9,8 +9,9 @@ use crate::runtime::registry::*;
 use edgelink_macro::*;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 enum RangeAction {
+    #[default]
     #[serde(rename = "scale")]
     Scale,
 
@@ -22,12 +23,6 @@ enum RangeAction {
 
     #[serde(rename = "roll")]
     Roll,
-}
-
-impl Default for RangeAction {
-    fn default() -> Self {
-        RangeAction::Scale
-    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -115,13 +110,13 @@ impl RangeNode {
                 }
 
                 *value = Variant::Rational(new_value);
-                return true;
+                true
             } else {
                 log::info!("The value is not a numner: {:?}", value); //FIXME TODO
-                return false;
+                false
             }
         } else {
-            return true;
+            true
         }
     }
 }
