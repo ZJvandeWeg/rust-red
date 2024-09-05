@@ -454,8 +454,8 @@ impl RedFlowNodeJsonObject for JsonMap<String, JsonValue> {
 
         // Add links
         if let Some(links) = self.get("links").and_then(|x| x.as_array()) {
-            let red_type = self.get("type").and_then(|x| x.as_str()).unwrap();
-            if red_type == "link out" || red_type == "link call" {
+            let red_type = self.get("type").and_then(|x| x.as_str());
+            if red_type == Some("link out") || red_type == Some("link call") {
                 let iter = links.iter().filter_map(parse_red_id_value);
                 result.extend(iter);
             }

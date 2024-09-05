@@ -13,30 +13,37 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum LinkType {
-    #[serde(rename = "dynamic")]
-    Dynamic,
-
+    #[default]
     #[serde(rename = "static")]
     Static,
+
+    #[serde(rename = "dynamic")]
+    Dynamic,
 }
 
 #[derive(Deserialize, Debug)]
 struct LinkCallNodeConfig {
-    #[serde(rename = "linkType")]
+    #[serde(default, rename = "linkType")]
     link_type: LinkType,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_red_id_vec")]
+    #[serde(
+        default,
+        deserialize_with = "crate::red::json::deser::deser_red_id_vec"
+    )]
     links: Vec<ElementId>,
 
-    #[serde(deserialize_with = "crate::red::json::deser::str_to_option_f64")]
+    #[serde(
+        default,
+        deserialize_with = "crate::red::json::deser::str_to_option_f64"
+    )]
     timeout: Option<f64>,
 }
 
 #[derive(Debug)]
 struct MsgEvent {
-    msg: Arc<RwLock<Msg>>,
+    _msg: Arc<RwLock<Msg>>,
     timeout_handle: tokio::task::AbortHandle,
 }
 
@@ -123,27 +130,23 @@ impl LinkCallNode {
             Some(stack_top_entry) if stack_top_entry.link_call_node_id == self.id() => {
                 // We've got a `return msg`.
                 // And yes, we are not allowed the recursive call rightnow.
-                let mut locked_msg = msg.write().await;
-                if let Some(p) = locked_msg.pop_link_source() {
-                    assert!(p.link_call_node_id == self.id());
-                    let mut mut_state = self.mut_state.lock().await;
-                    if let Some(event) = mut_state.msg_events.remove(&p.id) {
-                        self.fan_out_one(
-                            &Envelope {
-                                msg: event.msg.clone(),
-                                port: 0,
-                            },
-                            cancel,
-                        )
-                        .await?;
-                        drop(event);
+                let event_id = {
+                    let mut locked_msg = msg.write().await;
+                    if let Some(p) = locked_msg.pop_link_source() {
+                        assert!(p.link_call_node_id == self.id());
+                        p.id
+                    } else {
+                        return Err(EdgelinkError::InvalidOperation(format!(
+                            "Cannot pop link call stack in msg!: {:?}",
+                            msg
+                        ))
+                        .into());
                     }
-                } else {
-                    return Err(EdgelinkError::InvalidOperation(format!(
-                        "Cannot pop link call stack in msg!: {:?}",
-                        msg
-                    ))
-                    .into());
+                };
+                let mut mut_state = self.mut_state.lock().await;
+                if let Some(event) = mut_state.msg_events.remove(&event_id) {
+                    self.fan_out_one(&Envelope { msg, port: 0 }, cancel).await?;
+                    drop(event);
                 }
             }
             _ =>
@@ -181,7 +184,7 @@ impl LinkCallNode {
             mut_state.msg_events.insert(
                 entry_id,
                 MsgEvent {
-                    msg: cloned_msg,
+                    _msg: cloned_msg,
                     timeout_handle,
                 },
             );

@@ -7,8 +7,9 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 enum LinkOutMode {
+    #[default]
     #[serde(rename = "link")]
     Link = 0,
 
@@ -18,9 +19,13 @@ enum LinkOutMode {
 
 #[derive(Deserialize, Debug)]
 struct LinkOutNodeConfig {
+    #[serde(default)]
     mode: LinkOutMode,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_red_id_vec")]
+    #[serde(
+        default,
+        deserialize_with = "crate::red::json::deser::deser_red_id_vec"
+    )]
     links: Vec<ElementId>,
 }
 

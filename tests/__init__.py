@@ -147,7 +147,35 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
     return await run_edgelink_with_stdin(flow_bytes, nexpected)
 
 
-async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object] | None, nexpected: int):
+async def run_flow_with_msgs_ntimes(flows_obj: list[object],
+                                    msgs: list[object] | None,
+                                    nexpected: int, injectee_node_id: str = '1'):
+    flow_bytes = json.dumps(flows_obj, ensure_ascii=False).encode('utf-8')
+
+    input_bytes = bytearray()
+    input_bytes.append(0x1E)
+    input_bytes.extend(flow_bytes)
+    input_bytes.append(0x0A)  # \n
+    for msg in msgs:
+        msg_injection = None
+        if 'nid' in msg and 'msg' in msg: # We got a raw injection
+            msg_injection = msg
+        else:
+            msg_injection = {'nid': injectee_node_id, 'msg': msg}
+        inj_bytes = json.dumps(
+            msg_injection, ensure_ascii=False).encode('utf-8')
+        input_bytes.append(0x1E)
+        input_bytes.extend(inj_bytes)
+        input_bytes.append(0x0A)  # \n
+
+    print("INPUT_JSON_SEQ:\n", input_bytes)
+    #with open("c:\\tmp\\hello.dat", "wb") as f:
+    #    f.write(input_bytes)
+    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)
+
+
+async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object] | None,
+                                           nexpected: int, injectee_node_id: str = '1'):
     user_node = copy.deepcopy(node_json)
     user_node["id"] = "1"
     user_node["z"] = "0"
@@ -155,21 +183,4 @@ async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object]
         user_node["wires"] = [["2"]]
     console_node = {"id": "2", "type": "console-json", "z": "0"}
     final_flows_json = [{"id": "0", "type": "tab"}, user_node, console_node]
-    flow_bytes = json.dumps(
-        final_flows_json, ensure_ascii=False).encode('utf-8')
-
-    input_bytes = bytearray()
-    input_bytes.append(0x1E)
-    input_bytes.extend(flow_bytes)
-    input_bytes.append(0x0A) # \n
-    for msg in msgs:
-        msg_injection = { 'nid': '1', 'msg': msg }
-        inj_bytes = json.dumps(msg_injection, ensure_ascii=False).encode('utf-8')
-        input_bytes.append(0x1E)
-        input_bytes.extend(inj_bytes)
-        input_bytes.append(0x0A) # \n
-
-    # with open("c:\\tmp\\hello.dat", "wb") as f:
-    #    f.write(input_bytes)
-    print("INPUT_JSON_SEQ:\n", input_bytes)
-    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)
+    return await run_flow_with_msgs_ntimes(final_flows_json, msgs, nexpected, injectee_node_id)

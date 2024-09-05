@@ -228,6 +228,7 @@ impl Msg {
     #[cfg(feature = "js")]
     pub fn as_js_object<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Object<'js>> {
         use js::IntoAtom;
+        use rquickjs::IntoJs;
         let obj = js::Object::new(ctx.clone())?;
         for (k, v) in self.body.iter() {
             let prop_name = k
@@ -243,6 +244,14 @@ impl Msg {
         }
 
         {
+            let link_source_atom = "_linkSource".into_js(ctx)?;
+            let link_source_bytes = bincode::serialize(&self.link_call_stack)?;
+            let link_source_value = link_source_bytes
+                .into_js(ctx)
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            obj.set(link_source_atom, link_source_value)
+                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+
             /*
             let msg_id_atom = "_msgid"
                 .into_atom(ctx)
@@ -315,7 +324,7 @@ impl<'js> From<&js::Object<'js>> for Msg {
     fn from(jo: &js::Object<'js>) -> Self {
         let mut map = BTreeMap::new();
         let mut birth_place = None;
-        let link_call_stack = None;
+        let mut link_call_stack = None;
         for result in jo.props::<String, js::Value>() {
             match result {
                 Ok((k, v)) => match k.as_ref() {
@@ -326,7 +335,9 @@ impl<'js> From<&js::Object<'js>> for Msg {
                             .and_then(|x| x.parse().ok())
                     }
                     "_linkSource" => {
-                        todo!()
+                        let bytes: Vec<u8> = v.get().unwrap();
+                        link_call_stack =
+                            bincode::deserialize::<Option<Vec<LinkSourceEntry>>>(&bytes).unwrap();
                     }
                     _ => {
                         map.insert(k, Variant::from(&v));
