@@ -101,7 +101,7 @@ impl FunctionNode {
         _flow: &Flow,
         base_node: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut function_config = FunctionNodeConfig::deserialize(&_config.json)?;
         if function_config.outputs == 0 {
             function_config.outputs = 1;
@@ -112,7 +112,7 @@ impl FunctionNode {
 
             config: function_config,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     async fn filter_msg(

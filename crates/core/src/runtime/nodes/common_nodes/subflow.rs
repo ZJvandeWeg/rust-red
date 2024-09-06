@@ -18,7 +18,7 @@ impl SubflowNode {
         _flow: &Flow,
         state: FlowNode,
         config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let subflow_id = config
             .json
             .get("type")
@@ -34,7 +34,7 @@ impl SubflowNode {
             base: state,
             subflow_id,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

@@ -181,7 +181,9 @@ impl FlowEngine {
             };
 
             let mut state = self.state.write().unwrap();
-            state.global_nodes.insert(*global_node.id(), global_node);
+            state
+                .global_nodes
+                .insert(*global_node.id(), Arc::from(global_node));
         }
         Ok(())
     }

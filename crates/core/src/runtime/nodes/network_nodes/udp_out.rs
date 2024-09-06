@@ -56,14 +56,14 @@ impl UdpOutNode {
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let udp_config = UdpOutNodeConfig::deserialize(&_config.json)?;
 
         let node = UdpOutNode {
             base: state,
             config: udp_config,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

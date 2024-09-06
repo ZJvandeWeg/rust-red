@@ -22,9 +22,9 @@ impl DummyNode {
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> Result<Box<dyn FlowNodeBehavior>> {
         let node = DummyNode { base: state };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

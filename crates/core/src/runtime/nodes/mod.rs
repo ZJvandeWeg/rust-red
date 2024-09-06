@@ -46,10 +46,10 @@ impl fmt::Display for NodeKind {
 }
 
 type GlobalNodeFactoryFn =
-    fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Arc<dyn GlobalNodeBehavior>>;
+    fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>>;
 
 type FlowNodeFactoryFn =
-    fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Arc<dyn FlowNodeBehavior>>;
+    fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeFactory {

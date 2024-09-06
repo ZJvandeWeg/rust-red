@@ -17,9 +17,9 @@ impl ConsoleJsonNode {
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = ConsoleJsonNode { base: state };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

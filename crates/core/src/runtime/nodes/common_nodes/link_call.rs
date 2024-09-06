@@ -76,7 +76,7 @@ impl LinkCallNode {
         flow: &Flow,
         state: FlowNode,
         config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let link_call_config = LinkCallNodeConfig::deserialize(&config.json)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
@@ -108,7 +108,7 @@ impl LinkCallNode {
                 timeout_tasks: JoinSet::new(),
             }),
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     async fn uow(

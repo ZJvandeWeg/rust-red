@@ -17,6 +17,9 @@ use super::group::Group;
 use crate::red::eval;
 use crate::red::json::{RedEnvEntry, RedPropertyType};
 
+mod builders;
+pub use builders::*;
+
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
 pub type FlowNodeTask = tokio::task::JoinHandle<()>;
@@ -47,7 +50,7 @@ impl Default for FlowArgs {
 }
 
 #[derive(Debug)]
-struct SubflowOutputPort {
+pub struct SubflowOutputPort {
     index: usize,
     owner: Weak<Flow>,
     msg_tx: MsgSender,
@@ -55,7 +58,7 @@ struct SubflowOutputPort {
 }
 
 #[derive(Debug)]
-struct SubflowState {
+pub struct SubflowState {
     instance_node: Option<Arc<dyn FlowNodeBehavior>>,
     in_nodes: Vec<Arc<dyn FlowNodeBehavior>>,
     tx_tasks: JoinSet<()>,
@@ -75,7 +78,7 @@ pub(crate) struct FlowState {
 }
 
 #[derive(Debug, Clone)]
-enum FlowKind {
+pub enum FlowKind {
     GlobalFlow,
     Subflow,
 }
@@ -414,12 +417,13 @@ impl Flow {
                 }
             };
 
-            state.nodes_ordering.push(node.id());
-            state.nodes.insert(node_config.id, node.clone());
+            let arc_node: Arc<dyn FlowNodeBehavior> = Arc::from(node);
+            state.nodes_ordering.push(arc_node.id());
+            state.nodes.insert(node_config.id, arc_node.clone());
 
-            log::debug!("------ {} has been loaded!", node);
+            log::debug!("------ {} has been loaded!", arc_node);
 
-            self.register_internal_node(node, state, node_config)?;
+            self.register_internal_node(arc_node, state, node_config)?;
         }
         Ok(())
     }

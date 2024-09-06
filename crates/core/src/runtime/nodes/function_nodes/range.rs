@@ -64,13 +64,13 @@ impl RangeNode {
         _flow: &Flow,
         base_node: FlowNode,
         config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let range_config = RangeNodeConfig::deserialize(&config.json)?;
         let node = RangeNode {
             base: base_node,
             config: range_config,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     fn do_range(&self, msg: &mut Msg) -> bool {

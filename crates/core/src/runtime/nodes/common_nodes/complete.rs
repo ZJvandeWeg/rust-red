@@ -16,9 +16,9 @@ impl CompleteNode {
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = CompleteNode { base: state };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

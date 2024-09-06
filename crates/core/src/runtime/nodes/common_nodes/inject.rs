@@ -47,7 +47,7 @@ impl InjectNode {
         _flow: &Flow,
         base_node: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let json = handle_legacy_json(&_config.json);
         let mut inject_node_config = InjectNodeConfig::deserialize(&json)?;
 
@@ -60,7 +60,7 @@ impl InjectNode {
             base: base_node,
             config: inject_node_config,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     async fn once_task(&self, stop_token: CancellationToken) -> crate::Result<()> {

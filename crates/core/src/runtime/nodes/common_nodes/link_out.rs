@@ -42,7 +42,7 @@ impl LinkOutNode {
         flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let link_out_config = LinkOutNodeConfig::deserialize(&_config.json)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
@@ -69,7 +69,7 @@ impl LinkOutNode {
             mode: link_out_config.mode,
             linked_nodes,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     async fn uow(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {

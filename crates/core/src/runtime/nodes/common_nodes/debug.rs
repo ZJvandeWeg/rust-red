@@ -33,7 +33,7 @@ impl DebugNode {
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.json)?;
         if debug_config.complete.is_empty() {
             debug_config.complete = "payload".to_string();
@@ -43,7 +43,7 @@ impl DebugNode {
             base: state,
             config: debug_config,
         };
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 }
 

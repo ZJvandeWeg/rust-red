@@ -164,7 +164,7 @@ impl RbeNode {
         _flow: &Flow,
         base_node: FlowNode,
         config: &RedFlowNodeConfig,
-    ) -> crate::Result<Arc<dyn FlowNodeBehavior>> {
+    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut rbe_config = RbeNodeConfig::deserialize(&config.json)?;
         rbe_config.is_percent = config
             .json
@@ -178,7 +178,7 @@ impl RbeNode {
             state: Mutex::new(RbeNodeState::default()),
         };
 
-        Ok(Arc::new(node))
+        Ok(Box::new(node))
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
