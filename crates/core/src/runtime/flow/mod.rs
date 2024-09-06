@@ -17,8 +17,11 @@ use super::group::Group;
 use crate::red::eval;
 use crate::red::json::{RedEnvEntry, RedPropertyType};
 
+#[cfg(feature = "experimental")]
 mod builders;
-pub use builders::*;
+
+#[cfg(feature = "experimental")]
+pub(crate) use builders::*;
 
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
@@ -276,7 +279,7 @@ impl Flow {
         });
 
         // Add empty subflow forward ports
-        if let Some(subflow_state) = &flow.subflow_state {
+        if let Some(ref subflow_state) = flow.subflow_state {
             let mut subflow_state = subflow_state.write().unwrap();
 
             if let Some(subflow_node_id) = flow_config.subflow_node_id {
