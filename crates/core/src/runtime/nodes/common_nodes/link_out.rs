@@ -49,7 +49,9 @@ impl LinkOutNode {
         let mut linked_nodes = Vec::new();
         if link_out_config.mode == LinkOutMode::Link {
             for link_in_id in link_out_config.links.iter() {
-                if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
+                if let Some(link_in) = flow.get_node_by_id(link_in_id) {
+                    linked_nodes.push(Arc::downgrade(&link_in));
+                } else if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
                     log::error!(

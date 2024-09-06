@@ -124,6 +124,10 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         &self.get_node().group
     }
 
+    fn get_flow(&self) -> &Weak<Flow> {
+        &self.get_node().flow
+    }
+
     fn get_engine(&self) -> Option<Arc<FlowEngine>> {
         let flow = self.get_node().flow.upgrade()?;
         flow.engine.upgrade()

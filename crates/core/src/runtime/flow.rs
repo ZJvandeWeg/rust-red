@@ -20,12 +20,6 @@ use super::group::Group;
 use crate::red::eval;
 use crate::red::json::{RedEnvEntry, RedPropertyType};
 
-#[cfg(feature = "experimental")]
-mod builders;
-
-#[cfg(feature = "experimental")]
-pub(crate) use builders::*;
-
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
 pub type FlowNodeTask = tokio::task::JoinHandle<()>;
@@ -194,12 +188,14 @@ impl SubflowState {
         Ok(())
     }
 
+    /*
     async fn stop_tx_tasks(&mut self) -> crate::Result<()> {
         while self.tx_tasks.join_next().await.is_some() {
             //
         }
         Ok(())
     }
+    */
 }
 
 impl FlowState {
@@ -207,8 +203,9 @@ impl FlowState {
         let nodes_ordering = self
             .nodes
             .iter()
-            .sorted_by(|a, b| a.id().cmp(&b.id()))
+            .sorted_by(|a, b| a.ordering().cmp(&b.ordering()))
             .map(|x| x.value().clone());
+
         for node in nodes_ordering.into_iter() {
             if node.get_node().disabled {
                 log::warn!("------ Skipping disabled node {}.", node);
@@ -307,7 +304,8 @@ impl Flow {
             let flow = flow.clone();
             flow.clone().populate_groups(flow_config)?;
 
-            flow.clone().populate_nodes(flow_config, reg)?;
+            flow.clone()
+                .populate_nodes(flow_config, reg.as_ref(), engine.as_ref())?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
@@ -345,7 +343,8 @@ impl Flow {
     fn populate_nodes(
         self: Arc<Self>,
         flow_config: &RedFlowConfig,
-        reg: Arc<dyn Registry>,
+        reg: &dyn Registry,
+        engine: &FlowEngine,
     ) -> crate::Result<()> {
         // Adding nodes
         for node_config in flow_config.nodes.iter() {
@@ -369,7 +368,7 @@ impl Flow {
                 NodeFactory::Flow(factory) => {
                     let mut node_state = self
                         .clone()
-                        .new_flow_node_state(meta_node, &self.state, node_config)
+                        .new_flow_node_state(meta_node, &self.state, node_config, engine)
                         .map_err(|e| {
                             log::error!(
                                 "Failed to create flow node(id='{}'): {:?}",
@@ -625,10 +624,12 @@ impl Flow {
         self.stop_token.cancel();
 
         // Wait all subflow senders to stop
+        /*
         if let Some(ss) = &self.subflow_state {
             let mut ss = ss.write().unwrap();
             ss.stop_tx_tasks().await?;
         }
+        */
 
         // Wait all nodes
         {
@@ -730,6 +731,7 @@ impl Flow {
         meta_node: &MetaNode,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
+        engine: &FlowEngine,
     ) -> crate::Result<FlowNode> {
         let mut ports = Vec::new();
         let (tx_root, rx) = tokio::sync::mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);
@@ -737,11 +739,15 @@ impl Flow {
         for red_port in node_config.wires.iter() {
             let mut wires = Vec::new();
             for nid in red_port.node_ids.iter() {
-                let node_entry = state.nodes.get(nid).ok_or(EdgelinkError::InvalidData(format!(
-                    "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
-                    node_config.id,
-                    node_config.name,
-                    nid
+                // First we find the node in this flow
+                let node_in_flow = state.nodes.get(nid).map(|x| x.value().clone());
+                // Next we find the node in the entire engine, otherwise there is an error
+                let node_in_engine = engine.find_flow_node_by_id(nid);
+                let node_entry = node_in_flow.or(node_in_engine).ok_or(EdgelinkError::InvalidData(format!(
+                        "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
+                        node_config.id,
+                        node_config.name,
+                        nid
                 )))?;
                 let tx = node_entry.get_node().msg_tx.to_owned();
                 let pw = PortWire {

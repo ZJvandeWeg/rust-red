@@ -8,20 +8,18 @@ from tests import *
 @pytest.mark.asyncio
 async def test_0001():
     '''should be linked'''
-    # We are not allowed that the `link in` and the 'link out' nodes in the same flow!
     flows = [
         {"id": "100", "type": "tab"},  # flow 1
-        {"id": "200", "type": "tab"},  # flow 2
         {
             "id": "1", "z": "100", "type": "link out",
             "name": "link-out", "links": ["2"]
         },
         {
-            "id": "2", "z": "200", "type": "link in",
+            "id": "2", "z": "100", "type": "link in",
             "name": "link-out", "wires": [["3"]]
         },
         {
-            "id": "3", "z": "200", "type": "console-json"
+            "id": "3", "z": "100", "type": "console-json"
         }
     ]
     injections = [
@@ -36,21 +34,20 @@ async def test_0002():
     # '''should be linked to multiple nodes'''
     flows = [
         {"id": "100", "type": "tab"},  # flow 1
-        {"id": "200", "type": "tab"},  # flow 2
         {
             "id": "1", "z": "100", "type": "link out",
             "name": "link-out", "links": ["2", "3"]
         },
         {
-            "id": "2", "z": "200", "type": "link in",
+            "id": "2", "z": "100", "type": "link in",
             "name": "link-in0", "wires": [["4"]]
         },
         {
-            "id": "3", "z": "200", "type": "link in",
+            "id": "3", "z": "100", "type": "link in",
             "name": "link-in1", "wires": [["4"]]
         },
         {
-            "id": "4", "z": "200", "type": "console-json"
+            "id": "4", "z": "100", "type": "console-json"
         }
     ]
     injections = [
@@ -65,7 +62,6 @@ async def test_0003():
     # '''should be linked to multiple nodes'''
     flows = [
         {"id": "100", "type": "tab"},  # flow 1
-        {"id": "200", "type": "tab"},  # flow 2
         {
             "id": "1", "z": "100", "type": "link out",
             "name": "link-out0", "links": ["3"]
@@ -75,11 +71,11 @@ async def test_0003():
             "name": "link-out1", "links": ["3"]
         },
         {
-            "id": "3", "z": "200", "type": "link in",
+            "id": "3", "z": "100", "type": "link in",
             "name": "link-in", "wires": [["4"]]
         },
         {
-            "id": "4", "z": "200", "type": "console-json"
+            "id": "4", "z": "100", "type": "console-json"
         }
     ]
     injections = [
@@ -125,7 +121,6 @@ async def test_0004():
     assert msgs[0]["payload"] == "123"
 
 
-"""
 @pytest.mark.asyncio
 async def test_0005():
     # '''should call link-in node by name and get response'''
@@ -156,5 +151,3 @@ async def test_0005():
     ]
     msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
     assert msgs[0]["payload"] == payload + payload
-
-"""

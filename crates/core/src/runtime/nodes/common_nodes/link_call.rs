@@ -83,7 +83,9 @@ impl LinkCallNode {
         let mut linked_nodes = Vec::new();
         if link_call_config.link_type == LinkType::Static {
             for link_in_id in link_call_config.links.iter() {
-                if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
+                if let Some(link_in) = flow.get_node_by_id(link_in_id) {
+                    linked_nodes.push(Arc::downgrade(&link_in));
+                } else if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
                     log::error!(
@@ -250,9 +252,18 @@ impl LinkCallNode {
                         None
                     }
                 } else {
-                    // Secondly, we are looking into the node names
-                    // Otherwises, there is no such target node
-                    engine.find_flow_node_by_name(target_name)?
+                    // Secondly, we are looking into the node names in this flow
+                    // Otherwises, we should looking into the node names in the whole engine
+                    let flow = self
+                        .get_flow()
+                        .upgrade()
+                        .expect("The flow must be instanced!");
+
+                    if let Some(node) = flow.get_node_by_name(&target_name)? {
+                        Some(node)
+                    } else {
+                        engine.find_flow_node_by_name(&target_name)?
+                    }
                 }
             }
             _ => {
