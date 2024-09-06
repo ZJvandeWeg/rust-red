@@ -77,4 +77,4 @@ jobs:
         env:
           EDGELINK_BUILD_TARGET: ${{ matrix.target }}
           EDGELINK_BUILD_PROFILE: ci
-        run: pytest ./tests -x
+        run: pytest ./tests
