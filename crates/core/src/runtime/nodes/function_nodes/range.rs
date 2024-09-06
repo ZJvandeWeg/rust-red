@@ -60,7 +60,7 @@ struct RangeNode {
 }
 
 impl RangeNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         base_node: FlowNode,
         config: &RedFlowNodeConfig,
@@ -139,6 +139,10 @@ impl FromStr for RangeAction {
 impl FlowNodeBehavior for RangeNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

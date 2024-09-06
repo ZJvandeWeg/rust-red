@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::runtime::nodes::*;
 
 #[linkme::distributed_slice]
-pub static META_NODES: [MetaNode];
+pub static __META_NODES: [MetaNode];
 
-pub trait Registry: Send + Sync {
+pub trait Registry: 'static + Send + Sync {
     fn all(&self) -> &HashMap<&'static str, &'static MetaNode>;
     fn get(&self, type_name: &str) -> Option<&'static MetaNode>;
 }
@@ -40,7 +40,7 @@ impl RegistryBuilder {
     }
 
     pub fn with_builtins(mut self) -> Self {
-        for meta in META_NODES.iter() {
+        for meta in __META_NODES.iter() {
             log::debug!("Found builtin Node: '{}'", meta.type_);
             self.meta_nodes.insert(meta.type_, meta);
         }

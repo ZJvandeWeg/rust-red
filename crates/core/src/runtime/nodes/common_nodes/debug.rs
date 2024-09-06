@@ -29,7 +29,7 @@ struct DebugNode {
 }
 
 impl DebugNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -51,6 +51,10 @@ impl DebugNode {
 impl FlowNodeBehavior for DebugNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

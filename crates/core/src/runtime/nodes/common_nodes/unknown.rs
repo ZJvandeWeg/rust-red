@@ -16,7 +16,7 @@ struct UnknownGlobalNode {
 }
 
 impl UnknownGlobalNode {
-    fn create(
+    fn build(
         _engine: Arc<FlowEngine>,
         _config: &RedGlobalNodeConfig,
     ) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
@@ -42,6 +42,10 @@ impl GlobalNodeBehavior for UnknownGlobalNode {
     fn type_name(&self) -> &'static str {
         self.type_
     }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
 }
 
 #[flow_node("unknown.flow")]
@@ -50,7 +54,7 @@ struct UnknownFlowNode {
 }
 
 impl UnknownFlowNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         base: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -64,6 +68,10 @@ impl UnknownFlowNode {
 impl FlowNodeBehavior for UnknownFlowNode {
     fn get_node(&self) -> &FlowNode {
         &self.state
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

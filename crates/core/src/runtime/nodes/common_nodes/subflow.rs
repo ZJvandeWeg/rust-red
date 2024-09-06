@@ -14,7 +14,7 @@ struct SubflowNode {
 }
 
 impl SubflowNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         state: FlowNode,
         config: &RedFlowNodeConfig,
@@ -42,6 +42,10 @@ impl SubflowNode {
 impl FlowNodeBehavior for SubflowNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

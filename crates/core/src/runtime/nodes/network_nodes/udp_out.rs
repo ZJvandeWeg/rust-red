@@ -52,7 +52,7 @@ struct UdpOutNode {
 }
 
 impl UdpOutNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -125,6 +125,10 @@ impl UdpOutNode {
 impl FlowNodeBehavior for UdpOutNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

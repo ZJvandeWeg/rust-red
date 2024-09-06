@@ -85,15 +85,23 @@ pub struct FlowNode {
 impl FlowNode {}
 
 #[async_trait]
-pub trait GlobalNodeBehavior: Any + Send + Sync {
+pub trait GlobalNodeBehavior: 'static + Send + Sync {
     fn id(&self) -> &ElementId;
     fn name(&self) -> &str;
     fn type_name(&self) -> &'static str;
+
+    /// Cast the global node to the any type
+    fn as_any(&self) -> &dyn Any;
 }
 
 #[async_trait]
-pub trait FlowNodeBehavior: Any + Send + Sync {
+pub trait FlowNodeBehavior: 'static + Send + Sync {
     fn get_node(&self) -> &FlowNode;
+
+    async fn run(self: Arc<Self>, stop_token: CancellationToken);
+
+    /// Cast the global node to the any type
+    fn as_any(&self) -> &dyn Any;
 
     fn id(&self) -> ElementId {
         self.get_node().id
@@ -115,8 +123,6 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
         let flow = self.get_node().flow.upgrade()?;
         flow.engine.upgrade()
     }
-
-    async fn run(self: Arc<Self>, stop_token: CancellationToken);
 
     async fn inject_msg(
         &self,
@@ -208,6 +214,12 @@ pub trait FlowNodeBehavior: Any + Send + Sync {
     }
 }
 
+impl dyn GlobalNodeBehavior {
+    pub fn type_id(&self) -> ::std::any::TypeId {
+        self.as_any().type_id()
+    }
+}
+
 impl fmt::Debug for dyn GlobalNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
@@ -227,6 +239,12 @@ impl fmt::Display for dyn GlobalNodeBehavior {
             self.type_name(),
             self.name(),
         ))
+    }
+}
+
+impl dyn FlowNodeBehavior {
+    pub fn type_id(&self) -> ::std::any::TypeId {
+        self.as_any().type_id()
     }
 }
 

@@ -43,7 +43,7 @@ struct InjectNode {
 }
 
 impl InjectNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         base_node: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -191,6 +191,10 @@ impl InjectNode {
 impl FlowNodeBehavior for InjectNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

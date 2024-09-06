@@ -21,11 +21,11 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
-        #[linkme::distributed_slice(META_NODES)]
+        #[linkme::distributed_slice(__META_NODES)]
         static #meta_node_name: MetaNode = MetaNode {
             kind: NodeKind::Flow,
             type_: #node_type,
-            factory: NodeFactory::Flow(#struct_name::create),
+            factory: NodeFactory::Flow(#struct_name::build),
         };
     };
 
@@ -50,11 +50,11 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
-        #[linkme::distributed_slice(META_NODES)]
+        #[linkme::distributed_slice(__META_NODES)]
         static #meta_node_name: MetaNode = MetaNode {
             kind: NodeKind::Global,
             type_: #node_type,
-            factory: NodeFactory::Global(#struct_name::create),
+            factory: NodeFactory::Global(#struct_name::build),
         };
     };
 

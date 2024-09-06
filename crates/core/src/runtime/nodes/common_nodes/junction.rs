@@ -11,7 +11,7 @@ struct JunctionNode {
 }
 
 impl JunctionNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -25,6 +25,10 @@ impl JunctionNode {
 impl FlowNodeBehavior for JunctionNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

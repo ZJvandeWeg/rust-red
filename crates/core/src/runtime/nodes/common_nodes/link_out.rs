@@ -38,7 +38,7 @@ struct LinkOutNode {
 }
 
 impl LinkOutNode {
-    fn create(
+    fn build(
         flow: &Flow,
         state: FlowNode,
         _config: &RedFlowNodeConfig,
@@ -133,6 +133,10 @@ impl LinkOutNode {
 impl FlowNodeBehavior for LinkOutNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

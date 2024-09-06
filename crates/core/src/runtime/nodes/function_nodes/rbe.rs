@@ -160,7 +160,7 @@ struct RbeNode {
 }
 
 impl RbeNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         base_node: FlowNode,
         config: &RedFlowNodeConfig,
@@ -299,6 +299,10 @@ impl RbeNode {
 impl FlowNodeBehavior for RbeNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

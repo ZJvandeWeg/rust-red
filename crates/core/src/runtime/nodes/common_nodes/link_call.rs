@@ -72,7 +72,7 @@ struct LinkCallNode {
 }
 
 impl LinkCallNode {
-    fn create(
+    fn build(
         flow: &Flow,
         state: FlowNode,
         config: &RedFlowNodeConfig,
@@ -298,6 +298,10 @@ impl LinkCallNode {
 impl FlowNodeBehavior for LinkCallNode {
     fn get_node(&self) -> &FlowNode {
         &self.base
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

@@ -43,6 +43,10 @@ impl FlowNodeBehavior for FunctionNode {
         &self.base
     }
 
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         let js_rt = js::AsyncRuntime::new().unwrap();
         let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
@@ -97,7 +101,7 @@ impl FlowNodeBehavior for FunctionNode {
 }
 
 impl FunctionNode {
-    fn create(
+    fn build(
         _flow: &Flow,
         base_node: FlowNode,
         _config: &RedFlowNodeConfig,
