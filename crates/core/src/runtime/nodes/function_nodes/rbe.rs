@@ -7,7 +7,7 @@ use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
-use crate::utils::float;
+use crate::text::parsing;
 use edgelink_macro::*;
 use serde::{Deserialize, Deserializer};
 use tokio::sync::Mutex;
@@ -219,7 +219,7 @@ impl RbeNode {
                 let num_value = match value {
                     Variant::Integer(v) => *v as f64,
                     Variant::Rational(v) => *v,
-                    Variant::String(s) => float::parse_float(s).unwrap_or(f64::NAN),
+                    Variant::String(s) => parsing::parse_float_lossy::<f64>(s).unwrap_or(f64::NAN),
                     _ => f64::NAN,
                 };
 

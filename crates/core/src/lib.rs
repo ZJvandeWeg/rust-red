@@ -2,6 +2,7 @@ use thiserror::Error;
 
 pub mod red;
 pub mod runtime;
+pub mod text;
 pub mod utils;
 
 /// The `PluginRegistrar` is defined by the application and passed to `plugin_entry`. It's used

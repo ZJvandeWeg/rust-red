@@ -15,47 +15,16 @@ use tokio_util::sync::CancellationToken;
 use edgelink_core::runtime::engine::FlowEngine;
 use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
-use edgelink_core::utils::json_seq;
+use edgelink_core::text::json_seq;
 use edgelink_core::*;
 
 include!(concat!(env!("OUT_DIR"), "/__use_node_plugins.rs"));
 
 mod cliargs;
 mod consts;
+mod logging;
 
 pub use cliargs::*;
-
-pub(crate) fn log_init(elargs: &CliArgs) {
-    if let Some(ref log_path) = elargs.log_path {
-        log4rs::init_file(log_path, Default::default()).unwrap();
-    } else {
-        let stderr = log4rs::append::console::ConsoleAppender::builder()
-            .target(log4rs::append::console::Target::Stderr)
-            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new(
-                "[{h({l})}]\t{m}{n}",
-            )))
-            .build();
-
-        let level = match elargs.verbose {
-            0 => log::LevelFilter::Off,
-            1 => log::LevelFilter::Warn,
-            2 => log::LevelFilter::Info,
-            3 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
-        };
-
-        let config = log4rs::Config::builder()
-            .appender(log4rs::config::Appender::builder().build("stderr", Box::new(stderr)))
-            .build(
-                log4rs::config::Root::builder()
-                    .appender("stderr")
-                    .build(level),
-            )
-            .unwrap(); // TODO FIXME
-
-        let _ = log4rs::init_config(config).unwrap();
-    }
-}
 
 // TODO move to debug.rs
 #[derive(Debug, Clone)]
@@ -249,7 +218,7 @@ async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
     if cli_args.verbose > 0 {
         eprintln!("Initializing logging sub-system...\n");
     }
-    log_init(&cli_args);
+    logging::log_init(&cli_args);
     if cli_args.verbose > 0 {
         eprintln!("Logging sub-system initialized.\n");
     }

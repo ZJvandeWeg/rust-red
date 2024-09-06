@@ -21,7 +21,7 @@ pub struct ParsedContextStoreProperty<'a> {
 fn context_store_parser(
     input: &str,
 ) -> nom::IResult<&str, ParsedContextStoreProperty<'_>, nom::error::VerboseError<&str>> {
-    use crate::utils::parser::*;
+    use crate::text::nom_parsers::*;
     use nom::{
         bytes::complete::tag,
         character::complete::{char, multispace0},

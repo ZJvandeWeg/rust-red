@@ -11,7 +11,7 @@ use topological_sort::TopologicalSort;
 
 use crate::red::json::*;
 use crate::runtime::model::ElementId;
-use crate::utils::json::option_value_equals_str;
+use crate::text::json::option_value_equals_str;
 use crate::EdgelinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {

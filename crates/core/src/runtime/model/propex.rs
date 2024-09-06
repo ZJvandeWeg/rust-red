@@ -95,7 +95,11 @@ fn parse_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
         context(
             "property",
-            delimited(multispace0, crate::utils::parser::identifier, multispace0),
+            delimited(
+                multispace0,
+                crate::text::nom_parsers::identifier,
+                multispace0,
+            ),
         ),
         PropexSegment::StringIndex,
     )
@@ -108,7 +112,11 @@ fn parse_subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>
             "subproperty",
             preceded(
                 delimited(multispace0, char('.'), multispace0),
-                delimited(multispace0, crate::utils::parser::identifier, multispace0),
+                delimited(
+                    multispace0,
+                    crate::text::nom_parsers::identifier,
+                    multispace0,
+                ),
             ),
         ),
         PropexSegment::StringIndex,
