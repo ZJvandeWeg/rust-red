@@ -1,3 +1,4 @@
+use dashmap::DashMap;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
@@ -35,7 +36,6 @@ impl FlowEngineArgs {
 #[derive(Debug)]
 pub(crate) struct FlowEngineState {
     flows: HashMap<ElementId, Arc<Flow>>,
-    global_nodes: HashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     all_flow_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
     env_vars: BTreeMap<String, Variant>,
     _context: Variant,
@@ -45,6 +45,7 @@ pub(crate) struct FlowEngineState {
 pub struct FlowEngine {
     pub(crate) state: std::sync::RwLock<FlowEngineState>,
 
+    global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     stop_token: CancellationToken,
 
     _args: FlowEngineArgs,
@@ -65,12 +66,12 @@ impl FlowEngine {
             stop_token: CancellationToken::new(),
             state: std::sync::RwLock::new(FlowEngineState {
                 flows: HashMap::new(),
-                global_nodes: HashMap::new(),
                 all_flow_nodes: HashMap::new(),
                 env_vars: BTreeMap::from_iter(FlowEngine::get_env_vars()),
                 _context: Variant::new_empty_object(),
                 _shutdown: false,
             }),
+            global_nodes: DashMap::new(),
             _args: FlowEngineArgs::load(elcfg)?,
         });
 
@@ -180,9 +181,7 @@ impl FlowEngine {
                 }
             };
 
-            let mut state = self.state.write().unwrap();
-            state
-                .global_nodes
+            self.global_nodes
                 .insert(*global_node.id(), Arc::from(global_node));
         }
         Ok(())
