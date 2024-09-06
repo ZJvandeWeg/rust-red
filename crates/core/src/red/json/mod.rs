@@ -110,6 +110,9 @@ pub struct RedFlowNodeConfig {
     #[serde(default, deserialize_with = "deser::deserialize_wires")]
     pub wires: Vec<RedPortConfig>,
 
+    #[serde(skip, default)]
+    pub ordering: usize,
+
     #[serde(skip)]
     pub json: JsonValue,
 }

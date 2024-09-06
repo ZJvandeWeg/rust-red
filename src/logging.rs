@@ -1,5 +1,4 @@
 use crate::CliArgs;
-use log4rs;
 
 pub(crate) fn log_init(elargs: &CliArgs) {
     if let Some(ref log_path) = elargs.log_path {

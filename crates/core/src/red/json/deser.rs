@@ -178,8 +178,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                 .map_or(false, |z| z == flow_config.id)
         });
 
-        for flow_node_jv in owned_node_jvs.into_iter() {
+        for (i, flow_node_jv) in owned_node_jvs.into_iter().enumerate() {
             let mut node_config: RedFlowNodeConfig = serde_json::from_value(flow_node_jv.clone())?;
+            node_config.ordering = i;
             node_config.json = flow_node_jv.clone();
             flow_config.nodes.push(node_config);
         }

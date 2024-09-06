@@ -1,7 +1,7 @@
 use dashmap::DashMap;
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
@@ -35,19 +35,18 @@ impl FlowEngineArgs {
 
 #[derive(Debug)]
 pub(crate) struct FlowEngineState {
-    flows: HashMap<ElementId, Arc<Flow>>,
-    all_flow_nodes: HashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    env_vars: BTreeMap<String, Variant>,
     _context: Variant,
-    _shutdown: bool,
+    shutdown: AtomicBool,
+    env_vars: DashMap<String, Variant>,
+    flows: DashMap<ElementId, Arc<Flow>>,
+    global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
+    all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
 }
 
 pub struct FlowEngine {
-    pub(crate) state: std::sync::RwLock<FlowEngineState>,
+    pub(crate) state: FlowEngineState,
 
-    global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     stop_token: CancellationToken,
-
     _args: FlowEngineArgs,
 }
 
@@ -64,14 +63,14 @@ impl FlowEngine {
 
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
-            state: std::sync::RwLock::new(FlowEngineState {
-                flows: HashMap::new(),
-                all_flow_nodes: HashMap::new(),
-                env_vars: BTreeMap::from_iter(FlowEngine::get_env_vars()),
+            state: FlowEngineState {
+                all_flow_nodes: DashMap::new(),
+                global_nodes: DashMap::new(),
+                flows: DashMap::new(),
+                env_vars: DashMap::from_iter(FlowEngine::get_env_vars()),
                 _context: Variant::new_empty_object(),
-                _shutdown: false,
-            }),
-            global_nodes: DashMap::new(),
+                shutdown: AtomicBool::new(true),
+            },
             _args: FlowEngineArgs::load(elcfg)?,
         });
 
@@ -107,7 +106,7 @@ impl FlowEngine {
     }
 
     pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
-        self.state.read().ok()?.flows.get(id).cloned()
+        self.state.flows.get(id).map(|x| x.value().clone())
     }
 
     fn load_flows(
@@ -125,22 +124,20 @@ impl FlowEngine {
             );
             let flow = Flow::new(self.clone(), flow_config, reg.clone(), elcfg)?;
             {
-                let mut state = self.state.write().unwrap();
-
                 // register all nodes
                 for fnode in flow.get_all_flow_nodes().iter() {
-                    if state.all_flow_nodes.contains_key(&fnode.id()) {
+                    if self.state.all_flow_nodes.contains_key(&fnode.id()) {
                         return Err(EdgelinkError::InvalidData(format!(
                             "This flow node already existed: {}",
                             fnode
                         ))
                         .into());
                     }
-                    state.all_flow_nodes.insert(fnode.id(), fnode.clone());
+                    self.state.all_flow_nodes.insert(fnode.id(), fnode.clone());
                 }
 
                 //register the flow
-                state.flows.insert(flow.id, flow);
+                self.state.flows.insert(flow.id, flow);
             }
             log::debug!(
                 "---- The flow (id='{}', label='{}') has been loaded successfully.",
@@ -181,7 +178,8 @@ impl FlowEngine {
                 }
             };
 
-            self.global_nodes
+            self.state
+                .global_nodes
                 .insert(*global_node.id(), Arc::from(global_node));
         }
         Ok(())
@@ -193,11 +191,7 @@ impl FlowEngine {
         msg: Arc<RwLock<Msg>>,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let flow = {
-            let state = self.state.read().unwrap();
-            let flows = &state.flows;
-            flows.get(flow_id).cloned()
-        };
+        let flow = self.state.flows.get(flow_id).as_deref().cloned();
         if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
@@ -212,11 +206,7 @@ impl FlowEngine {
         msg: Arc<RwLock<Msg>>,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let flow = {
-            let state = self.state.read().unwrap();
-            let flows = &state.flows;
-            flows.get(link_in_id).cloned()
-        };
+        let flow = { self.state.flows.get(link_in_id).as_deref().cloned() };
         if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
@@ -229,16 +219,18 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
-        let flows: Vec<_> = {
-            let mut state = self.state.write().unwrap();
-            state.env_vars.clear();
-            state.env_vars.extend(FlowEngine::get_env_vars());
-
-            state.flows.values().cloned().collect()
-        };
-        for flow in flows {
-            flow.start().await?;
+        self.state.env_vars.clear();
+        for ev in FlowEngine::get_env_vars() {
+            self.state.env_vars.insert(ev.0, ev.1);
         }
+
+        for f in self.state.flows.iter() {
+            f.value().start().await?;
+        }
+
+        self.state
+            .shutdown
+            .store(false, std::sync::atomic::Ordering::Relaxed);
 
         log::info!("-- All flows started.");
         Ok(())
@@ -248,30 +240,28 @@ impl FlowEngine {
         log::info!("-- Stopping all flows...");
         self.stop_token.cancel();
 
-        let flows: Vec<_> = {
-            let state = self.state.read().unwrap();
-            state.flows.values().cloned().collect()
-        };
-        for flow in flows {
-            flow.clone().stop().await?;
+        for i in self.state.flows.iter() {
+            i.value().stop().await?;
         }
 
+        self.state
+            .shutdown
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         //drop(self.stopped_tx);
         log::info!("-- All flows stopped.");
         Ok(())
     }
 
     pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        let nodes = &self.state.read().ok()?.all_flow_nodes;
-        nodes.get(id).cloned()
+        self.state.all_flow_nodes.get(id).map(|x| x.value().clone())
     }
 
     pub fn find_flow_node_by_name(
         &self,
         name: &str,
     ) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
-        let state = &self.state.read().expect("The state must be available!");
-        for (_, flow) in state.flows.iter() {
+        for i in self.state.flows.iter() {
+            let flow = i.value();
             let opt_node = flow.get_node_by_name(name)?;
             if opt_node.is_some() {
                 return Ok(opt_node.clone());

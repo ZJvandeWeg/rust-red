@@ -69,6 +69,7 @@ rquickjs = { version = "0.6.2", features = [
 ]}
 dirs-next = "2.0.0"
 clap = { version = "4.5.16", features = ["derive"] }
+itertools = "0.13.0"
 
 [dependencies]
 clap.workspace = true

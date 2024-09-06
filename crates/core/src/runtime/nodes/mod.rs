@@ -69,7 +69,8 @@ pub struct MetaNode {
 pub struct FlowNode {
     pub id: ElementId,
     pub name: String,
-    pub type_: &'static str,
+    pub type_str: &'static str,
+    pub ordering: usize,
     pub disabled: bool,
     pub flow: Weak<Flow>,
     pub msg_tx: MsgSender,
@@ -111,8 +112,12 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         &self.get_node().name
     }
 
-    fn type_name(&self) -> &'static str {
-        self.get_node().type_
+    fn type_str(&self) -> &'static str {
+        self.get_node().type_str
+    }
+
+    fn ordering(&self) -> usize {
+        self.get_node().ordering
     }
 
     fn group(&self) -> &Weak<Group> {
@@ -253,7 +258,7 @@ impl fmt::Debug for dyn FlowNodeBehavior {
         f.write_fmt(format_args!(
             "FlowNode(id='{}', type='{}', name='{}')",
             self.id(),
-            self.type_name(),
+            self.type_str(),
             self.name(),
         ))
     }
@@ -264,7 +269,7 @@ impl fmt::Display for dyn FlowNodeBehavior {
         f.write_fmt(format_args!(
             "FlowNode(id='{}', type='{}', name='{}')",
             self.id(),
-            self.type_name(),
+            self.type_str(),
             self.name(),
         ))
     }
@@ -297,7 +302,7 @@ where
                 "with_uow() Error: Node(id='{}', name='{}', type='{}')\n{:#?}",
                 node.id(),
                 node.name(),
-                node.type_name(),
+                node.type_str(),
                 err
             );
         }
