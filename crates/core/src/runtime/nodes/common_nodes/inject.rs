@@ -257,7 +257,7 @@ fn handle_legacy_json(orig: &Value) -> Value {
             let mut new_props = Vec::new();
             new_props.push(serde_json::json!({
                 "p": "payload",
-                "v": orig["payload"],
+                "v": orig["payload"].to_string(), //FIXME TODO
                 "vt": orig["payloadType"]
             }));
             new_props.push(serde_json::json!({

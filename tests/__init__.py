@@ -89,7 +89,7 @@ async def run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> list[dic
         async for i in read_json_from_process(process, nexpected):
             msgs.append(i)
         return msgs
-    except Exception as e:
+    except BaseException as e:
         print(e)
         process.kill()
         await process.wait()
@@ -104,7 +104,7 @@ async def run_edgelink(flows_path: str, nexpected: int) -> list[dict]:
         async for i in read_json_from_process(process, nexpected):
             msgs.append(i)
         return msgs
-    except Exception as e:
+    except BaseException as e:
         print(e)
         process.kill()
         await process.wait()

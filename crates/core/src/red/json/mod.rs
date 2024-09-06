@@ -227,7 +227,7 @@ fn parse_property_triple(jv: &serde_json::Value) -> crate::Result<RedPropertyTri
             ))?
             .to_string(),
 
-        v: match jv.get("v").and_then(serde_json::Value::as_str) {
+        v: match jv.get("v") {
             Some(s) => s.to_string(),
             None => "".to_string(),
         },
