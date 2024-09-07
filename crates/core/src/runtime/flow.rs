@@ -4,7 +4,6 @@ use std::sync::{Arc, Weak};
 use dashmap::DashMap;
 use itertools::Itertools;
 use serde::Deserialize;
-use smallvec::SmallVec;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
@@ -662,8 +661,13 @@ impl Flow {
         msg: &Msg,
         cancel: CancellationToken,
     ) {
-        if let Some(complete_nodes) = self.get_complete_nodes_by_emitter(emitter_id) {
-            for complete_node in complete_nodes.iter() {
+        if let Some(complete_nids) = self.state.complete_nodes_map.get(emitter_id) {
+            for ncid in complete_nids.iter() {
+                let complete_node = self
+                    .state
+                    .complete_nodes
+                    .get(ncid)
+                    .expect("The complete node must be existed!");
                 let to_send = Arc::new(RwLock::new(msg.clone()));
                 match complete_node
                     .inject_msg(to_send, cancel.child_token())
@@ -679,22 +683,6 @@ impl Flow {
                 }
             }
         }
-    }
-
-    fn get_complete_nodes_by_emitter(
-        &self,
-        emitter_id: &ElementId,
-    ) -> Option<SmallVec<[Arc<dyn FlowNodeBehavior>; 8]>> {
-        self.state
-            .complete_nodes_map
-            .get(emitter_id)
-            .map(|complete_nids| {
-                complete_nids
-                    .iter()
-                    .filter_map(|k| self.state.complete_nodes.get(k))
-                    .map(|x| x.clone())
-                    .collect()
-            })
     }
 
     pub async fn inject_msg(
