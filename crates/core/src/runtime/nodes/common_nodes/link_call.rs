@@ -63,7 +63,7 @@ struct LinkCallMutState {
 
 #[derive(Debug)]
 #[flow_node("link call")]
-struct LinkCallNode {
+pub(crate) struct LinkCallNode {
     base: FlowNode,
     config: LinkCallNodeConfig,
     linked_nodes: Vec<Weak<dyn FlowNodeBehavior>>,
@@ -119,46 +119,7 @@ impl LinkCallNode {
         msg: Arc<RwLock<Msg>>,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let stack_top_entry = {
-            let locked_msg = msg.read().await;
-            if let Some(stack) = &locked_msg.link_call_stack {
-                stack.last().copied()
-            } else {
-                None
-            }
-        };
-
-        match stack_top_entry {
-            Some(stack_top_entry) if stack_top_entry.link_call_node_id == self.id() => {
-                // We've got a `return msg`.
-                // And yes, we are not allowed the recursive call rightnow.
-                let event_id = {
-                    let mut locked_msg = msg.write().await;
-                    if let Some(p) = locked_msg.pop_link_source() {
-                        assert!(p.link_call_node_id == self.id());
-                        p.id
-                    } else {
-                        return Err(EdgelinkError::InvalidOperation(format!(
-                            "Cannot pop link call stack in msg!: {:?}",
-                            msg
-                        ))
-                        .into());
-                    }
-                };
-                let mut mut_state = self.mut_state.lock().await;
-                if let Some(event) = mut_state.msg_events.remove(&event_id) {
-                    self.fan_out_one(&Envelope { msg, port: 0 }, cancel).await?;
-                    drop(event);
-                }
-            }
-            _ =>
-            // Fresh incoming msg
-            {
-                self.forward_call_msg(node.clone(), msg, cancel).await?
-            }
-        }
-
-        Ok(())
+        self.forward_call_msg(node.clone(), msg, cancel).await
     }
 
     async fn forward_call_msg(
@@ -172,7 +133,7 @@ impl LinkCallNode {
         {
             let mut locked_msg = msg.write().await;
             entry_id = ElementId::with_u64(self.event_id_atomic.fetch_add(1, Ordering::Relaxed));
-            locked_msg.push_link_source(LinkSourceEntry {
+            locked_msg.push_link_source(LinkCallStackEntry {
                 id: entry_id,
                 link_call_node_id: self.id(),
             });
@@ -330,6 +291,32 @@ impl FlowNodeBehavior for LinkCallNode {
             if !mut_state.timeout_tasks.is_empty() {
                 mut_state.timeout_tasks.abort_all();
             }
+        }
+    }
+}
+
+#[async_trait]
+impl LinkCallNodeBehavior for LinkCallNode {
+    /// Receive the returning message
+    async fn return_msg(
+        &self,
+        msg: Arc<RwLock<Msg>>,
+        stack_id: ElementId,
+        _return_from_node_id: ElementId,
+        _return_from_flow_id: ElementId,
+        cancel: CancellationToken,
+    ) -> crate::Result<()> {
+        let mut mut_state = self.mut_state.lock().await;
+        if let Some(event) = mut_state.msg_events.remove(&stack_id) {
+            self.fan_out_one(&Envelope { msg, port: 0 }, cancel).await?;
+            drop(event);
+            Ok(())
+        } else {
+            Err(EdgelinkError::InvalidOperation(format!(
+                "Cannot find and(or) remove the event id: '{}'",
+                stack_id
+            ))
+            .into())
         }
     }
 }

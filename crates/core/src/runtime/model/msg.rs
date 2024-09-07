@@ -29,7 +29,7 @@ pub struct Envelope {
 pub type MsgBody = BTreeMap<String, Variant>;
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
-pub struct LinkSourceEntry {
+pub struct LinkCallStackEntry {
     pub id: ElementId,
     pub link_call_node_id: ElementId,
 }
@@ -40,7 +40,7 @@ pub struct Msg {
 
     pub body: BTreeMap<String, Variant>,
 
-    pub link_call_stack: Option<Vec<LinkSourceEntry>>,
+    pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
 }
 
 impl Msg {
@@ -288,7 +288,7 @@ impl Msg {
 }
 
 impl Msg {
-    pub fn push_link_source(&mut self, lse: LinkSourceEntry) {
+    pub fn push_link_source(&mut self, lse: LinkCallStackEntry) {
         if let Some(link_source) = &mut self.link_call_stack {
             link_source.push(lse);
         } else {
@@ -296,7 +296,7 @@ impl Msg {
         }
     }
 
-    pub fn pop_link_source(&mut self) -> Option<LinkSourceEntry> {
+    pub fn pop_link_source(&mut self) -> Option<LinkCallStackEntry> {
         if let Some(link_source) = &mut self.link_call_stack {
             let p = link_source.pop();
             if link_source.is_empty() {
@@ -337,7 +337,8 @@ impl<'js> From<&js::Object<'js>> for Msg {
                     "_linkSource" => {
                         let bytes: Vec<u8> = v.get().unwrap();
                         link_call_stack =
-                            bincode::deserialize::<Option<Vec<LinkSourceEntry>>>(&bytes).unwrap();
+                            bincode::deserialize::<Option<Vec<LinkCallStackEntry>>>(&bytes)
+                                .unwrap();
                     }
                     _ => {
                         map.insert(k, Variant::from(&v));

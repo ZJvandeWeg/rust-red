@@ -322,7 +322,7 @@ impl Flow {
             self.state.groups.clear();
         }
         // Adding root groups
-        let root_group_configs = flow_config.groups.iter().filter(|gc| gc.z == *self.id());
+        let root_group_configs = flow_config.groups.iter().filter(|gc| gc.z == self.id());
         for gc in root_group_configs {
             let group = match &gc.g {
                 // Subgroup
@@ -488,8 +488,8 @@ impl Flow {
         }
     }
 
-    pub fn id(&self) -> &ElementId {
-        &self.id
+    pub fn id(&self) -> ElementId {
+        self.id
     }
 
     pub fn parent(&self) -> &Option<Weak<Flow>> {

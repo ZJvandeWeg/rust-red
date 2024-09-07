@@ -3,7 +3,7 @@ mod console_json;
 mod debug;
 mod inject;
 mod junction;
-mod link_call;
+pub(crate) mod link_call;
 mod link_in;
 mod link_out;
 mod subflow;

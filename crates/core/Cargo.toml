@@ -54,9 +54,10 @@ tokio = { version = "1", features = ["test-util"] }
 
 
 [features]
-default = ["js", "nodes_mqtt", "nodes_udp"]
+default = ["js", "net"]
 js = ["rquickjs"]
 rqjs_bindgen = ["rquickjs/bindgen"]
+net = ["nodes_mqtt", "nodes_udp"]
 nodes_mqtt = []
 nodes_http = ["tokio/net"]
 nodes_tcp = ["tokio/net"]

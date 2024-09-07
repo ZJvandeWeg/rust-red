@@ -15,8 +15,10 @@ use crate::EdgelinkError;
 use super::group::Group;
 use super::model::{ElementId, Envelope, Msg, MsgReceiverHolder};
 
-mod common_nodes;
+pub(crate) mod common_nodes;
 mod function_nodes;
+
+#[cfg(feature = "net")]
 mod network_nodes;
 
 pub const NODE_MSG_CHANNEL_CAPACITY: usize = 16;
@@ -311,4 +313,17 @@ where
             );
         }
     }
+}
+
+#[async_trait]
+pub trait LinkCallNodeBehavior: Send + Sync + FlowNodeBehavior {
+    /// Receive the returning message
+    async fn return_msg(
+        &self,
+        msg: Arc<RwLock<Msg>>,
+        stack_id: ElementId,
+        return_from_node_id: ElementId,
+        return_from_flow_id: ElementId,
+        cancel: CancellationToken,
+    ) -> crate::Result<()>;
 }

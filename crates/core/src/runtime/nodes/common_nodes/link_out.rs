@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use common_nodes::link_call::LinkCallNode;
 use serde::Deserialize;
 
 use crate::runtime::flow::Flow;
@@ -90,36 +91,52 @@ impl LinkOutNode {
                 }
             }
             LinkOutMode::Return => {
-                let engine = self
+                let flow = self
                     .get_node()
                     .flow
                     .upgrade()
-                    .and_then(|f| f.engine.upgrade())
+                    .expect("The flow cannot be released!");
+                let engine = flow
+                    .engine
+                    .upgrade()
                     .expect("The engine cannot be released");
-                let mut msg_guard = msg.write().await;
-                if let Some(link_call_stack) = &mut msg_guard.link_call_stack {
-                    if let Some(source_link) = link_call_stack.last() {
-                        if let Some(target_node) =
-                            engine.find_flow_node_by_id(&source_link.link_call_node_id)
+                let stack_top = {
+                    let mut msg_guard = msg.write().await;
+                    msg_guard.pop_link_source()
+                };
+                if let Some(ref source_link) = stack_top {
+                    if let Some(target_node) =
+                        engine.find_flow_node_by_id(&source_link.link_call_node_id)
+                    {
+                        if let Some(link_call_node) =
+                            target_node.as_any().downcast_ref::<LinkCallNode>()
                         {
-                            target_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                            link_call_node
+                                .return_msg(
+                                    msg.clone(),
+                                    source_link.id,
+                                    self.id(),
+                                    flow.id(),
+                                    cancel.clone(),
+                                )
+                                .await?;
                         } else {
-                            return Err(EdgelinkError::InvalidData(format!(
-                                "Cannot found the `link call` node by id='{}'",
+                            return Err(EdgelinkError::InvalidOperation(format!(
+                                "The node(id='{}') is not a `link call` node!",
                                 source_link.link_call_node_id
                             ))
                             .into());
                         }
                     } else {
                         return Err(EdgelinkError::InvalidData(format!(
-                            "The `link call stack` is empty for msg: {:?}",
-                            msg
+                            "Cannot found the `link call` node by id='{}'",
+                            source_link.link_call_node_id
                         ))
                         .into());
                     }
                 } else {
-                    return Err(EdgelinkError::InvalidOperation(format!(
-                        "The `link call stack` is empty for msg {:?}",
+                    return Err(EdgelinkError::InvalidData(format!(
+                        "The `link call stack` is empty for msg: {:?}",
                         msg
                     ))
                     .into());
