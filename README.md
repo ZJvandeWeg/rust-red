@@ -85,7 +85,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 
 **Prototype Stage**: The project is currently in the prototype stage and cannot guarantee stable operation.
 
-The green check mark ( :heavy_check_mark: ) below indicates that this feature has passed the integration test migrated from Node-RED.
+The heavy check mark ( :heavy_check_mark: ) below indicates that this feature has passed the integration test ported from Node-RED.
 
 ### Node-RED Features Roadmap:
 
