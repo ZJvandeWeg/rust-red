@@ -85,10 +85,12 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 
 **Prototype Stage**: The project is currently in the prototype stage and cannot guarantee stable operation.
 
+The green check mark ( :heavy_check_mark: ) below indicates that this feature has passed the integration test migrated from Node-RED.
+
 ### Node-RED Features Roadmap:
 
-- [x] Flow
-- [x] Sub-flow
+- [x] Flow :heavy_check_mark:
+- [x] Sub-flow :heavy_check_mark:
 - [x] Group
 - [ ] Environment Variables (WIP)
 - [ ] Context
@@ -101,17 +103,15 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 
 - Core nodes:
     - Common nodes:
-        - [x] Console-JSON (For integration tests)
-        - [x] Inject
+        - [x] :heavy_check_mark: Console-JSON (For integration tests)
+        - [x] :heavy_check_mark: Inject
         - [x] Debug (WIP)
         - [x] Complete
         - [ ] Catch
         - [ ] Status
-        - [x] Link In
-        - [x] Link Call
-            - [x] Static Target
-            - [x] Dynamic Target
-        - [x] Link Out
+        - [x] :heavy_check_mark: Link In
+        - [x] :heavy_check_mark: Link Call
+        - [x] :heavy_check_mark: Link Out
         - [x] Comment (Ignore automatically)
         - [x] GlobalConfig (WIP)
         - [x] Unknown
@@ -127,12 +127,12 @@ Adjust various settings in the configuration file, such as port number, `flows.j
             - [ ] `env` object
         - [ ] Switch
         - [ ] Change
-        - [x] Range
+        - [x] :heavy_check_mark: Range
         - [ ] Template
         - [ ] Delay
         - [ ] Trigger
         - [ ] Exec
-        - [x] Filter
+        - [x] :heavy_check_mark: Filter
     - Network nodes:
         - [ ] MQTT In
         - [ ] MQTT Out
