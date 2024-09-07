@@ -37,13 +37,13 @@ async def start_edgelink_process(el_args: list[str]):
     return process
 
 
-async def read_json_from_process(process, nexpected: int):
+async def read_json_from_process(process, nexpected: int, timeout=5):
     # Read from the process's stdout
     buffer = ''
     counter = 0
     try:
         while True:
-            line = await asyncio.wait_for(process.stdout.readline(), timeout=8)
+            line = await asyncio.wait_for(process.stdout.readline(), timeout)
             if not line:
                 break
             buffer += line.decode('utf-8')
@@ -79,33 +79,45 @@ async def read_json_from_process(process, nexpected: int):
     await process.wait()
 
 
-async def run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> list[dict]:
+async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout: float = 5) -> list[dict]:
     el_args = ['-v', '0', '--stdin']
     msgs = []
     process = await start_edgelink_process(el_args)
     try:
-        process.stdin.write(input_data)
-        process.stdin.close()
-        async for i in read_json_from_process(process, nexpected):
-            msgs.append(i)
-        return msgs
+        async with asyncio.timeout(timeout):
+            process.stdin.write(input_data)
+            process.stdin.close()
+            async for i in read_json_from_process(process, nexpected, timeout):
+                msgs.append(i)
+            return msgs
+    except asyncio.TimeoutError:
+        print("Timeout occurred, killing the process.")
+        process.kill()
+        await process.wait()
+        raise
     except BaseException as e:
-        print(e)
+        print(f"An error occurred: {e}")
         process.kill()
         await process.wait()
         raise e
 
 
-async def run_edgelink(flows_path: str, nexpected: int) -> list[dict]:
+async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 5) -> list[dict]:
     el_args = ['-v', '0', '-f', flows_path]
     msgs = []
     process = await start_edgelink_process(el_args)
     try:
-        async for i in read_json_from_process(process, nexpected):
-            msgs.append(i)
-        return msgs
+        async with asyncio.timeout(timeout):
+            async for i in read_json_from_process(process, nexpected, timeout):
+                msgs.append(i)
+            return msgs
+    except asyncio.TimeoutError:
+        print("Timeout occurred, killing the process.")
+        process.kill()
+        await process.wait()
+        raise
     except BaseException as e:
-        print(e)
+        print(f"An error occurred: {e}")
         process.kill()
         await process.wait()
         raise e
@@ -158,7 +170,7 @@ async def run_flow_with_msgs_ntimes(flows_obj: list[object],
     input_bytes.append(0x0A)  # \n
     for msg in msgs:
         msg_injection = None
-        if 'nid' in msg and 'msg' in msg: # We got a raw injection
+        if 'nid' in msg and 'msg' in msg:  # We got a raw injection
             msg_injection = msg
         else:
             msg_injection = {'nid': injectee_node_id, 'msg': msg}
@@ -169,7 +181,7 @@ async def run_flow_with_msgs_ntimes(flows_obj: list[object],
         input_bytes.append(0x0A)  # \n
 
     print("INPUT_JSON_SEQ:\n", input_bytes)
-    #with open("c:\\tmp\\hello.dat", "wb") as f:
+    # with open("c:\\tmp\\hello.dat", "wb") as f:
     #    f.write(input_bytes)
     return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)
 
