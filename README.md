@@ -115,7 +115,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
         - [x] Comment (Ignore automatically)
         - [x] GlobalConfig (WIP)
         - [x] Unknown
-        - [x] Junction
+        - [x] :heavy_check_mark: Junction
     - Function nodes:
         - [x] Function (WIP)
             - [x] Basic functions
@@ -132,7 +132,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
         - [ ] Delay
         - [ ] Trigger
         - [ ] Exec
-        - [x] :heavy_check_mark: Filter
+        - [x] :heavy_check_mark: Filter (RBE)
     - Network nodes:
         - [ ] MQTT In
         - [ ] MQTT Out
