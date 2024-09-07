@@ -15,8 +15,8 @@ use crate::text::json::option_value_equals_str;
 use crate::EdgelinkError;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
-    let processed = preprocess_root(root_jv)?;
-    let all_values = processed.as_array().ok_or(EdgelinkError::BadFlowsJson(
+    let preprocessed = preprocess_subflows(root_jv)?;
+    let all_values = preprocessed.as_array().ok_or(EdgelinkError::BadFlowsJson(
         "Cannot convert the value into an array".to_string(),
     ))?;
 
@@ -126,13 +126,23 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
 
     let mut sorted_flows = Vec::new();
     while let Some(flow_id) = flow_topo_sort.pop() {
-        let flow = flows.remove(&flow_id).expect("No fucking way!!!");
+        let flow = flows
+            .remove(&flow_id)
+            .ok_or(EdgelinkError::BadFlowsJson(format!(
+                "Cannot find the flow_id('{}') in flows",
+                flow_id
+            )))?;
         sorted_flows.push(flow);
     }
 
     let mut sorted_flow_groups = Vec::new();
     while let Some(group_id) = group_topo_sort.pop() {
-        let group = groups.remove(&group_id).expect("No fucking way!!!");
+        let group = groups
+            .remove(&group_id)
+            .ok_or(EdgelinkError::BadFlowsJson(format!(
+                "Cannot find the group_id('{}') in flows",
+                group_id
+            )))?;
         sorted_flow_groups.push(group);
     }
 
@@ -194,13 +204,14 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     })
 }
 
-fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
+fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
     let elements = jv_root.as_array().unwrap();
-    let mut ids_to_delete = HashSet::new();
+    let mut elements_to_delete = HashSet::new();
 
     #[derive(Debug)]
     struct SubflowPack<'a> {
-        subflow_node: &'a JsonValue,
+        subflow_id: &'a str,
+        instance: &'a JsonValue,
         subflow: &'a JsonValue,
         children: Vec<&'a JsonValue>,
     }
@@ -209,28 +220,43 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
 
     // Find out all of subflow related elements
     for jv in elements.iter() {
-        if let Some((_, subflow_id)) = jv
+        if let Some(("subflow", subflow_id)) = jv
             .get("type")
             .and_then(|x| x.as_str())
             .and_then(|x| x.split_once(':'))
         {
-            let subflow_id_value = JsonValue::String(subflow_id.to_string());
-            ids_to_delete.insert(jv["id"].clone());
-            ids_to_delete.insert(subflow_id_value.clone());
+            let subflow = elements.iter().find(|x| {
+                x.get("id")
+                    .and_then(|y| y.as_str())
+                    .is_some_and(|y| y == subflow_id)
+            }).ok_or(
+                EdgelinkError::BadFlowsJson(
+                    format!(
+                        "The cannot found the subflow for subflow instance node(id='{}', type='{}', name='{}')",
+                        subflow_id, jv.get("type").and_then(|x|x.as_str()).unwrap_or(""),
+                        jv.get("name").and_then(|x| x.as_str()).unwrap_or("")))
+            )?;
+
+            // All elements belongs to this flow
+            let children = elements
+                .iter()
+                .filter(|x| {
+                    x.get("z")
+                        .and_then(|y| y.as_str())
+                        .is_some_and(|y| y == subflow_id)
+                })
+                .collect();
 
             let pack = SubflowPack {
-                subflow_node: jv,
-                subflow: elements
-                    .iter()
-                    .find(|x| x.get("id") == Some(&subflow_id_value))
-                    .unwrap(),
-                children: elements
-                    .iter()
-                    .filter(|x| x.get("z") == Some(&subflow_id_value))
-                    .collect(),
+                subflow_id,
+                instance: jv,
+                subflow,
+                children,
             };
 
-            ids_to_delete.extend(pack.children.iter().filter_map(|x| x.get("id")).cloned());
+            elements_to_delete.insert(pack.instance);
+            elements_to_delete.insert(pack.subflow);
+            elements_to_delete.extend(pack.children.iter());
 
             subflow_packs.push(pack);
         }
@@ -242,85 +268,122 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
     for pack in subflow_packs.iter() {
         let subflow_new_id = ElementId::new();
 
-        // TODO code refactoring
-
         // "subflow" element
         {
             let mut new_subflow = pack.subflow.clone();
+            new_subflow["id"] = JsonValue::String(subflow_new_id.to_string());
             id_map.insert(
+                pack.subflow_id.to_string(),
                 new_subflow["id"].as_str().unwrap().to_string(),
-                format!("{}", subflow_new_id),
             );
-            new_subflow["id"] = JsonValue::String(format!("{}", subflow_new_id));
-
-            for in_item in new_subflow["in"].as_array_mut().unwrap() {
-                for wires_item in in_item["wires"].as_array_mut().unwrap() {
-                    id_map.insert(
-                        wires_item["id"].as_str().unwrap().to_string(),
-                        generate_new_xored_id(subflow_new_id, &wires_item["id"])
-                            .as_str()
-                            .unwrap()
-                            .to_string(),
-                    );
-                    wires_item["id"] = generate_new_xored_id(subflow_new_id, &wires_item["id"]);
-                }
-            }
-
-            for out_item in new_subflow["out"].as_array_mut().unwrap() {
-                for wires_item in out_item["wires"].as_array_mut().unwrap() {
-                    id_map.insert(
-                        wires_item["id"].as_str().unwrap().to_string(),
-                        generate_new_xored_id(subflow_new_id, &wires_item["id"])
-                            .as_str()
-                            .unwrap()
-                            .to_string(),
-                    );
-                    wires_item["id"] = generate_new_xored_id(subflow_new_id, &wires_item["id"]);
-                }
-            }
             new_elements.push(new_subflow);
         }
 
-        // "subflow:xxxxxx" node
+        // the fixed subflow instance node
         {
-            let mut new_subflow_node = pack.subflow_node.clone();
-            new_subflow_node["type"] = JsonValue::String(format!("subflow:{}", subflow_new_id));
-            new_elements.push(new_subflow_node);
+            let mut new_instance = pack.instance.clone();
+            new_instance["type"] = JsonValue::String(format!("subflow:{}", subflow_new_id));
+            new_elements.push(new_instance);
         }
 
-        // normals in subflow
-        {
-            for node in pack.children.iter() {
-                let mut node = (*node).clone();
+        // The children elements in the subflow
+        for old_child in pack.children.iter() {
+            let mut new_child = (*old_child).clone();
+            new_child["id"] =
+                generate_new_xored_id_value(subflow_new_id, old_child["id"].as_str().unwrap())?;
+            id_map.insert(
+                old_child["id"].as_str().unwrap().to_string(),
+                new_child["id"].as_str().unwrap().to_string(),
+            );
+            new_elements.push(new_child);
+        }
+    }
 
-                node["id"] = generate_new_xored_id(subflow_new_id, &node["id"]);
-                node["z"] = JsonValue::String(format!("{}", subflow_new_id));
+    // Remap all known properties of the new elements
+    for node in new_elements.iter_mut() {
+        let node = node.as_object_mut().unwrap();
 
-                if let Some(gid) = node.get_mut("g") {
-                    *gid = generate_new_xored_id(subflow_new_id, gid);
+        if let Some(JsonValue::String(pvalue)) = node.get_mut("z") {
+            if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                *pvalue = new_id.to_string();
+            }
+        }
+
+        if let Some(JsonValue::String(pvalue)) = node.get_mut("g") {
+            if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                *pvalue = new_id.to_string();
+            }
+        }
+
+        // Replace the nested flow instance `type` property
+        if let Some(JsonValue::String(pvalue)) = node.get_mut("type") {
+            if let Some(("subflow", old_id)) = pvalue.split_once(':') {
+                if let Some(new_id) = id_map.get(old_id) {
+                    *pvalue = format!("subflow:{}", new_id);
                 }
+            }
+        }
 
-                if let Some(wires) = node.get_mut("wires").and_then(|x| x.as_array_mut()) {
-                    for wire in wires {
-                        let wire = wire.as_array_mut().unwrap();
-                        for id in wire {
-                            let new_id = generate_new_xored_id(subflow_new_id, id);
-                            *id = new_id;
+        // Node with `wires` property
+        if let Some(wires) = node.get_mut("wires").and_then(|x| x.as_array_mut()) {
+            for wire in wires {
+                let wire = wire.as_array_mut().unwrap();
+                for id in wire {
+                    if let JsonValue::String(pvalue) = id {
+                        if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                            *pvalue = new_id.to_string();
                         }
                     }
                 }
+            }
+        }
 
-                // TODO CHECK TYPE: complete/catch/status
-                if let Some(scope) = node.get_mut("scope").and_then(|x| x.as_array_mut()) {
-                    for id in scope {
-                        let new_id = generate_new_xored_id(subflow_new_id, id);
-                        *id = new_id;
+        // Node with `scope` property
+        // TODO CHECK TYPE: complete/catch/status
+        if let Some(scope) = node.get_mut("scope").and_then(|x| x.as_array_mut()) {
+            for id in scope {
+                if let JsonValue::String(pvalue) = id {
+                    if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                        *pvalue = new_id.to_string();
                     }
                 }
+            }
+        }
 
-                // TODO node.XYZ old property
+        // Node with `links` property
+        if let Some(links) = node.get_mut("links").and_then(|x| x.as_array_mut()) {
+            for id in links {
+                if let JsonValue::String(pvalue) = id {
+                    if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                        *pvalue = new_id.to_string();
+                    }
+                }
+            }
+        }
 
-                new_elements.push(node);
+        // Replace the `in` property
+        if let Some(JsonValue::Array(in_props)) = node.get_mut("in") {
+            for in_item in in_props.iter_mut() {
+                for wires_item in in_item["wires"].as_array_mut().unwrap().iter_mut() {
+                    if let Some(JsonValue::String(pvalue)) = wires_item.get_mut("id") {
+                        if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                            *pvalue = new_id.to_string();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Replace the `out` property
+        if let Some(JsonValue::Array(out_props)) = node.get_mut("out") {
+            for out_item in out_props.iter_mut() {
+                for wires_item in out_item["wires"].as_array_mut().unwrap().iter_mut() {
+                    if let Some(JsonValue::String(pvalue)) = wires_item.get_mut("id") {
+                        if let Some(new_id) = id_map.get(pvalue.as_str()) {
+                            *pvalue = new_id.to_string();
+                        }
+                    }
+                }
             }
         }
     }
@@ -328,16 +391,19 @@ fn preprocess_root(jv_root: &JsonValue) -> crate::Result<JsonValue> {
     new_elements.extend(
         elements
             .iter()
-            .filter(|x| x.get("id").map_or(false, |id| !ids_to_delete.contains(id)))
+            .filter(|x| !elements_to_delete.contains(x))
             .cloned(),
     );
 
     Ok(JsonValue::Array(new_elements))
 }
 
-fn generate_new_xored_id(subflow_id: ElementId, old_id_value: &JsonValue) -> JsonValue {
-    let old_id = parse_red_id_value(old_id_value).unwrap();
-    JsonValue::String(format!("{}", (subflow_id ^ old_id)))
+fn generate_new_xored_id_value(subflow_id: ElementId, old_id: &str) -> crate::Result<JsonValue> {
+    let old_id = parse_red_id_str(old_id).ok_or(EdgelinkError::BadFlowsJson(format!(
+        "Cannot parse id: '{}'",
+        old_id
+    )))?;
+    Ok(JsonValue::String((subflow_id ^ old_id).to_string()))
 }
 
 pub fn parse_red_type_value(t: &str) -> RedTypeValue {
@@ -615,10 +681,7 @@ where
             if value.trim().is_empty() {
                 Ok(None)
             } else {
-                value
-                    .parse::<f64>()
-                    .map(|x| Some(x))
-                    .map_err(de::Error::custom)
+                value.parse::<f64>().map(Some).map_err(de::Error::custom)
             }
         }
 

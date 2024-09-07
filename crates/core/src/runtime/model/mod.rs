@@ -50,6 +50,12 @@ pub struct Port {
     pub wires: Vec<PortWire>,
 }
 
+impl Port {
+    pub fn empty() -> Self {
+        Port { wires: Vec::new() }
+    }
+}
+
 pub type MsgSender = mpsc::Sender<Arc<RwLock<Msg>>>;
 pub type MsgReceiver = mpsc::Receiver<Arc<RwLock<Msg>>>;
 

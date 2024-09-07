@@ -386,6 +386,10 @@ impl Flow {
                         {
                             let red_wires = red_port.wires.iter().filter(|x| x.id == node_state.id);
                             for red_wire in red_wires {
+                                // Makre sure the target node has one port at least!
+                                if node_state.ports.is_empty() {
+                                    node_state.ports.push(Port::empty());
+                                }
                                 if let Some(node_port) = node_state.ports.get_mut(red_wire.port) {
                                     let subflow_tx_port =
                                         &subflow_state.tx_ports[subflow_port_index];
@@ -395,8 +399,8 @@ impl Flow {
                                     node_port.wires.push(node_wire)
                                 } else {
                                     return Err(EdgelinkError::BadFlowsJson(format!(
-                                        "Bad port for subflow: {}",
-                                        red_wire.port
+                                        "Invalid port '{}' for subflow: {:?}",
+                                        red_wire.port, subflow_state
                                     ))
                                     .into());
                                 }
@@ -406,7 +410,7 @@ impl Flow {
 
                     match factory(&self, node_state, node_config) {
                         Ok(node) => {
-                            log::debug!("The node {} has been built.", node);
+                            log::debug!("------ The node {} has been built.", node);
                             node
                         }
                         Err(err) => {

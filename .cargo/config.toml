@@ -1,7 +1,7 @@
 [env]
 EDGELINK_HOME = "./"
 EDGELINK_RUN_ENV = "dev"
-NR_TEST = "foot"
+CLICOLOR_FORCE="1"
 
 [build]
 #rustflags='-C prefer-dynamic'

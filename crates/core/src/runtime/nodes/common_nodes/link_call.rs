@@ -259,10 +259,10 @@ impl LinkCallNode {
                         .upgrade()
                         .expect("The flow must be instanced!");
 
-                    if let Some(node) = flow.get_node_by_name(&target_name)? {
+                    if let Some(node) = flow.get_node_by_name(target_name)? {
                         Some(node)
                     } else {
-                        engine.find_flow_node_by_name(&target_name)?
+                        engine.find_flow_node_by_name(target_name)?
                     }
                 }
             }

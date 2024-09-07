@@ -287,7 +287,7 @@ impl FlowEngine {
 
     pub fn get_env_var(&self, key: &str) -> Option<Variant> {
         // TODO exclude vars
-        std::env::var(key).map(|x| Variant::String(x)).ok()
+        std::env::var(key).map(Variant::String).ok()
     }
 
     fn get_env_vars() -> impl Iterator<Item = (String, Variant)> {
