@@ -1,5 +1,9 @@
 # EdgeLink: A Node-RED Compatible Run-time Engine in Rust
-[![GitHub Actions](https://github.com/oldrev/edgelink/workflows/CICD/badge.svg)](https://github.com/oldrev/edgelink/actions) [![Releases](https://img.shields.io/github/release/oldrev/edgelink.svg)](https://github.com/oldrev/edgelink/releases)
+[![Build Status]][actions]
+[![Releases](https://img.shields.io/github/release/oldrev/edgelink.svg)](https://github.com/oldrev/edgelink/releases)
+
+[Build Status]: https://img.shields.io/github/actions/workflow/status/oldrev/edgelink/CICD.yml?branch=master
+[actions]: https://github.com/oldrev/edgelink/actions?query=branch%3Amaster
 
 ![Node-RED Rust Backend](assets/banner.jpg)
 

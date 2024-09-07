@@ -1,5 +1,10 @@
 # EdgeLink：Rust 开发的 Node-RED 兼容运行时引擎
-[![GitHub Actions](https://github.com/oldrev/edgelink/workflows/CICD/badge.svg)](https://github.com/oldrev/edgelink/actions) [![Releases](https://img.shields.io/github/release/oldrev/edgelink.svg)](https://github.com/oldrev/edgelink/releases)
+[![Build Status]][actions]
+[![Releases](https://img.shields.io/github/release/oldrev/edgelink.svg)](https://github.com/oldrev/edgelink/releases)
+
+[Build Status]: https://img.shields.io/github/actions/workflow/status/oldrev/edgelink/CICD.yml?branch=master
+[actions]: https://github.com/oldrev/edgelink/actions?query=branch%3Amaster
+
 
 ![Node-RED Rust Backend](assets/banner.jpg)
 
@@ -28,7 +33,7 @@ EdgeLink 的设计和实现逻辑，力求通过精细化的资源管理和高�
 
 出于测试本项目的目的，我们首先需要安装 Node-RED 作为流程设计器，并生成 flows.json 文件。请参考 Node-RED 的文档获取安装和使用方法。
 
-在 Node-RED 中完成流程设计后，请确保点击大红色的“Deploy”按钮，以生成 flows.json 文件。默认情况下，该文件位于 ~/.node-red/flows.json。请注意不要使用本项目中尚未实现的 Node-RED 功能。
+在 Node-RED 中完成流程设计后，请确保点击大红色的“Deploy”按钮，以生成 `flows.json` 文件。默认情况下，该文件位于 `~/.node-red/flows.json`。请注意不要使用本项目中尚未实现的 Node-RED 功能（功能实现状态请参考英文本文档）。
 
 ### 1. 构建
 
