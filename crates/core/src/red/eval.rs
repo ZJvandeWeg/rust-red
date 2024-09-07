@@ -215,7 +215,6 @@ mod tests {
     use crate::red::RedPropertyTriple;
 
     use super::*;
-    use serde_json::*;
 
     #[test]
     fn test_evaluate_node_property_without_msg() {
