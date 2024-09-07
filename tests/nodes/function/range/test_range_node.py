@@ -12,7 +12,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 async def _generic_range_test(action, minin, maxin, minout, maxout, round, a_payload, expected_result):
     node = {"type": "range", "minin": minin, "maxin": maxin, "minout": minout,
             "maxout": maxout, "action": action, "round": round}
-    msgs = await run_with_single_node_ntimes('num', a_payload, node, 1, once=True, topic='t1')
+    msgs = await run_with_single_node_ntimes(
+        'num',
+        isinstance(a_payload, str) and a_payload or json.dumps(a_payload),
+        node, 1, once=True, topic='t1')
     assert msgs[0]['payload'] == expected_result
 
 
@@ -82,9 +85,9 @@ async def test_0010():
         "action": "drop", "round": True
     }
     injections = [
-        {'payload': 1.0},
-        {'payload': 9.0},
-        {'payload': 5.0},
+        {'payload': "1.0"},
+        {'payload': "9.0"},
+        {'payload': "5.0"},
     ]
     msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)
     assert msgs[0]['payload'] == 50
@@ -97,7 +100,7 @@ async def test_0011():
         "type": "range", "minin": 0, "maxin": 100, "minout": 0, "maxout": 100,
         "action": "scale", "round": True
     }
-    injections = [ {} ]
+    injections = [{}]
     msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)
     assert 'payload' not in msgs[0]
 

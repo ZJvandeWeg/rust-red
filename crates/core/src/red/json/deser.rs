@@ -9,7 +9,7 @@ use serde_json::Map as JsonMap;
 use serde_json::Value as JsonValue;
 use topological_sort::TopologicalSort;
 
-use crate::red::json::*;
+use crate::red::{json::*, RedPropertyType, RedTypeValue};
 use crate::runtime::model::ElementId;
 use crate::text::json::option_value_equals_str;
 use crate::EdgelinkError;
@@ -592,19 +592,59 @@ pub fn str_to_option_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Erro
 where
     D: Deserializer<'de>,
 {
-    let value: Option<String> = Option::deserialize(deserializer)?;
-    match value {
-        Some(s) => {
-            if s.is_empty() {
+    struct F64Visitor;
+
+    impl<'de> de::Visitor<'de> for F64Visitor {
+        type Value = Option<f64>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a float, a string containing a float, or an empty string")
+        }
+
+        fn visit_f64<E>(self, value: f64) -> Result<Option<f64>, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Option<f64>, E>
+        where
+            E: de::Error,
+        {
+            if value.trim().is_empty() {
                 Ok(None)
             } else {
-                s.parse::<f64>().map(Some).map_err(|_| {
-                    de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid f64")
-                })
+                value
+                    .parse::<f64>()
+                    .map(|x| Some(x))
+                    .map_err(de::Error::custom)
             }
         }
-        None => Ok(None),
+
+        fn visit_string<E>(self, value: String) -> Result<Option<f64>, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&value)
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Option<f64>, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value as f64))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Option<f64>, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value as f64))
+        }
     }
+
+    deserializer.deserialize_any(F64Visitor)
 }
 
 pub fn deser_f64_or_string_nan<'de, D>(deserializer: D) -> Result<f64, D::Error>
@@ -715,20 +755,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::red::*;
 
     #[test]
     fn parse_red_property_triple_should_be_ok() {
-        let data = r#"[
-        {
+        let data = r#"
+        [{
             "p": "timestamp",
             "v": "",
             "vt": "date"
-        }
-    ]"#;
+        }]
+        "#;
 
         // Parse the string of data into serde_json::Value.
         let v: serde_json::Value = serde_json::from_str(data).unwrap();
-        let triples = RedPropertyTriple::collection_from_json_value(&v).unwrap();
+        let triples = Vec::<RedPropertyTriple>::deserialize(&v).unwrap();
         assert_eq!(1, triples.len());
         assert_eq!("timestamp", triples[0].p);
         assert_eq!(RedPropertyType::Date, triples[0].vt);

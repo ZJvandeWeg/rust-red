@@ -285,6 +285,11 @@ impl FlowEngine {
         node.inject_msg(msg, cancel).await
     }
 
+    pub fn get_env_var(&self, key: &str) -> Option<Variant> {
+        // TODO exclude vars
+        std::env::var(key).map(|x| Variant::String(x)).ok()
+    }
+
     fn get_env_vars() -> impl Iterator<Item = (String, Variant)> {
         std::env::vars().map(|(k, v)| (k.to_string(), Variant::String(v)))
     }

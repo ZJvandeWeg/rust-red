@@ -8,11 +8,14 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::red::eval;
 use crate::red::json::*;
+use crate::red::RedPropertyTriple;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
+
+// const USER_INJECT_PROPS: &str = "__user_inject_props__";
 
 #[derive(serde::Deserialize, Debug)]
 struct InjectNodeConfig {
@@ -53,7 +56,11 @@ impl InjectNode {
 
         // fix the `crontab`
         if !inject_node_config.crontab.is_empty() {
-            inject_node_config.crontab = format!("0 {}", inject_node_config.crontab);
+            if inject_node_config.crontab.split_whitespace().count() == 6 {
+                inject_node_config.crontab = inject_node_config.crontab.to_string();
+            } else {
+                inject_node_config.crontab = format!("0 {}", inject_node_config.crontab);
+            }
         }
 
         let node = InjectNode {
@@ -257,7 +264,7 @@ fn handle_legacy_json(orig: &Value) -> Value {
             let mut new_props = Vec::new();
             new_props.push(serde_json::json!({
                 "p": "payload",
-                "v": orig["payload"].to_string(), //FIXME TODO
+                "v": orig["payload"],
                 "vt": orig["payloadType"]
             }));
             new_props.push(serde_json::json!({

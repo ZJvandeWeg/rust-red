@@ -1,27 +1,14 @@
-use crate::{runtime::model::*, EdgelinkError};
+use crate::runtime::model::*;
 use serde_json::Value as JsonValue;
+
+use super::env::RedEnvEntry;
 
 pub mod deser;
 pub mod helpers;
 
-pub struct RedTypeValue<'a> {
-    red_type: &'a str,
-    id: Option<ElementId>,
-}
-
 #[derive(serde::Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct RedPortConfig {
     pub node_ids: Vec<ElementId>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct RedEnvEntry {
-    pub name: String,
-
-    pub value: String,
-
-    #[serde(alias = "type")]
-    pub type_name: String,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -159,94 +146,4 @@ pub struct RedSubflowPort {
 pub struct RedFlows {
     pub flows: Vec<RedFlowConfig>,
     pub global_nodes: Vec<RedGlobalNodeConfig>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
-pub enum RedPropertyType {
-    #[serde(rename = "str")]
-    Str,
-
-    #[serde(rename = "num")]
-    Num,
-
-    #[serde(rename = "json")]
-    Json,
-
-    #[serde(rename = "re")]
-    Re,
-
-    #[serde(rename = "date")]
-    Date,
-
-    #[serde(rename = "bin")]
-    Bin,
-
-    #[serde(rename = "msg")]
-    Msg,
-
-    #[serde(rename = "flow")]
-    Flow,
-
-    #[serde(rename = "global")]
-    Global,
-
-    #[serde(rename = "bool")]
-    Bool,
-
-    #[serde(rename = "jsonata")]
-    Jsonata,
-
-    #[serde(rename = "env")]
-    Env,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct RedPropertyTriple {
-    pub p: String,
-
-    pub vt: RedPropertyType,
-
-    pub v: String,
-}
-
-fn parse_property_triple(jv: &serde_json::Value) -> crate::Result<RedPropertyTriple> {
-    Ok(RedPropertyTriple {
-        vt: RedPropertyType::from(
-            jv.get("vt")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("str"),
-        )?,
-        p: jv
-            .get("p")
-            .ok_or(EdgelinkError::BadFlowsJson(
-                "Cannot get the property `p` in the property triple".to_string(),
-            ))?
-            .as_str()
-            .ok_or(EdgelinkError::BadFlowsJson(
-                "Cannot convert the property `p` into string".to_string(),
-            ))?
-            .to_string(),
-
-        v: match jv.get("v") {
-            Some(s) => s.to_string(),
-            None => "".to_string(),
-        },
-    })
-}
-
-impl RedPropertyTriple {
-    pub fn collection_from_json_value(
-        jv: &serde_json::Value,
-    ) -> crate::Result<Vec<RedPropertyTriple>> {
-        if let Some(objects) = jv.as_array() {
-            let entries: crate::Result<Vec<RedPropertyTriple>> =
-                objects.iter().map(parse_property_triple).collect();
-            entries
-        } else {
-            Err(
-                EdgelinkError::BadFlowsJson("The property table must be an array".to_string())
-                    .into(),
-            )
-        }
-    }
 }

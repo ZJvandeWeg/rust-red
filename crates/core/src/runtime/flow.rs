@@ -9,7 +9,8 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
-use crate::red::json::*;
+use crate::red::env::RedEnvEntry;
+use crate::red::{json::*, RedPropertyType};
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
@@ -18,7 +19,6 @@ use crate::EdgelinkError;
 
 use super::group::Group;
 use crate::red::eval;
-use crate::red::json::{RedEnvEntry, RedPropertyType};
 
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
@@ -404,7 +404,20 @@ impl Flow {
                         }
                     }
 
-                    factory(&self, node_state, node_config)?
+                    match factory(&self, node_state, node_config) {
+                        Ok(node) => {
+                            log::debug!("The node {} has been built.", node);
+                            node
+                        }
+                        Err(err) => {
+                            log::error!(
+                                "Failed to build node (JSON=`{}`): {}",
+                                node_config.json,
+                                err
+                            );
+                            return Err(err);
+                        }
+                    }
                 }
                 NodeFactory::Global(_) => {
                     return Err(EdgelinkError::NotSupported(format!(
@@ -515,21 +528,17 @@ impl Flow {
         }
     }
 
-    pub fn get_setting(&self, key: &str) -> Variant {
-        match key {
-            "NR_FLOW_NAME" => Variant::String(self.label.clone()),
-            "NR_FLOW_ID" => Variant::String(self.id.clone().to_string()),
+    pub fn get_setting(&self, key: &str) -> Option<Variant> {
+        let trimmed = key.trim();
+        match trimmed {
+            "NR_FLOW_NAME" => Some(Variant::String(self.label.clone())),
+            "NR_FLOW_ID" => Some(Variant::String(self.id.clone().to_string())),
             _ => {
-                if let Some(pkey) = key.strip_prefix("$parent.") {
-                    match self.parent() {
-                        Some(parent) => match parent.upgrade() {
-                            Some(parent) => parent.get_setting(pkey),
-                            None => Variant::Null,
-                        },
-                        None => Variant::Null,
-                    }
+                let pkey = trimmed.strip_prefix("$parent.").unwrap_or(trimmed);
+                if let Some(ref parent) = self.engine.upgrade() {
+                    parent.get_env_var(pkey)
                 } else {
-                    Variant::Null
+                    None
                 }
             }
         }

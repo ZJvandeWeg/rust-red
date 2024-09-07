@@ -229,7 +229,7 @@ impl RbeNode {
                 }
 
                 // Read node.previous[t] value
-                let mut prev_value = state.prev.get(t).and_then(|x| x.as_number());
+                let mut prev_value = state.prev.get(t).and_then(|x| x.as_rational());
 
                 // Handle the initial value of previous_value
                 if prev_value.is_none() && self.config.func.is_narrowband() {

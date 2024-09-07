@@ -7,6 +7,16 @@ use super::{flow::Flow, model::Variant, red::json::RedEnvEntry};
 */
 use nom;
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RedEnvEntry {
+    pub name: String,
+
+    pub value: String,
+
+    #[serde(alias = "type")]
+    pub type_name: String,
+}
+
 pub fn replace_vars<'a, F, R>(input: &'a str, converter: F) -> String
 where
     F: Fn(&'a str) -> R,

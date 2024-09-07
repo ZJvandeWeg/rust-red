@@ -1,6 +1,4 @@
-use std::sync::Weak;
-
-use serde_json::Value as JsonValue;
+use serde::Deserialize;
 
 use crate::{
     runtime::{
@@ -11,7 +9,7 @@ use crate::{
     utils, EdgelinkError,
 };
 
-use super::json::RedPropertyType;
+use super::RedPropertyType;
 
 pub struct ParsedContextStoreProperty<'a> {
     pub store: &'a str,
@@ -75,33 +73,34 @@ pub fn parse_context_store(key: &str) -> crate::Result<ParsedContextStorePropert
 fn get_setting(
     name: &str,
     node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Weak<Flow>>,
-) -> Variant {
+    flow: Option<&Flow>,
+) -> Option<Variant> {
     if let Some(node) = node {
         match name {
-            "NR_NODE_NAME" => return Variant::String(node.name().into()),
-            "NR_NODE_ID" => return Variant::String(node.id().to_string()),
-            "NR_NODE_PATH" => return Variant::Null,
+            "NR_NODE_NAME" => return Some(Variant::String(node.name().into())),
+            "NR_NODE_ID" => return Some(Variant::String(node.id().to_string())),
+            "NR_NODE_PATH" => return None,
             &_ => (),
         };
     }
 
-    if let Some(flow_ref) = flow.or_else(|| node.map(|n| &n.get_node().flow)) {
+    if let Some(flow_ref) = flow {
         if let Some(node) = node {
             if let Some(group) = node.group().upgrade() {
                 return group.get_setting(name);
             }
         }
 
-        let flow = flow_ref.upgrade().expect("No way this happened");
-        return flow.get_setting(name);
+        return flow_ref.get_setting(name);
     }
 
     // TODO FIXME
     // We should use the snapshot in the FlowEngine
-    std::env::var(name)
-        .map(Variant::String)
-        .unwrap_or(Variant::Null)
+    Some(
+        std::env::var(name)
+            .map(Variant::String)
+            .unwrap_or(Variant::Null),
+    )
 }
 
 /**
@@ -114,24 +113,26 @@ fn get_setting(
  * @param  {Node} node - the node evaluating the property
  * @return {String} The parsed string
  */
-fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Variant {
-    let flow = node.map(|n| &n.get_node().flow);
-    if value.starts_with("${") && value.ends_with("}") {
+fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Option<Variant> {
+    let flow = node.and_then(|n| n.get_flow().upgrade());
+    let flow_ref = flow.as_ref().map(|arc| arc.as_ref());
+    let trimmed = value.trim();
+    if trimmed.starts_with("${") && value.ends_with("}") {
         // ${ENV_VAR}
-        let name = &value[2..(value.len() - 1)];
-        get_setting(name, node, flow)
-    } else if !value.contains("${") {
+        let name = &trimmed[2..(value.len() - 1)];
+        get_setting(name, node, flow_ref)
+    } else if !trimmed.contains("${") {
         // ENV_VAR
-        get_setting(value, node, flow)
+        get_setting(trimmed, node, flow_ref)
     } else {
         // FOO${ENV_VAR}BAR
-        Variant::String(super::env::replace_vars(
-            value,
-            |env_name| match get_setting(env_name, node, flow) {
-                Variant::String(v) => v,
+        Some(Variant::String(super::env::replace_vars(
+            trimmed,
+            |env_name| match get_setting(env_name, node, flow_ref) {
+                Some(Variant::String(v)) => v,
                 _ => "".to_string(),
             },
-        ))
+        )))
     }
 }
 
@@ -154,14 +155,9 @@ pub fn evaluate_node_property(
     let evaluated = match _type {
         RedPropertyType::Str => Variant::String(value.to_string()),
 
-        RedPropertyType::Num => {
-            let fv = value.parse::<f64>().unwrap_or(0.0);
-            Variant::Rational(fv)
-        }
-
-        RedPropertyType::Json => {
-            let root_jv: JsonValue = serde_json::from_str(value)?;
-            Variant::from(root_jv)
+        RedPropertyType::Num | RedPropertyType::Json => {
+            let jv: serde_json::Value = serde_json::from_str(value)?;
+            Variant::deserialize(jv)?
         }
 
         RedPropertyType::Re => todo!(), // TODO FIXME
@@ -174,8 +170,13 @@ pub fn evaluate_node_property(
         },
 
         RedPropertyType::Bin => {
-            let jv: JsonValue = serde_json::from_str(value)?;
-            Variant::bytes_from_json_value(&jv)?
+            let jv: serde_json::Value = serde_json::from_str(value)?;
+            let arr = Variant::deserialize(&jv)?;
+            let bytes = arr.to_bytes().ok_or(EdgelinkError::InvalidData(format!(
+                "Expected an array of bytes, got: {:?}",
+                value
+            )))?;
+            Variant::from(bytes)
         }
 
         RedPropertyType::Msg => {
@@ -190,12 +191,41 @@ pub fn evaluate_node_property(
 
         RedPropertyType::Flow | RedPropertyType::Global => todo!(),
 
-        RedPropertyType::Bool => Variant::Bool(value.parse::<bool>().unwrap_or(false)),
+        RedPropertyType::Bool => {
+            let jv: serde_json::Value =
+                serde_json::from_str(value).unwrap_or(serde_json::Value::Bool(false));
+            Variant::deserialize(&jv)?
+        }
 
         RedPropertyType::Jsonata => todo!(),
 
-        RedPropertyType::Env => evaluate_env_property(value, node),
+        RedPropertyType::Env => {
+            evaluate_env_property(value, node).ok_or(EdgelinkError::InvalidData(format!(
+                "Cannot found the environment variable: '{}'",
+                value
+            )))?
+        }
     };
 
     Ok(evaluated)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::red::RedPropertyTriple;
+
+    use super::*;
+    use serde_json::*;
+
+    #[test]
+    fn test_evaluate_node_property_without_msg() {
+        let triple = RedPropertyTriple {
+            p: "payload".to_string(),
+            vt: RedPropertyType::Num,
+            v: "10".to_string(),
+        };
+        let evaluated = evaluate_node_property(&triple.v, &triple.vt, None, None).unwrap();
+        assert!(evaluated.is_integer());
+        assert_eq!(evaluated.as_integer().unwrap(), 10);
+    }
 }

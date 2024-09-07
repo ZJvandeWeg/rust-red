@@ -48,11 +48,11 @@ impl Group {
         Ok(group)
     }
 
-    pub fn get_setting(&self, key: &str) -> Variant {
+    pub fn get_setting(&self, key: &str) -> Option<Variant> {
         if key == "NR_GROUP_NAME" {
-            return Variant::String(self.name.clone());
+            return Some(Variant::String(self.name.clone()));
         } else if key == "NR_GROUP_ID" {
-            return Variant::String(self.id.to_string());
+            return Some(Variant::String(self.id.to_string()));
         }
         /*
         else if !key.starts_with("$parent.") {
@@ -64,15 +64,12 @@ impl Group {
         }
         */
         match &self.parent {
-            GroupParent::Flow(parent_flow) => parent_flow
-                .upgrade()
-                .map(|x| x.get_setting(key))
-                .unwrap_or(Variant::Null),
-
-            GroupParent::Group(parent_group) => parent_group
-                .upgrade()
-                .map(|x| x.get_setting(key))
-                .unwrap_or(Variant::Null),
+            GroupParent::Flow(parent_flow) => {
+                parent_flow.upgrade().and_then(|x| x.get_setting(key))
+            }
+            GroupParent::Group(parent_group) => {
+                parent_group.upgrade().and_then(|x| x.get_setting(key))
+            }
         }
     }
 }

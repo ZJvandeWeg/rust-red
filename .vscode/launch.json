@@ -19,8 +19,9 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["-f", "c:\\tmp\\hello.json"],
             "env": {
+                "NR_TEST": "foo",
                 "EDGELINK_HOME": "${workspaceFolder}"
             },
             "cwd": "${workspaceFolder}",

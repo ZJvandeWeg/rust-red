@@ -1,5 +1,6 @@
 use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
+use std::convert::TryInto;
 use std::fmt;
 
 use serde::ser::{SerializeMap, SerializeSeq};
@@ -24,33 +25,58 @@ pub enum VariantError {
 
     #[error("Out of range error")]
     OutOfRange,
+
+    #[error("Casting error")]
+    BadCast,
 }
 
+/// A versatile enum that can represent various types of data.
+///
+/// This enum is designed to be a flexible container for different kinds of data,
+/// including null values, numbers, strings, booleans, byte arrays, arrays of `Variant`
+/// values, and key-value mappings.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::collections::BTreeMap;
+/// use edgelink_core::runtime::model::Variant;
+///
+/// // Create a null variant
+/// let null_variant = Variant::Null;
+///
+/// // Create a rational variant
+/// let rational_variant = Variant::Rational(3.14);
+///
+/// // Create an integer variant
+/// let integer_variant = Variant::Integer(42);
+/// assert_eq!(integer_variant.as_integer().unwrap(), 42);
+/// ```
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Variant {
-    /// Null
+    /// Represents a null value.
     Null,
 
-    /// A float
+    /// Represents a floating-point number.
     Rational(f64),
 
-    /// A 32-bit integer
+    /// Represents a 32-bit signed integer.
     Integer(i32),
 
-    /// A string
+    /// Represents a string of characters.
     String(String),
 
-    /// A boolean
+    /// Represents a boolean value (true or false).
     Bool(bool),
 
-    /// Bytes
+    /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
 
-    /// An array
+    /// Represents an array of `Variant` values.
     Array(Vec<Variant>),
 
-    /// A object
+    /// Represents a key-value mapping of strings to `Variant` values.
     Object(BTreeMap<String, Variant>),
 }
 
@@ -79,6 +105,11 @@ impl Variant {
         match self {
             Variant::Bytes(ref bytes) => Some(bytes.clone()),
             Variant::String(ref s) => Some(s.bytes().collect()),
+            Variant::Array(ref arr) => arr
+                .iter()
+                .flat_map(|x| x.to_u8())
+                .next()
+                .map(|_| arr.iter().filter_map(|x| x.to_u8()).collect()),
             Variant::Rational(f) => Some(f.to_string().bytes().collect()),
             Variant::Integer(i) => Some(i.to_string().bytes().collect()),
             _ => None,
@@ -99,18 +130,30 @@ impl Variant {
         }
     }
 
-    pub fn as_u8(&self) -> Result<u8, VariantError> {
+    pub fn to_u8(&self) -> Option<u8> {
         match self {
-            Variant::Rational(fvalue) => Ok(fvalue.round() as u8), //FIXME
-            _ => Err(VariantError::WrongType),
+            Variant::Rational(value) => {
+                if value.is_nan() || *value < u8::MIN as f64 || *value > u8::MAX as f64 {
+                    None
+                } else {
+                    let rounded = value.round();
+                    if rounded < u8::MIN as f64 || rounded > u8::MAX as f64 {
+                        None
+                    } else {
+                        Some(rounded as u8)
+                    }
+                }
+            }
+            Variant::Integer(ivalue) => (*ivalue).try_into().ok(),
+            _ => None,
         }
     }
 
-    pub fn is_number(&self) -> bool {
+    pub fn is_rational(&self) -> bool {
         matches!(self, Variant::Rational(..) | Variant::Integer(..))
     }
 
-    pub fn as_number(&self) -> Option<f64> {
+    pub fn as_rational(&self) -> Option<f64> {
         match *self {
             Variant::Rational(f) => Some(f),
             Variant::Integer(f) => Some(f as f64),
@@ -409,11 +452,11 @@ impl Variant {
             }
             Variant::Bytes(ref mut this_bytes) => {
                 if let Some(existed) = this_bytes.get_mut(index) {
-                    *existed = value.as_u8()?;
+                    *existed = value.to_u8().ok_or(VariantError::BadCast)?;
                     Ok(())
                 } else if index == this_bytes.len() {
                     // insert to tail
-                    this_bytes.push(value.as_u8()?);
+                    this_bytes.push(value.to_u8().ok_or(VariantError::BadCast)?);
                     Ok(())
                 } else {
                     Err(VariantError::OutOfRange)
@@ -747,7 +790,7 @@ impl<'de> Deserialize<'de> for Variant {
             type Value = Variant;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a variant value")
+                write!(formatter, "a valid Variant value")
             }
 
             fn visit_unit<E>(self) -> Result<Variant, E>
@@ -768,7 +811,22 @@ impl<'de> Deserialize<'de> for Variant {
             where
                 E: de::Error,
             {
-                Ok(Variant::Rational(value as f64))
+                if value > i32::MAX.into() || value < i32::MIN.into() {
+                    Ok(Variant::Rational(value as f64))
+                } else {
+                    Ok(Variant::Integer(value as i32))
+                }
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Variant, E>
+            where
+                E: de::Error,
+            {
+                if value > (i32::MAX as u64) {
+                    Ok(Variant::Rational(value as f64))
+                } else {
+                    Ok(Variant::Integer(value as i32))
+                }
             }
 
             fn visit_f64<E>(self, value: f64) -> Result<Variant, E>
@@ -900,6 +958,7 @@ impl<'js> From<&js::ArrayBuffer<'js>> for Variant {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::*;
 
     #[test]
     fn variant_clone_should_be_ok() {
@@ -1021,5 +1080,66 @@ mod tests {
         );
 
         assert_eq!(obj_address.len(), 2);
+    }
+
+    #[test]
+    fn variant_can_deserialize_from_json_value() {
+        let json = json!(null);
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_null());
+
+        let json = json!(3.14);
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_rational());
+        assert_eq!((var.as_rational().unwrap() * 100.0) as i64, 314);
+
+        let json = json!(123);
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_integer());
+        assert_eq!(var.as_integer().unwrap(), 123);
+
+        let json = json!("text");
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_string());
+        assert_eq!(var.as_str().unwrap(), "text");
+
+        let json = json!("text");
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_string());
+        assert_eq!(var.as_str().unwrap(), "text");
+
+        let json = json!(true);
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_bool());
+        assert_eq!(var.as_bool().unwrap(), true);
+
+        // JSON does not supporting the ArrayBuffer
+        let json = json!([1, 2, 3, 4, 5]);
+        let var = Variant::deserialize(&json).unwrap();
+        let var = Variant::from(var.to_bytes().unwrap());
+        assert!(var.is_bytes());
+        assert_eq!(var.as_bytes().unwrap(), &[1, 2, 3, 4, 5]);
+
+        let json = json!(
+            [0, 1, 2,
+                { "p0": null, "p1": "a", "p2": 123, "p3": true, "p4": [100, 200.0] },
+            4, 5]
+        );
+        let var = Variant::deserialize(&json).unwrap();
+        assert!(var.is_array());
+        let var = var.as_array().unwrap();
+        assert_eq!(var.len(), 6);
+        assert_eq!(var[0].as_integer().unwrap(), 0);
+        assert_eq!(var[1].as_integer().unwrap(), 1);
+        assert_eq!(var[2].as_integer().unwrap(), 2);
+        let inner_obj = var[3].as_object().unwrap();
+        assert_eq!(inner_obj.len(), 5);
+        assert!(inner_obj["p0"].is_null());
+        assert_eq!(inner_obj["p1"].as_str().unwrap(), "a");
+        assert_eq!(inner_obj["p2"].as_integer().unwrap(), 123);
+        assert_eq!(inner_obj["p3"].as_bool().unwrap(), true);
+        let inner_arr = inner_obj["p4"].as_array().unwrap();
+        assert_eq!(inner_arr[0].as_integer().unwrap(), 100);
+        assert_eq!(inner_arr[1].as_rational().unwrap(), 200.0);
     }
 }
