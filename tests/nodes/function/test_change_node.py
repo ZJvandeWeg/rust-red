@@ -232,11 +232,75 @@ async def test_0023():
     assert msgs[0]['payload'] == True
 
 
-# 0023 changes the value to a js object
+@pytest.mark.asyncio
+async def test_0024():
+    '''changes the value to a js object'''
+    flows = [
+        {"id": "100", "type": "tab"},  # flow 1
+        {"id": "1", "type": "change", "z": "100",
+         "rules": [{"t": "set", "p": "payload", "to": '{"a":123}', "tot": "json"}], "name": "changeNode", "wires": [["2"]]},
+        {"id": "2", "z": "100", "type": "console-json"}
+    ]
+    injections = [
+        {"nid": "1", "msg": {"payload": ""}},
+    ]
+    msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+    assert msgs[0]['payload'] == {"a": 123}
 
-# changes the value to a buffer object
-# sets the value of the message property to the current timestamp
-# sets the value using env property
+
+@pytest.mark.asyncio
+async def test_0025():
+    '''changes the value to a buffer object'''
+    flows = [
+        {"id": "100", "type": "tab"},  # flow 1
+        {"id": "1", "type": "change", "z": "100",
+         "rules": [{"t": "set", "p": "payload", "to": '[72,101,108,108,111,32,87,111,114,108,100]', "tot": "bin"}], "name": "changeNode", "wires": [["2"]]},
+        {"id": "2", "z": "100", "type": "console-json"}
+    ]
+    injections = [
+        {"nid": "1", "msg": {"payload": ""}},
+    ]
+    msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+    assert msgs[0]['payload'] == [72, 101, 108,
+                                  108, 111, 32, 87, 111, 114, 108, 100]
+
+
+@pytest.mark.asyncio
+async def test_0026():
+    '''sets the value of the message property to the current timestamp'''
+    flows = [
+        {"id": "100", "type": "tab"},  # flow 1
+        {"id": "1", "type": "change", "z": "100",
+         "rules": [{"t": "set", "p": "ts", "pt": "msg", "to": "", "tot": "date"}], "name": "changeNode", "wires": [["2"]]},
+        {"id": "2", "z": "100", "type": "console-json"}
+    ]
+    injections = [
+        {"nid": "1", "msg": {"payload": time.time_ns() / 1000_000.0}},
+    ]
+    msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+    assert ((time.time_ns() / 1000_000.0) - msgs[0]['ts']) < 50000.0
+
+
+@pytest.mark.asyncio
+async def test_0027():
+    '''sets the value using env property'''
+    flows = [
+        {"id": "100", "type": "tab"},  # flow 1
+        {"id": "1", "type": "change", "z": "100",
+         "rules": [{"t": "set", "p": "payload", "pt": "msg", "to": "NR_TEST_A", "tot": "env"}], "name": "changeNode", "wires": [["2"]]},
+        {"id": "2", "z": "100", "type": "console-json"}
+    ]
+    injections = [
+        {"nid": "1", "msg": {"payload": "123", "topic": "ABC"}},
+    ]
+    os.environ["NR_TEST_A"] = "foo"
+    msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+    del os.environ["NR_TEST_A"]
+    assert msgs[0]["payload"] == "foo"
+
+
+
+# 
 # sets the value using env property from tab
 # sets the value using env property from group
 # sets the value using env property from nested group
