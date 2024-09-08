@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -28,6 +30,15 @@ pub enum PropexError {
 pub enum PropexSegment<'a> {
     IntegerIndex(usize),
     StringIndex(&'a str), // Use a reference to a string slice
+}
+
+impl<'a> Display for PropexSegment<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PropexSegment::IntegerIndex(i) => write!(f, "[{}]", i),
+            PropexSegment::StringIndex(s) => write!(f, ".{}", s),
+        }
+    }
 }
 
 impl PropexSegment<'_> {
@@ -133,15 +144,15 @@ fn parse_sub_fragment(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str
     alt((parse_subproperty, parse_index)).parse(i)
 }
 
-fn parse_nav(i: &str) -> IResult<&str, SmallVec<[PropexSegment; 2]>, VerboseError<&str>> {
+fn parse_nav(i: &str) -> IResult<&str, SmallVec<[PropexSegment; 4]>, VerboseError<&str>> {
     let (_, (first, rest)) = pair(parse_first_fragment, many0(parse_sub_fragment)).parse(i)?;
     let mut segs = SmallVec::with_capacity(rest.len() + 1);
     segs.push(first);
-    segs.extend(rest);
+    segs.extend(rest.into_iter());
     Ok((i, segs))
 }
 
-pub fn parse(expr: &str) -> Result<SmallVec<[PropexSegment<'_>; 2]>, PropexError> {
+pub fn parse<'a>(expr: &'a str) -> Result<SmallVec<[PropexSegment<'a>; 4]>, PropexError> {
     if expr.is_empty() {
         return Err(PropexError::BadArguments);
     }

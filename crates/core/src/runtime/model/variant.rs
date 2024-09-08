@@ -53,9 +53,10 @@ pub enum VariantError {
 /// assert_eq!(integer_variant.as_integer().unwrap(), 42);
 /// ```
 #[non_exhaustive]
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Default, Clone, Debug, PartialEq, PartialOrd)]
 pub enum Variant {
     /// Represents a null value.
+    #[default]
     Null,
 
     /// Represents a floating-point number.
@@ -432,7 +433,12 @@ impl Variant {
                 this_obj.insert(prop, value);
                 Ok(())
             }
-            _ => Err(VariantError::WrongType),
+            _ => {
+                log::warn!(
+                    "Only an object variant can be set the property '{}' to '{:?}', instead this variant is:\n{:?}",
+                    prop, value, self);
+                Err(VariantError::WrongType)
+            }
         }
     }
 

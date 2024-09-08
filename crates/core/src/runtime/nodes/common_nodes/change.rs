@@ -57,21 +57,6 @@ struct Rule {
 struct ChangeNodeConfig {
     #[serde(default)]
     rules: Vec<Rule>,
-
-    #[serde(default)]
-    action: String,
-
-    #[serde(default)]
-    property: String,
-
-    #[serde(default)]
-    from: String,
-
-    #[serde(default)]
-    to: String,
-
-    #[serde(default)]
-    reg: bool,
 }
 
 #[async_trait]

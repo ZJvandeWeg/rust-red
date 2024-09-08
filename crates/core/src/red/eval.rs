@@ -150,7 +150,7 @@ pub fn evaluate_node_property(
     value: &str,
     _type: &RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
-    _msg: Option<&Msg>,
+    msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     let evaluated = match _type {
         RedPropertyType::Str => Variant::String(value.to_string()),
@@ -180,7 +180,7 @@ pub fn evaluate_node_property(
         }
 
         RedPropertyType::Msg => {
-            if let Some(msg) = _msg {
+            if let Some(msg) = msg {
                 msg.get_trimmed_nav_property(value)
                     .unwrap_or(&Variant::Null)
                     .clone()

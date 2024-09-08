@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 
 use serde::de;
@@ -171,43 +172,55 @@ impl Msg {
         value: Variant,
         create_missing: bool,
     ) -> crate::Result<()> {
-        if let Ok(segs) = propex::parse(expr) {
-            match segs[0] {
-                // The first level of the property expression for 'msg' must be a string, which means it must be
-                // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-                PropexSegment::StringIndex(first_prop_name) => {
-                    if let Some(first_prop) = self.get_property_mut(first_prop_name) {
-                        if segs.len() == 1 {
-                            *first_prop = value;
-                            Ok(())
-                        } else if let Some(pv) =
-                            first_prop.get_item_by_propex_segments_mut(&segs[1..])
-                        {
-                            Ok(pv.set_property_by_propex_segments(
-                                &segs[1..],
-                                value,
-                                create_missing,
-                            )?)
-                        } else {
-                            Err(crate::EdgelinkError::BadArguments("Bad propex".into()).into())
+        let segs = propex::parse(expr)?;
+        if segs.is_empty() {
+            return Err(crate::EdgelinkError::BadArguments(format!(
+                "Cannot parse the property accessing expression: {}",
+                expr
+            ))
+            .into());
+        }
+
+        // The first level of the property expression for 'msg' must be a string, which means it must be
+        // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
+        if let Some(PropexSegment::StringIndex(first_prop_name)) = segs.first() {
+            if let Some(first_prop) = self.get_property_mut(first_prop_name) {
+                match segs.len() {
+                    1 => {
+                        *first_prop = value;
+                        Ok(())
+                    }
+                    _ => {
+                        match (
+                            first_prop.get_item_by_propex_segments_mut(&segs[1..]),
+                            create_missing,
+                        ) {
+                            (Some(pv), _) => {
+                                *pv = value;
+                                Ok(())
+                            }
+                            (None, true) => first_prop
+                                .set_property_by_propex_segments(&segs[1..], value, true)
+                                .map_err(|e| e.into()),
+                            (None, false) => Err(crate::EdgelinkError::InvalidOperation(
+                                "Failed to set property".into(),
+                            )
+                            .into()),
                         }
-                    } else {
-                        Err(crate::EdgelinkError::BadArguments(
-                            "The first property must be a string".into(),
-                        )
-                        .into())
                     }
                 }
-                _ => Err(crate::EdgelinkError::BadArguments(
+            } else {
+                Err(crate::EdgelinkError::BadArguments(
                     "The first property must be a string".into(),
                 )
-                .into()),
+                .into())
             }
         } else {
-            Err(
-                crate::EdgelinkError::BadArguments("The first property must be a string".into())
-                    .into(),
-            )
+            Err(crate::EdgelinkError::BadArguments(format!(
+                "The first property to access `Msg` must be a string, got '{}'",
+                expr
+            ))
+            .into())
         }
     }
 
@@ -316,6 +329,22 @@ impl Clone for Msg {
             link_call_stack: self.link_call_stack.clone(),
             body: self.body.clone(),
         }
+    }
+}
+
+impl Index<&str> for Msg {
+    type Output = Variant;
+
+    fn index(&self, key: &str) -> &Self::Output {
+        &self.body[key]
+    }
+}
+
+impl IndexMut<&str> for Msg {
+    fn index_mut(&mut self, key: &str) -> &mut Self::Output {
+        self.body
+            .entry(key.to_string())
+            .or_insert_with(Default::default)
     }
 }
 
@@ -431,5 +460,59 @@ impl<'de> serde::Deserialize<'de> for Msg {
         }
 
         deserializer.deserialize_map(MsgVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+    use serde_json::json;
+
+    #[test]
+    fn test_set_deep_msg_property() {
+        let jv = json!( {"foo": {"bar": "foo"}, "name": "hello"});
+        let mut msg = Msg::deserialize(&jv).unwrap();
+        {
+            let old_foo = msg.get_property("foo").unwrap();
+            assert!(old_foo.is_object());
+            assert_eq!(old_foo.as_object().unwrap()["bar"].as_str().unwrap(), "foo");
+        }
+        msg.set_property("name".into(), "world".into());
+        assert_eq!(msg.get_property("name").unwrap().as_str().unwrap(), "world");
+
+        msg.set_nav_property("foo.bar", "changed2".into(), false)
+            .unwrap();
+        assert_eq!(
+            msg.get_property("foo")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("bar")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "changed2"
+        );
+
+        assert!(msg
+            .set_nav_property("foo.new_field", "new_value".into(), false)
+            .is_err());
+
+        assert!(msg
+            .set_nav_property("foo.new_new_field", "new_new_value".into(), true)
+            .is_ok());
+
+        assert_eq!(
+            msg.get_property("foo")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("new_new_field")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "new_new_value"
+        );
     }
 }
