@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::runtime::model::*;
 use serde_json::Value as JsonValue;
 
@@ -146,4 +148,14 @@ pub struct RedSubflowPort {
 pub struct RedFlows {
     pub flows: Vec<RedFlowConfig>,
     pub global_nodes: Vec<RedGlobalNodeConfig>,
+}
+
+impl Display for RedFlowNodeConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NodeJSON(id='{}', name='{}', type='{}')",
+            self.id, self.name, self.type_name
+        )
+    }
 }

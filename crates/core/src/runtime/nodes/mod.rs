@@ -223,6 +223,10 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         }
         Ok(())
     }
+
+    // events
+    fn on_loaded(&self) {}
+    async fn on_starting(&self) {}
 }
 
 impl dyn GlobalNodeBehavior {

@@ -144,7 +144,7 @@ impl Msg {
     }
 
     pub fn get_trimmed_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
-        let trimmed_expr = expr.trim();
+        let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.get_nav_property_mut(stripped_expr)
         } else {
@@ -153,7 +153,7 @@ impl Msg {
     }
 
     pub fn get_trimmed_nav_property(&self, expr: &str) -> Option<&Variant> {
-        let trimmed_expr = expr.trim();
+        let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.get_nav_property(stripped_expr)
         } else {
@@ -217,7 +217,7 @@ impl Msg {
         value: Variant,
         create_missing: bool,
     ) -> crate::Result<()> {
-        let trimmed_expr = expr.trim();
+        let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.set_nav_property(stripped_expr, value, create_missing)
         } else {

@@ -6,7 +6,7 @@ pub struct RedTypeValue<'a> {
     pub id: Option<ElementId>,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, serde::Deserialize, PartialOrd)]
 pub enum RedPropertyType {
     #[serde(rename = "str")]
     #[default]
@@ -46,6 +46,12 @@ pub enum RedPropertyType {
     Env,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum RedPropertyTypeCategory {
+    Propex = 0,
+    Literal,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct RedPropertyTriple {
     pub p: String,
@@ -55,4 +61,15 @@ pub struct RedPropertyTriple {
 
     #[serde(default)]
     pub v: String,
+}
+
+impl RedPropertyType {
+    pub fn category(&self) -> RedPropertyTypeCategory {
+        match self {
+            RedPropertyType::Msg | RedPropertyType::Flow | RedPropertyType::Global => {
+                RedPropertyTypeCategory::Propex
+            }
+            _ => RedPropertyTypeCategory::Literal,
+        }
+    }
 }

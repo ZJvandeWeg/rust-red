@@ -1,3 +1,4 @@
+mod change;
 mod complete;
 mod console_json;
 mod debug;

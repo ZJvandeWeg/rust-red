@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use nom::{
@@ -132,15 +133,15 @@ fn parse_sub_fragment(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str
     alt((parse_subproperty, parse_index)).parse(i)
 }
 
-fn parse_nav(i: &str) -> IResult<&str, Vec<PropexSegment>, VerboseError<&str>> {
+fn parse_nav(i: &str) -> IResult<&str, SmallVec<[PropexSegment; 2]>, VerboseError<&str>> {
     let (_, (first, rest)) = pair(parse_first_fragment, many0(parse_sub_fragment)).parse(i)?;
-    let mut segs = Vec::with_capacity(rest.len() + 1);
+    let mut segs = SmallVec::with_capacity(rest.len() + 1);
     segs.push(first);
     segs.extend(rest);
     Ok((i, segs))
 }
 
-pub fn parse(expr: &str) -> Result<Vec<PropexSegment<'_>>, PropexError> {
+pub fn parse(expr: &str) -> Result<SmallVec<[PropexSegment<'_>; 2]>, PropexError> {
     if expr.is_empty() {
         return Err(PropexError::BadArguments);
     }

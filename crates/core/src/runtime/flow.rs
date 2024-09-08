@@ -214,6 +214,7 @@ impl FlowState {
             log::info!("------ Starting node {}...", node,);
 
             let child_stop_token = stop_token.clone();
+            node.on_starting().await;
             self.node_tasks.lock().await.spawn(async move {
                 let node_ref = node.as_ref();
                 let _ = node.clone().run(child_stop_token.child_token()).await;
@@ -411,11 +412,8 @@ impl Flow {
                             node
                         }
                         Err(err) => {
-                            log::error!(
-                                "Failed to build node (JSON=`{}`): {}",
-                                node_config.json,
-                                err
-                            );
+                            log::error!("Failed to build node from {}: {}", node_config, err);
+                            log::debug!("Node JSON:\n{}", node_config.json);
                             return Err(err);
                         }
                     }
@@ -430,6 +428,7 @@ impl Flow {
             };
 
             let arc_node: Arc<dyn FlowNodeBehavior> = Arc::from(node);
+            arc_node.on_loaded();
             self.state.nodes.insert(node_config.id, arc_node.clone());
 
             log::debug!("------ {} has been loaded!", arc_node);
@@ -468,10 +467,12 @@ impl Flow {
                     {
                         if !complete_nodes.iter().any(|x| x.id() == node.id()) {
                             complete_nodes.push(node.clone());
-                        }
-                        else {
-                            return Err(EdgelinkError::InvalidOperation(
-                                format!("The connection of the {} to the `complete` node already existed!", node)).into());
+                        } else {
+                            return Err(EdgelinkError::InvalidOperation(format!(
+                                "The connection of the {} to the `complete` node already existed!",
+                                node
+                            ))
+                            .into());
                         }
                     } else {
                         self.state
