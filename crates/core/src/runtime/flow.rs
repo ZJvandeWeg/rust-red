@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 
 use dashmap::DashMap;
@@ -68,8 +68,7 @@ pub struct SubflowState {
 pub(crate) struct FlowState {
     pub(crate) groups: DashMap<ElementId, Arc<Group>>,
     pub(crate) nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    pub(crate) complete_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
-    pub(crate) complete_nodes_map: DashMap<ElementId, HashSet<ElementId>>,
+    pub(crate) complete_nodes_map: DashMap<ElementId, Vec<Arc<dyn FlowNodeBehavior>>>,
     pub(crate) catch_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
     pub(crate) _context: RwLock<Variant>,
     pub(crate) node_tasks: Mutex<JoinSet<()>>,
@@ -258,7 +257,6 @@ impl Flow {
             state: FlowState {
                 groups: DashMap::new(),
                 nodes: DashMap::new(),
-                complete_nodes: DashMap::new(),
                 complete_nodes_map: DashMap::new(),
                 catch_nodes: DashMap::new(),
                 _context: RwLock::new(Variant::new_empty_object()),
@@ -465,18 +463,23 @@ impl Flow {
         if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
             for src_id in scope {
                 if let Some(src_id) = helpers::parse_red_id_value(src_id) {
-                    if let Some(ref mut set) = self.state.complete_nodes_map.get_mut(&src_id) {
-                        set.insert(node.id());
+                    if let Some(ref mut complete_nodes) =
+                        self.state.complete_nodes_map.get_mut(&src_id)
+                    {
+                        if !complete_nodes.iter().any(|x| x.id() == node.id()) {
+                            complete_nodes.push(node.clone());
+                        }
+                        else {
+                            return Err(EdgelinkError::InvalidOperation(
+                                format!("The connection of the {} to the `complete` node already existed!", node)).into());
+                        }
                     } else {
                         self.state
                             .complete_nodes_map
-                            .insert(src_id, HashSet::from([node.id()]));
+                            .insert(src_id, Vec::from([node.clone()]));
                     }
                 }
             }
-            self.state
-                .complete_nodes
-                .insert(node_config.id, node.clone());
             Ok(())
         } else {
             Err(EdgelinkError::BadFlowsJson(format!(
@@ -661,13 +664,8 @@ impl Flow {
         msg: &Msg,
         cancel: CancellationToken,
     ) {
-        if let Some(complete_nids) = self.state.complete_nodes_map.get(emitter_id) {
-            for ncid in complete_nids.iter() {
-                let complete_node = self
-                    .state
-                    .complete_nodes
-                    .get(ncid)
-                    .expect("The complete node must be existed!");
+        if let Some(complete_nodes) = self.state.complete_nodes_map.get(emitter_id) {
+            for complete_node in complete_nodes.iter() {
                 let to_send = Arc::new(RwLock::new(msg.clone()));
                 match complete_node
                     .inject_msg(to_send, cancel.child_token())
