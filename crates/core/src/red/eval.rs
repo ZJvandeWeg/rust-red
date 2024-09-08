@@ -152,21 +152,21 @@ pub fn evaluate_node_property(
     node: Option<&dyn FlowNodeBehavior>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
-    let evaluated = match _type {
-        RedPropertyType::Str => Variant::String(value.to_string()),
+    match _type {
+        RedPropertyType::Str => Ok(Variant::String(value.to_string())),
 
         RedPropertyType::Num | RedPropertyType::Json => {
             let jv: serde_json::Value = serde_json::from_str(value)?;
-            Variant::deserialize(jv)?
+            Ok(Variant::deserialize(jv)?)
         }
 
         RedPropertyType::Re => todo!(), // TODO FIXME
 
         RedPropertyType::Date => match value {
-            "" => Variant::Rational(utils::time::unix_now() as f64),
+            "" => Ok(Variant::Rational(utils::time::unix_now() as f64)),
             "object" => todo!(),
-            "iso" => Variant::String(utils::time::iso_now()),
-            _ => Variant::String(utils::time::millis_now()),
+            "iso" => Ok(Variant::String(utils::time::iso_now())),
+            _ => Ok(Variant::String(utils::time::millis_now())),
         },
 
         RedPropertyType::Bin => {
@@ -176,16 +176,22 @@ pub fn evaluate_node_property(
                 "Expected an array of bytes, got: {:?}",
                 value
             )))?;
-            Variant::from(bytes)
+            Ok(Variant::from(bytes))
         }
 
         RedPropertyType::Msg => {
             if let Some(msg) = msg {
-                msg.get_trimmed_nav_property(value)
-                    .unwrap_or(&Variant::Null)
-                    .clone()
+                if let Some(pv) = msg.get_trimmed_nav_property(value) {
+                    Ok(pv.clone())
+                } else {
+                    Err(EdgelinkError::BadArguments(format!(
+                        "Cannot get the property(s) from `msg`: {}",
+                        value
+                    ))
+                    .into())
+                }
             } else {
-                Variant::Null
+                Err(EdgelinkError::BadArguments(format!("`msg` is not existed!")).into())
             }
         }
 
@@ -194,20 +200,20 @@ pub fn evaluate_node_property(
         RedPropertyType::Bool => {
             let jv: serde_json::Value =
                 serde_json::from_str(value).unwrap_or(serde_json::Value::Bool(false));
-            Variant::deserialize(&jv)?
+            Ok(Variant::deserialize(&jv)?)
         }
 
         RedPropertyType::Jsonata => todo!(),
 
-        RedPropertyType::Env => {
-            evaluate_env_property(value, node).ok_or(EdgelinkError::InvalidData(format!(
+        RedPropertyType::Env => match evaluate_env_property(value, node) {
+            Some(ev) => Ok(ev),
+            _ => Err(EdgelinkError::InvalidData(format!(
                 "Cannot found the environment variable: '{}'",
                 value
-            )))?
-        }
-    };
-
-    Ok(evaluated)
+            ))
+            .into()),
+        },
+    }
 }
 
 #[cfg(test)]

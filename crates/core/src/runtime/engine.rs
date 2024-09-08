@@ -68,7 +68,7 @@ impl FlowEngine {
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
                 env_vars: DashMap::from_iter(FlowEngine::get_env_vars()),
-                _context: Variant::new_empty_object(),
+                _context: Variant::empty_object(),
                 shutdown: AtomicBool::new(true),
             },
             _args: FlowEngineArgs::load(elcfg)?,

@@ -82,11 +82,11 @@ pub enum Variant {
 }
 
 impl Variant {
-    pub fn new_empty_object() -> Variant {
+    pub fn empty_object() -> Variant {
         Variant::Object(BTreeMap::new())
     }
 
-    pub fn new_empty_array() -> Variant {
+    pub fn empty_array() -> Variant {
         Variant::Array(Vec::<Variant>::new())
     }
 
@@ -519,10 +519,10 @@ impl Variant {
                     }
                     match next_pseg {
                         PropexSegment::StringIndex(_) => {
-                            prev.set_property_by_propex_segment(pseg, Variant::new_empty_object())?
+                            prev.set_property_by_propex_segment(pseg, Variant::empty_object())?
                         }
                         PropexSegment::IntegerIndex(_) => {
-                            prev.set_property_by_propex_segment(pseg, Variant::new_empty_array())?
+                            prev.set_property_by_propex_segment(pseg, Variant::empty_array())?
                         }
                     }
                 } else {
@@ -1053,7 +1053,7 @@ mod tests {
 
     #[test]
     fn variant_propex_set_nav_property_with_empty_object_should_be_ok() {
-        let mut obj1 = Variant::new_empty_object();
+        let mut obj1 = Variant::empty_object();
 
         obj1.set_object_nav_property("address.country", Variant::String("US".to_string()), true)
             .unwrap();

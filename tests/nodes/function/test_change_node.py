@@ -191,7 +191,7 @@ async def test_0017():
         {"nid": "1", "msg": {"pay": {"load": "changeMe"}}},
     ]
     msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
-    assert msgs[0]['pay']['load'] == 10
+    assert msgs[0]['pay']['load'] == "10"
 
 
 # 0018 changes the value to flow context property
@@ -205,7 +205,7 @@ async def test_0022():
     '''changes the value to a number'''
     flows = [
         {"id": "100", "type": "tab"},  # flow 1
-        {"id": "1", "type": "change",
+        {"id": "1", "type": "change", "z": "100",
          "rules": [{"t": "set", "p": "payload", "to": "123", "tot": "num"}], "name": "changeNode", "wires": [["2"]]},
         {"id": "2", "z": "100", "type": "console-json"}
     ]
@@ -221,7 +221,7 @@ async def test_0023():
     '''changes the value to a boolean value'''
     flows = [
         {"id": "100", "type": "tab"},  # flow 1
-        {"id": "1", "type": "change",
+        {"id": "1", "type": "change", "z": "100",
          "rules": [{"t": "set", "p": "payload", "to": "true", "tot": "bool"}], "name": "changeNode", "wires": [["2"]]},
         {"id": "2", "z": "100", "type": "console-json"}
     ]

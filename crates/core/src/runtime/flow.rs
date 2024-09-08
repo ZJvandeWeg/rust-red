@@ -260,7 +260,7 @@ impl Flow {
                 nodes: DashMap::new(),
                 complete_nodes_map: DashMap::new(),
                 catch_nodes: DashMap::new(),
-                _context: RwLock::new(Variant::new_empty_object()),
+                _context: RwLock::new(Variant::empty_object()),
                 node_tasks: Mutex::new(JoinSet::new()),
             },
 

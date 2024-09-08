@@ -78,7 +78,11 @@ impl FlowNodeBehavior for ChangeNode {
                 |node, msg| async move {
                     {
                         let mut msg_guard = msg.write().await;
-                        node.apply_rules(&mut msg_guard)?;
+                        // We always relay the message, regardless of whether the rules are followed or not.
+                        if let Err(e) = node.apply_rules(&mut msg_guard) {
+                            // TODO Report Error to flow
+                            log::error!("Failed to apply rules: {}", e);
+                        }
                     }
                     node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone())
                         .await
@@ -135,8 +139,8 @@ impl ChangeNode {
 
     fn apply_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
         match rule.t {
-            RuleKind::Set => self.apply_set_rule(rule, msg),
-            RuleKind::Change => Ok(()),
+            RuleKind::Set => self.apply_rule_set(rule, msg),
+            RuleKind::Change => self.apply_rule_change(rule, msg),
             RuleKind::Move => Ok(()),
             RuleKind::Delete => {
                 /*
@@ -148,12 +152,19 @@ impl ChangeNode {
         }
     }
 
-    fn apply_set_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+    fn apply_rule_set(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Set);
         match rule.pt {
             RedPropertyType::Msg => {
-                let to_value = self.get_to_value(rule, msg)?;
-                msg.set_trimmed_nav_property(&rule.p, to_value, true)?;
+                if let Ok(to_value) = self.get_to_value(rule, msg) {
+                    msg.set_trimmed_nav_property(&rule.p, to_value, true)?;
+                } else {
+                    // Equals the `undefined` in JS
+                    if msg.body.contains_key(&rule.p) {
+                        // TODO remove by propex
+                        msg.body.remove(&rule.p);
+                    }
+                }
                 Ok(())
             }
             RedPropertyType::Flow | RedPropertyType::Global => {
@@ -165,6 +176,11 @@ impl ChangeNode {
             )
             .into()),
         }
+    }
+
+    fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+        let _from_value = self.get_from_value(rule, msg)?;
+        todo!()
     }
 }
 

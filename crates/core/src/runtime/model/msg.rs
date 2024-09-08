@@ -102,6 +102,10 @@ impl Msg {
         Variant::String(ElementId::new().to_string())
     }
 
+    pub fn contains_property(&self, prop: &str) -> bool {
+        self.body.contains_key(prop)
+    }
+
     pub fn get_property(&self, prop: &str) -> Option<&Variant> {
         self.body.get(prop)
     }
@@ -172,55 +176,82 @@ impl Msg {
         value: Variant,
         create_missing: bool,
     ) -> crate::Result<()> {
-        let segs = propex::parse(expr)?;
-        if segs.is_empty() {
+        if expr.is_empty() {
             return Err(crate::EdgelinkError::BadArguments(format!(
-                "Cannot parse the property accessing expression: {}",
-                expr
+                "The argument expr cannot be empty"
             ))
             .into());
         }
 
-        // The first level of the property expression for 'msg' must be a string, which means it must be
-        // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-        if let Some(PropexSegment::StringIndex(first_prop_name)) = segs.first() {
-            if let Some(first_prop) = self.get_property_mut(first_prop_name) {
-                match segs.len() {
-                    1 => {
-                        *first_prop = value;
-                        Ok(())
-                    }
-                    _ => {
-                        match (
-                            first_prop.get_item_by_propex_segments_mut(&segs[1..]),
-                            create_missing,
-                        ) {
-                            (Some(pv), _) => {
-                                *pv = value;
-                                Ok(())
-                            }
-                            (None, true) => first_prop
-                                .set_property_by_propex_segments(&segs[1..], value, true)
-                                .map_err(|e| e.into()),
-                            (None, false) => Err(crate::EdgelinkError::InvalidOperation(
-                                "Failed to set property".into(),
-                            )
-                            .into()),
-                        }
-                    }
-                }
-            } else {
-                Err(crate::EdgelinkError::BadArguments(
-                    "The first property must be a string".into(),
-                )
+        let segs =
+            propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+
+        let first_prop_name = match segs.first() {
+            Some(PropexSegment::StringIndex(name)) => name,
+            _ => {
+                return Err(crate::EdgelinkError::BadArguments(format!(
+                    "The first property to access must be a string, but got '{}'",
+                    expr
+                ))
                 .into())
             }
-        } else {
-            Err(crate::EdgelinkError::BadArguments(format!(
-                "The first property to access `Msg` must be a string, got '{}'",
-                expr
-            ))
-            .into())
+        };
+
+        // If create_missing is true and first_prop doesn't exist, we should create it here.
+        let first_prop = match (
+            self.get_property_mut(first_prop_name),
+            create_missing,
+            segs.len(),
+        ) {
+            (Some(prop), _, _) => prop,
+            (None, true, 1) => {
+                // Only one level of the property
+                self.body.insert(expr.into(), value);
+                return Ok(());
+            }
+            (None, true, _) => {
+                let next_seg = segs.get(1);
+                let var = match next_seg {
+                    // the next level property is an object
+                    Some(PropexSegment::StringIndex(_)) => Variant::empty_object(),
+                    Some(PropexSegment::IntegerIndex(_)) => Variant::empty_array(),
+                    _ => {
+                        return Err(crate::EdgelinkError::BadArguments(format!(
+                            "Not allowed to set first property: '{}'",
+                            first_prop_name
+                        ))
+                        .into());
+                    }
+                };
+                self.body.insert(first_prop_name.to_string(), var);
+                self.get_property_mut(&first_prop_name).unwrap()
+            }
+            (None, _, _) => {
+                return Err(crate::EdgelinkError::BadArguments(format!(
+                    "Failed to set first property: '{}'",
+                    first_prop_name
+                ))
+                .into());
+            }
+        };
+
+        if segs.len() == 1 {
+            *first_prop = value;
+            return Ok(());
+        }
+
+        match first_prop.get_item_by_propex_segments_mut(&segs[1..]) {
+            Some(pv) => {
+                *pv = value;
+                Ok(())
+            }
+            None if create_missing => first_prop
+                .set_property_by_propex_segments(&segs[1..], value, true)
+                .map_err(Into::into),
+            None => Err(crate::EdgelinkError::InvalidOperation(
+                "Unable to set property: missing intermediate segments".into(),
+            )
+            .into()),
         }
     }
 
@@ -481,6 +512,47 @@ mod tests {
 
         msg.set_nav_property("foo.bar", "changed2".into(), false)
             .unwrap();
+        assert_eq!(
+            msg.get_property("foo")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("bar")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "changed2"
+        );
+
+        assert!(msg
+            .set_nav_property("foo.new_field", "new_value".into(), false)
+            .is_err());
+
+        assert!(msg
+            .set_nav_property("foo.new_new_field", "new_new_value".into(), true)
+            .is_ok());
+
+        assert_eq!(
+            msg.get_property("foo")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("new_new_field")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "new_new_value"
+        );
+    }
+
+    #[test]
+    fn should_be_ok_with_empty_object_variant() {
+        let jv = json!({});
+        let mut msg = Msg::deserialize(&jv).unwrap();
+
+        msg.set_nav_property("foo.bar", "changed2".into(), true)
+            .unwrap();
+        assert!(msg.contains_property("foo"));
         assert_eq!(
             msg.get_property("foo")
                 .unwrap()
