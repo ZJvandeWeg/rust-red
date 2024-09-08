@@ -148,11 +148,11 @@ fn parse_nav(i: &str) -> IResult<&str, SmallVec<[PropexSegment; 4]>, VerboseErro
     let (_, (first, rest)) = pair(parse_first_fragment, many0(parse_sub_fragment)).parse(i)?;
     let mut segs = SmallVec::with_capacity(rest.len() + 1);
     segs.push(first);
-    segs.extend(rest.into_iter());
+    segs.extend(rest);
     Ok((i, segs))
 }
 
-pub fn parse<'a>(expr: &'a str) -> Result<SmallVec<[PropexSegment<'a>; 4]>, PropexError> {
+pub fn parse(expr: &str) -> Result<SmallVec<[PropexSegment<'_>; 4]>, PropexError> {
     if expr.is_empty() {
         return Err(PropexError::BadArguments);
     }

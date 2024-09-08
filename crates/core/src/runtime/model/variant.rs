@@ -1117,7 +1117,7 @@ mod tests {
         let json = json!(true);
         let var = Variant::deserialize(&json).unwrap();
         assert!(var.is_bool());
-        assert_eq!(var.as_bool().unwrap(), true);
+        assert!(var.as_bool().unwrap());
 
         // JSON does not supporting the ArrayBuffer
         let json = json!([1, 2, 3, 4, 5]);
@@ -1143,7 +1143,7 @@ mod tests {
         assert!(inner_obj["p0"].is_null());
         assert_eq!(inner_obj["p1"].as_str().unwrap(), "a");
         assert_eq!(inner_obj["p2"].as_integer().unwrap(), 123);
-        assert_eq!(inner_obj["p3"].as_bool().unwrap(), true);
+        assert!(inner_obj["p3"].as_bool().unwrap());
         let inner_arr = inner_obj["p4"].as_array().unwrap();
         assert_eq!(inner_arr[0].as_integer().unwrap(), 100);
         assert_eq!(inner_arr[1].as_rational().unwrap(), 200.0);

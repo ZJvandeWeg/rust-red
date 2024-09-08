@@ -170,7 +170,7 @@ impl ChangeNode {
 
 fn handle_legacy_json(n: Value) -> crate::Result<Value> {
     let mut rules: Vec<Value> = if let Some(Value::Array(existed_rules)) = n.get("rules") {
-        existed_rules.iter().cloned().collect()
+        existed_rules.to_vec()
     } else {
         let mut rule = Value::Object(serde_json::Map::new());
 

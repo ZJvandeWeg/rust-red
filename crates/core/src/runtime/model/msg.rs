@@ -342,9 +342,7 @@ impl Index<&str> for Msg {
 
 impl IndexMut<&str> for Msg {
     fn index_mut(&mut self, key: &str) -> &mut Self::Output {
-        self.body
-            .entry(key.to_string())
-            .or_insert_with(Default::default)
+        self.body.entry(key.to_string()).or_default()
     }
 }
 
