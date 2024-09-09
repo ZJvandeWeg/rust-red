@@ -8,5 +8,7 @@ async-trait.workspace = true
 tokio-util.workspace = true
 log.workspace = true
 linkme.workspace = true
-edgelink-core = { path = "../../crates/core" }
+edgelink-core = { path = "../../crates/core", default-features = false, features = [
+    "core",
+] }
 edgelink-macro = { path = "../../crates/macro" }

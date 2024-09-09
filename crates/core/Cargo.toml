@@ -54,7 +54,8 @@ tokio = { version = "1", features = ["test-util"] }
 
 
 [features]
-default = ["js", "net"]
+default = ["core", "js", "net"]
+core = []
 js = ["rquickjs"]
 rqjs_bindgen = ["rquickjs/bindgen"]
 net = ["nodes_mqtt", "nodes_udp"]
