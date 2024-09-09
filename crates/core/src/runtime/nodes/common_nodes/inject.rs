@@ -181,7 +181,7 @@ impl InjectNode {
 
         let envelope = Envelope {
             port: 0,
-            msg: Msg::new_with_body(self.base.id, msg_body),
+            msg: Msg::new_with_body(msg_body),
         };
 
         {

@@ -1,3 +1,4 @@
+use rquickjs::FromJs;
 use serde::Deserialize;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -132,13 +133,12 @@ impl FunctionNode {
                 let args =(js::Value::new_null(ctx.clone()), js_msg);
                 let js_res_value: js::Result<js::Value> = user_func.call(args);
                 match js_res_value.catch(&ctx) {
-                    Ok(js_result) => Ok(self.convert_return_value(&js_result)),
+                    Ok(js_result) => self.convert_return_value(&ctx , js_result),
                     Err(e) => {
                         log::error!("Javascript user function exception: {:?}", e);
                         Err(js::Error::Exception)
                     }
                 }
-                //Ok( self. convert_return_value( & jsres.catch(&ctx).unwrap()))
             })
             .await;
 
@@ -151,12 +151,16 @@ impl FunctionNode {
         }
     }
 
-    fn convert_return_value(&self, js_result: &js::Value) -> SmallVec<[(usize, Msg); 4]> {
+    fn convert_return_value<'js>(
+        &self,
+        ctx: &js::Ctx<'js>,
+        js_result: js::Value<'js>,
+    ) -> js::Result<SmallVec<[(usize, Msg); 4]>> {
         let mut items = SmallVec::<[(usize, Msg); 4]>::new();
         match js_result.type_of() {
             js::Type::Object => {
                 // Returns single Msg
-                let item = (0, Msg::from(js_result.as_object().unwrap()));
+                let item = (0, Msg::from_js(ctx, js_result)?);
                 items.push(item);
             }
             js::Type::Array => {
@@ -168,14 +172,14 @@ impl FunctionNode {
                     .enumerate()
                 {
                     match ele {
-                        Ok(ref ele) => {
-                            if let Some(obj) = ele.as_object() {
-                                items.push((port, Msg::from(obj)));
+                        Ok(ele) => {
+                            if ele.is_object() {
+                                items.push((port, Msg::from_js(ctx, ele)?));
                             } else if let Some(subarr) = ele.as_array() {
-                                for subele in subarr.iter::<js::Object>() {
+                                for subele in subarr.iter() {
                                     match subele {
-                                        Ok(ref obj) => {
-                                            items.push((port, Msg::from(obj)));
+                                        Ok(obj) => {
+                                            items.push((port, Msg::from_js(ctx, obj)?));
                                         }
                                         Err(ref e) => {
                                             log::warn!("Bad array item: \n{:#?}", e);
@@ -199,7 +203,7 @@ impl FunctionNode {
                 );
             }
         }
-        items
+        Ok(items)
     }
 
     async fn init_async(&self, js_ctx: &js::AsyncContext) -> crate::Result<()> {

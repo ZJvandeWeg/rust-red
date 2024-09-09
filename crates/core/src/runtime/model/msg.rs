@@ -8,6 +8,8 @@ use serde::de;
 use serde::ser::SerializeMap;
 use tokio::sync::RwLock;
 
+const LINK_SOURCE_PROPERTY: &str = "_linkSource";
+
 #[cfg(feature = "js")]
 mod js {
     pub use rquickjs::{prelude::*, *};
@@ -37,17 +39,13 @@ pub struct LinkCallStackEntry {
 
 #[derive(Debug)]
 pub struct Msg {
-    pub birth_place: ElementId,
-
     pub body: BTreeMap<String, Variant>,
-
     pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
 }
 
 impl Msg {
-    pub fn new_default(birth_place: ElementId) -> Arc<RwLock<Self>> {
+    pub fn new_default() -> Arc<RwLock<Self>> {
         let msg = Msg {
-            birth_place,
             link_call_stack: None,
             body: BTreeMap::from([
                 (
@@ -60,21 +58,16 @@ impl Msg {
         Arc::new(RwLock::new(msg))
     }
 
-    pub fn new_with_body(
-        birth_place: ElementId,
-        body: BTreeMap<String, Variant>,
-    ) -> Arc<RwLock<Self>> {
+    pub fn new_with_body(body: BTreeMap<String, Variant>) -> Arc<RwLock<Self>> {
         let msg = Msg {
-            birth_place,
             link_call_stack: None,
             body,
         };
         Arc::new(RwLock::new(msg))
     }
 
-    pub fn new_with_payload(birth_place: ElementId, payload: Variant) -> Arc<RwLock<Self>> {
+    pub fn new_with_payload(payload: Variant) -> Arc<RwLock<Self>> {
         let msg = Msg {
-            birth_place,
             link_call_stack: None,
             body: BTreeMap::from([
                 (
@@ -288,13 +281,13 @@ impl Msg {
         }
 
         {
-            let link_source_atom = "_linkSource".into_js(ctx)?;
-            let link_source_bytes = bincode::serialize(&self.link_call_stack)?;
-            let link_source_value = link_source_bytes
-                .into_js(ctx)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            obj.set(link_source_atom, link_source_value)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            let link_source_atom = LINK_SOURCE_PROPERTY.into_js(ctx)?;
+            let link_source_buffer =
+                js::ArrayBuffer::new(ctx.clone(), bincode::serialize(&self.link_call_stack)?)?;
+            let link_source_value = link_source_buffer.into_js(ctx)?;
+
+            //.map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            obj.set(link_source_atom, link_source_value)?
 
             /*
             let msg_id_atom = "_msgid"
@@ -356,7 +349,6 @@ impl Msg {
 impl Clone for Msg {
     fn clone(&self) -> Self {
         Self {
-            birth_place: self.birth_place,
             link_call_stack: self.link_call_stack.clone(),
             body: self.body.clone(),
         }
@@ -377,59 +369,13 @@ impl IndexMut<&str> for Msg {
     }
 }
 
-#[cfg(feature = "js")]
-impl<'js> From<&js::Object<'js>> for Msg {
-    fn from(jo: &js::Object<'js>) -> Self {
-        let mut map = BTreeMap::new();
-        let mut birth_place = None;
-        let mut link_call_stack = None;
-        for result in jo.props::<String, js::Value>() {
-            match result {
-                Ok((k, v)) => match k.as_ref() {
-                    "_birth_place" => {
-                        birth_place = v
-                            .as_string()
-                            .and_then(|x| x.to_string().ok())
-                            .and_then(|x| x.parse().ok())
-                    }
-                    "_linkSource" => {
-                        let bytes: Vec<u8> = v.get().unwrap();
-                        link_call_stack =
-                            bincode::deserialize::<Option<Vec<LinkCallStackEntry>>>(&bytes)
-                                .unwrap();
-                    }
-                    _ => {
-                        map.insert(k, Variant::from(&v));
-                    }
-                },
-                Err(e) => {
-                    eprintln!("Error occurred: {:?}", e);
-                    panic!();
-                }
-            }
-        }
-
-        Msg {
-            /*
-            id: msg_id
-                .and_then(|hex_str| hex_str.parse().ok())
-                .unwrap_or(ElementId::new()),
-                */
-            birth_place: birth_place.unwrap_or(ElementId::empty()),
-            body: map,
-            link_call_stack,
-        }
-    }
-}
-
 impl serde::Serialize for Msg {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(None)?;
-        map.serialize_entry("_birth_place", &self.birth_place)?;
-        map.serialize_entry("_linkSource", &self.link_call_stack)?;
+        map.serialize_entry(LINK_SOURCE_PROPERTY, &self.link_call_stack)?;
         for (k, v) in self.body.iter() {
             map.serialize_entry(k, v)?;
         }
@@ -455,21 +401,14 @@ impl<'de> serde::Deserialize<'de> for Msg {
             where
                 V: serde::de::MapAccess<'de>,
             {
-                let mut birth_place = None;
                 let mut link_call_stack = None;
                 let mut body: BTreeMap<String, Variant> = BTreeMap::new();
 
                 while let Some(key) = map.next_key()? {
                     match key {
-                        "_birth_place" => {
-                            if birth_place.is_some() {
-                                return Err(de::Error::duplicate_field("_birth_place"));
-                            }
-                            birth_place = Some(map.next_value()?);
-                        }
-                        "_linkSource" => {
+                        LINK_SOURCE_PROPERTY => {
                             if link_call_stack.is_some() {
-                                return Err(de::Error::duplicate_field("_linkSource"));
+                                return Err(de::Error::duplicate_field(LINK_SOURCE_PROPERTY));
                             }
                             link_call_stack = Some(map.next_value()?);
                         }
@@ -481,7 +420,6 @@ impl<'de> serde::Deserialize<'de> for Msg {
                 }
 
                 Ok(Msg {
-                    birth_place: birth_place.unwrap_or_default(),
                     body,
                     link_call_stack,
                 })
@@ -489,6 +427,68 @@ impl<'de> serde::Deserialize<'de> for Msg {
         }
 
         deserializer.deserialize_map(MsgVisitor)
+    }
+}
+
+#[cfg(feature = "js")]
+impl<'js> js::FromJs<'js> for Msg {
+    fn from_js(ctx: &js::Ctx<'js>, jv: js::Value<'js>) -> js::Result<Msg> {
+        let mut link_call_stack: Option<Vec<LinkCallStackEntry>> = None;
+        match jv.type_of() {
+            js::Type::Object => {
+                if let Some(jo) = jv.as_object() {
+                    let mut body = BTreeMap::new();
+                    // TODO _msgid check
+                    for result in jo.props::<String, js::Value>() {
+                        match result {
+                            Ok((ref k, v)) => match k.as_str() {
+                                LINK_SOURCE_PROPERTY => {
+                                    if let Some(bytes) = v
+                                        .as_object()
+                                        .and_then(|x| x.as_array_buffer())
+                                        .and_then(|x| x.as_bytes())
+                                    {
+                                        link_call_stack =
+                                            bincode::deserialize(bytes).map_err(|_| {
+                                                js::Error::FromJs {
+                                                from: &LINK_SOURCE_PROPERTY,
+                                                to: "link_call_stack",
+                                                message: Some(
+                                                    "Failed to deserialize `_linkSource` property"
+                                                        .to_string(),
+                                                ),
+                                            }
+                                            })?;
+                                    }
+                                }
+                                _ => {
+                                    body.insert(k.clone(), Variant::from_js(ctx, v)?);
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("Error occurred: {:?}", e);
+                                panic!();
+                            }
+                        }
+                    }
+                    Ok(Msg {
+                        link_call_stack,
+                        body,
+                    })
+                } else {
+                    Err(js::Error::FromJs {
+                        from: "JS object",
+                        to: "Variant::Object",
+                        message: None,
+                    })
+                }
+            }
+            _ => Err(js::Error::FromJs {
+                from: "Unsupported JS type",
+                to: "",
+                message: None,
+            }),
+        }
     }
 }
 

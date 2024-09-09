@@ -1,17 +1,5 @@
 // Prelude script for every `function` node
 
-/*
-
-
-const RED = {
-    util: {
-        cloneMessage: function (msg) {
-            return __el_deepClone(msg);
-        },
-    }
-};
-*/
-
 const RED = (function () {
     function __el_deepClone(obj) {
         if (obj === null || typeof obj !== 'object') {

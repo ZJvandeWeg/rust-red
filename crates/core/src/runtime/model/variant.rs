@@ -2,6 +2,7 @@ use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{self, de, Deserializer};
@@ -71,6 +72,9 @@ pub enum Variant {
     /// Represents a boolean value (true or false).
     Bool(bool),
 
+    /// Represents a Date value (timestamp inside).
+    Date(SystemTime),
+
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
 
@@ -88,6 +92,53 @@ impl Variant {
 
     pub fn empty_array() -> Variant {
         Variant::Array(Vec::<Variant>::new())
+    }
+
+    pub fn now() -> Variant {
+        Variant::Date(SystemTime::now())
+    }
+
+    pub fn bytes_from_json_value(jv: &serde_json::Value) -> crate::Result<Variant> {
+        match jv {
+            serde_json::Value::Array(array) => {
+                let mut bytes = Vec::with_capacity(array.len());
+                for e in array.iter() {
+                    if let Some(byte) = e.as_i64() {
+                        if !(0..=0xFF).contains(&byte) {
+                            return Err(EdgelinkError::NotSupported(
+                                "Invalid byte value".to_owned(),
+                            )
+                            .into());
+                        }
+                        bytes.push(byte as u8)
+                    } else {
+                        return Err(EdgelinkError::NotSupported(
+                            "Invalid byte JSON value type".to_owned(),
+                        )
+                        .into());
+                    }
+                }
+                Ok(Variant::Bytes(bytes))
+            }
+            serde_json::Value::String(string) => Ok(Variant::from(string.as_bytes())),
+            _ => Err(EdgelinkError::NotSupported("Invalid byte JSON Value".to_owned()).into()),
+        }
+    }
+
+    pub fn bytes_from_vec(vec: &[Variant]) -> crate::Result<Variant> {
+        let mut bytes: Vec<u8> = Vec::with_capacity(vec.len());
+        for v in vec.iter() {
+            match v {
+                Variant::Rational(f) if *f >= 0.0 && *f <= 255.0 => bytes.push(*f as u8),
+                Variant::Integer(i) if *i >= 0 && *i <= 255 => bytes.push(*i as u8),
+                _ => {
+                    return Err(
+                        EdgelinkError::NotSupported("Unsupported Variant type".into()).into(),
+                    );
+                }
+            }
+        }
+        Ok(Variant::Bytes(bytes))
     }
 
     pub fn is_bytes(&self) -> bool {
@@ -199,19 +250,19 @@ impl Variant {
         }
     }
 
-    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+    pub fn as_str_mut(&mut self) -> Option<&mut String> {
         match self {
             Variant::String(ref mut s) => Some(s),
             _ => None,
         }
     }
 
-    pub fn into_string(self) -> Result<String, Self> {
+    pub fn to_string(&self) -> Result<String, VariantError> {
         match self {
-            Variant::String(s) => Ok(s),
+            Variant::String(s) => Ok(s.clone()),
             Variant::Rational(f) => Ok(f.to_string()),
             Variant::Integer(i) => Ok(i.to_string()),
-            other => Err(other),
+            _ => Err(VariantError::WrongType),
         }
     }
 
@@ -307,33 +358,6 @@ impl Variant {
             Variant::String(s) => s.is_empty(),
             Variant::Rational(f) => f.is_nan(),
             _ => false,
-        }
-    }
-
-    pub fn bytes_from_json_value(jv: &serde_json::Value) -> crate::Result<Variant> {
-        match jv {
-            serde_json::Value::Array(array) => {
-                let mut bytes = Vec::with_capacity(array.len());
-                for e in array.iter() {
-                    if let Some(byte) = e.as_i64() {
-                        if !(0..=0xFF).contains(&byte) {
-                            return Err(EdgelinkError::NotSupported(
-                                "Invalid byte value".to_owned(),
-                            )
-                            .into());
-                        }
-                        bytes.push(byte as u8)
-                    } else {
-                        return Err(EdgelinkError::NotSupported(
-                            "Invalid byte JSON value type".to_owned(),
-                        )
-                        .into());
-                    }
-                }
-                Ok(Variant::Bytes(bytes))
-            }
-            serde_json::Value::String(string) => Ok(Variant::from(string.as_bytes())),
-            _ => Err(EdgelinkError::NotSupported("Invalid byte JSON Value".to_owned()).into()),
         }
     }
 
@@ -583,6 +607,8 @@ impl Variant {
             Variant::String(s) => s.into_js(ctx).map_err(|e| e.into()),
 
             Variant::Rational(f) => f.into_js(ctx).map_err(|e| e.into()),
+
+            Variant::Date(t) => t.into_js(ctx).map_err(|e| e.into()),
         }
     }
 
@@ -719,6 +745,12 @@ impl Serialize for Variant {
             Variant::String(v) => serializer.serialize_str(v),
             Variant::Bool(v) => serializer.serialize_bool(*v),
             Variant::Bytes(v) => serializer.serialize_bytes(v),
+            Variant::Date(v) => {
+                let ts = v
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(serde::ser::Error::custom)?;
+                serializer.serialize_u64(ts.as_millis() as u64)
+            }
             Variant::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for item in v {
@@ -884,80 +916,74 @@ impl<'de> Deserialize<'de> for Variant {
 }
 
 #[cfg(feature = "js")]
-impl<'js> From<&js::Value<'js>> for Variant {
-    fn from(jv: &js::Value<'js>) -> Self {
+impl<'js> js::FromJs<'js> for Variant {
+    fn from_js(ctx: &js::Ctx<'js>, jv: js::Value<'js>) -> js::Result<Variant> {
         match jv.type_of() {
-            js::Type::Undefined => Variant::Null,
+            js::Type::Undefined => Ok(Variant::Null),
 
-            js::Type::Null => Variant::Null,
+            js::Type::Null => Ok(Variant::Null),
 
-            js::Type::Bool => jv.as_bool().map_or(Variant::Null, Variant::Bool),
+            js::Type::Bool => Ok(Variant::Bool(jv.get()?)),
 
-            js::Type::Int => jv.as_int().map_or(Variant::Null, Variant::Integer),
+            js::Type::Int => Ok(Variant::Integer(jv.get()?)),
 
-            js::Type::Float => jv.as_float().map_or(Variant::Null, Variant::Rational),
+            js::Type::Float => Ok(Variant::Rational(jv.get()?)),
 
-            js::Type::String => jv.as_string().map_or(Variant::Null, |s| {
-                s.to_string().map_or(Variant::Null, Variant::String)
-            }),
+            js::Type::String => Ok(Variant::String(jv.get()?)),
 
-            js::Type::Symbol => jv.as_string().map_or(Variant::Null, |s| {
-                s.to_string().map_or(Variant::Null, Variant::String)
-            }),
+            js::Type::Symbol => Ok(Variant::String(jv.get()?)),
 
-            js::Type::Array => match jv.as_array() {
-                Some(arr) => match arr.as_array_buffer() {
-                    Some(buf) => Variant::from(buf),
-                    _ => Variant::from(arr),
-                },
-                None => Variant::Null,
-            },
-
-            js::Type::Object => match jv.as_object() {
-                Some(jo) => Variant::from(jo),
-                None => Variant::Null,
-            },
-
-            _ => Variant::Null,
-        }
-    }
-}
-
-#[cfg(feature = "js")]
-impl<'js> From<&js::Object<'js>> for Variant {
-    fn from(jo: &js::Object<'js>) -> Self {
-        let mut map = BTreeMap::new();
-        for result in jo.props::<String, js::Value>() {
-            match result {
-                Ok((k, v)) => {
-                    map.insert(k, Variant::from(&v));
-                }
-                Err(e) => {
-                    eprintln!("Error occurred: {:?}", e);
-                    panic!();
+            js::Type::Array => {
+                if let Some(arr) = jv.as_array() {
+                    if let Some(buf) = arr.as_array_buffer() {
+                        Ok(Variant::Bytes(buf.as_slice()?.into()))
+                    } else {
+                        let mut vec: Vec<Variant> = Vec::with_capacity(arr.len());
+                        for item in arr.iter() {
+                            match item {
+                                Ok(v) => vec.push(Variant::from_js(ctx, v)?),
+                                Err(err) => {
+                                    return Err(err);
+                                }
+                            }
+                        }
+                        Ok(Variant::Array(vec))
+                    }
+                } else {
+                    Ok(Variant::Null)
                 }
             }
+
+            js::Type::Object => {
+                if let Some(jo) = jv.as_object() {
+                    let mut map = BTreeMap::new();
+                    for result in jo.props::<String, js::Value>() {
+                        match result {
+                            Ok((ref k, v)) => {
+                                map.insert(k.clone(), Variant::from_js(ctx, v)?);
+                            }
+                            Err(e) => {
+                                eprintln!("Error occurred: {:?}", e);
+                                panic!();
+                            }
+                        }
+                    }
+                    Ok(Variant::Object(map))
+                } else {
+                    Err(js::Error::FromJs {
+                        from: "JS object",
+                        to: "Variant::Object",
+                        message: None,
+                    })
+                }
+            }
+
+            _ => Err(js::Error::FromJs {
+                from: "Unknown JS type",
+                to: "",
+                message: None,
+            }),
         }
-        Variant::Object(map)
-    }
-}
-
-#[cfg(feature = "js")]
-impl<'js> From<&js::Array<'js>> for Variant {
-    fn from(ja: &js::Array<'js>) -> Self {
-        let items = ja
-            .iter::<js::Value>()
-            .filter(|x| x.is_ok())
-            .map(|x| Variant::from(&x.unwrap()));
-        Variant::Array(items.collect())
-    }
-}
-
-#[cfg(feature = "js")]
-impl<'js> From<&js::ArrayBuffer<'js>> for Variant {
-    fn from(buf: &js::ArrayBuffer<'js>) -> Self {
-        buf.as_bytes()
-            .map_or(Variant::Null, |x| Variant::Bytes(x.to_vec()))
     }
 }
 

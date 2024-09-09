@@ -163,10 +163,9 @@ pub fn evaluate_node_property(
         RedPropertyType::Re => todo!(), // TODO FIXME
 
         RedPropertyType::Date => match value {
-            "" => Ok(Variant::Rational(utils::time::unix_now() as f64)),
-            "object" => todo!(),
+            "object" => Ok(Variant::now()),
             "iso" => Ok(Variant::String(utils::time::iso_now())),
-            _ => Ok(Variant::String(utils::time::millis_now())),
+            _ => Ok(Variant::Rational(utils::time::unix_now() as f64)),
         },
 
         RedPropertyType::Bin => {
@@ -197,11 +196,7 @@ pub fn evaluate_node_property(
 
         RedPropertyType::Flow | RedPropertyType::Global => todo!(),
 
-        RedPropertyType::Bool => {
-            let jv: serde_json::Value =
-                serde_json::from_str(value).unwrap_or(serde_json::Value::Bool(false));
-            Ok(Variant::deserialize(&jv)?)
-        }
+        RedPropertyType::Bool => Ok(Variant::Bool(value.trim_ascii().parse::<bool>()?)),
 
         RedPropertyType::Jsonata => todo!(),
 
@@ -213,6 +208,95 @@ pub fn evaluate_node_property(
             ))
             .into()),
         },
+    }
+}
+
+/**
+ * Evaluates a property variant according to its type.
+ *
+ * @param  {Variant}   value    - the raw variant
+ * @param  {String}   _type     - the type of the value
+ * @param  {Node}     node     - the node evaluating the property
+ * @param  {Object}   msg      - the message object to evaluate against
+ * @param  {Function} callback - (optional) called when the property is evaluated
+ * @return {any} The evaluted property, if no `callback` is provided
+ */
+pub fn evaluate_node_property_variant(
+    value: &Variant,
+    type_: &RedPropertyType,
+    node: Option<&dyn FlowNodeBehavior>,
+    msg: Option<&Msg>,
+) -> crate::Result<Variant> {
+    match (type_, value) {
+        (RedPropertyType::Str, Variant::String(_)) => Ok(value.clone()),
+        (RedPropertyType::Str, _) => Ok(Variant::String(value.to_string()?)),
+
+        (RedPropertyType::Num | RedPropertyType::Json, Variant::String(s)) => {
+            let jv: serde_json::Value = serde_json::from_str(s)?;
+            Ok(Variant::deserialize(jv)?)
+        }
+
+        (RedPropertyType::Re, _) => todo!(), // TODO FIXME
+
+        (RedPropertyType::Date, Variant::String(s)) => match s.as_str() {
+            "" => Ok(Variant::Rational(utils::time::unix_now() as f64)),
+            "object" => todo!(),
+            "iso" => Ok(Variant::String(utils::time::iso_now())),
+            _ => Ok(Variant::String(utils::time::millis_now())),
+        },
+
+        (RedPropertyType::Bin, Variant::String(s)) => {
+            let jv: serde_json::Value = serde_json::from_str(s.as_str())?;
+            let arr = Variant::deserialize(&jv)?;
+            let bytes = arr.to_bytes().ok_or(EdgelinkError::InvalidData(format!(
+                "Expected an array of bytes, got: {:?}",
+                value
+            )))?;
+            Ok(Variant::from(bytes))
+        }
+        (RedPropertyType::Bin, Variant::Bytes(_)) => Ok(value.clone()),
+        (RedPropertyType::Bin, Variant::Array(array)) => Variant::bytes_from_vec(array),
+
+        (RedPropertyType::Msg, Variant::String(prop)) => {
+            if let Some(msg) = msg {
+                if let Some(pv) = msg.get_trimmed_nav_property(prop.as_str()) {
+                    Ok(pv.clone())
+                } else {
+                    Err(EdgelinkError::BadArguments(format!(
+                        "Cannot get the property(s) from `msg`: {}",
+                        prop.as_str()
+                    ))
+                    .into())
+                }
+            } else {
+                Err(EdgelinkError::BadArguments(format!("`msg` is not existed!")).into())
+            }
+        }
+
+        // process the context variables
+        (RedPropertyType::Flow | RedPropertyType::Global, _) => todo!(),
+
+        (RedPropertyType::Bool, Variant::String(s)) => {
+            Ok(Variant::Bool(s.trim_ascii().parse::<bool>()?))
+        }
+        (RedPropertyType::Bool, Variant::Bool(_)) => Ok(value.clone()), // TODO javascript rules
+
+        (RedPropertyType::Jsonata, _) => todo!(),
+
+        (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node) {
+            Some(ev) => Ok(ev),
+            _ => Err(EdgelinkError::InvalidData(format!(
+                "Cannot found the environment variable: '{}'",
+                s
+            ))
+            .into()),
+        },
+
+        (_, _) => Err(EdgelinkError::BadArguments(format!(
+            "Unable to evaluate property value: {:?}",
+            value
+        ))
+        .into()),
     }
 }
 
