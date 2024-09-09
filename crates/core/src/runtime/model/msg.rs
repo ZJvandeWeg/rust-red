@@ -170,9 +170,9 @@ impl Msg {
         create_missing: bool,
     ) -> crate::Result<()> {
         if expr.is_empty() {
-            return Err(crate::EdgelinkError::BadArguments(format!(
-                "The argument expr cannot be empty"
-            ))
+            return Err(crate::EdgelinkError::BadArguments(
+                "The argument expr cannot be empty".to_string(),
+            )
             .into());
         }
 
@@ -217,7 +217,7 @@ impl Msg {
                     }
                 };
                 self.body.insert(first_prop_name.to_string(), var);
-                self.get_property_mut(&first_prop_name).unwrap()
+                self.get_property_mut(first_prop_name).unwrap()
             }
             (None, _, _) => {
                 return Err(crate::EdgelinkError::BadArguments(format!(
@@ -451,7 +451,7 @@ impl<'js> js::FromJs<'js> for Msg {
                                         link_call_stack =
                                             bincode::deserialize(bytes).map_err(|_| {
                                                 js::Error::FromJs {
-                                                from: &LINK_SOURCE_PROPERTY,
+                                                from: LINK_SOURCE_PROPERTY,
                                                 to: "link_call_stack",
                                                 message: Some(
                                                     "Failed to deserialize `_linkSource` property"

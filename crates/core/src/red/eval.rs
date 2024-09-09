@@ -190,7 +190,7 @@ pub fn evaluate_node_property(
                     .into())
                 }
             } else {
-                Err(EdgelinkError::BadArguments(format!("`msg` is not existed!")).into())
+                Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into())
             }
         }
 
@@ -239,10 +239,9 @@ pub fn evaluate_node_property_variant(
         (RedPropertyType::Re, _) => todo!(), // TODO FIXME
 
         (RedPropertyType::Date, Variant::String(s)) => match s.as_str() {
-            "" => Ok(Variant::Rational(utils::time::unix_now() as f64)),
-            "object" => todo!(),
+            "object" => Ok(Variant::now()),
             "iso" => Ok(Variant::String(utils::time::iso_now())),
-            _ => Ok(Variant::String(utils::time::millis_now())),
+            _ => Ok(Variant::Rational(utils::time::unix_now() as f64)),
         },
 
         (RedPropertyType::Bin, Variant::String(s)) => {
@@ -269,7 +268,7 @@ pub fn evaluate_node_property_variant(
                     .into())
                 }
             } else {
-                Err(EdgelinkError::BadArguments(format!("`msg` is not existed!")).into())
+                Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into())
             }
         }
 

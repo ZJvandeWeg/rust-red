@@ -917,7 +917,7 @@ impl<'de> Deserialize<'de> for Variant {
 
 #[cfg(feature = "js")]
 impl<'js> js::FromJs<'js> for Variant {
-    fn from_js(ctx: &js::Ctx<'js>, jv: js::Value<'js>) -> js::Result<Variant> {
+    fn from_js(_ctx: &js::Ctx<'js>, jv: js::Value<'js>) -> js::Result<Variant> {
         match jv.type_of() {
             js::Type::Undefined => Ok(Variant::Null),
 
@@ -941,7 +941,7 @@ impl<'js> js::FromJs<'js> for Variant {
                         let mut vec: Vec<Variant> = Vec::with_capacity(arr.len());
                         for item in arr.iter() {
                             match item {
-                                Ok(v) => vec.push(Variant::from_js(ctx, v)?),
+                                Ok(v) => vec.push(Variant::from_js(_ctx, v)?),
                                 Err(err) => {
                                     return Err(err);
                                 }
@@ -960,7 +960,7 @@ impl<'js> js::FromJs<'js> for Variant {
                     for result in jo.props::<String, js::Value>() {
                         match result {
                             Ok((ref k, v)) => {
-                                map.insert(k.clone(), Variant::from_js(ctx, v)?);
+                                map.insert(k.clone(), Variant::from_js(_ctx, v)?);
                             }
                             Err(e) => {
                                 eprintln!("Error occurred: {:?}", e);
