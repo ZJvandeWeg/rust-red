@@ -83,7 +83,7 @@ Adjust various settings in the configuration file, such as port number, `flows.j
 
 ## Project Status
 
-**Prototype Stage**: The project is currently in the prototype stage and cannot guarantee stable operation.
+**Pre-Alpha Stage**: The project is currently in the *pre-alpha* stage and cannot guarantee stable operation.
 
 The heavy check mark ( :heavy_check_mark: ) below indicates that this feature has passed the integration test ported from Node-RED.
 
@@ -106,7 +106,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
         - [x] :heavy_check_mark: Console-JSON (For integration tests)
         - [x] :heavy_check_mark: Inject
         - [x] Debug (WIP)
-        - [x] Complete
+        - [x] :heavy_check_mark: Complete
         - [ ] Catch
         - [ ] Status
         - [x] :heavy_check_mark: Link In
