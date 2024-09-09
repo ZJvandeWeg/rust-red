@@ -153,14 +153,14 @@ pub fn evaluate_node_property(
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match _type {
-        RedPropertyType::Str => Ok(Variant::String(value.to_string())),
+        RedPropertyType::Str => Ok(Variant::String(value.into())),
 
         RedPropertyType::Num | RedPropertyType::Json => {
             let jv: serde_json::Value = serde_json::from_str(value)?;
             Ok(Variant::deserialize(jv)?)
         }
 
-        RedPropertyType::Re => todo!(), // TODO FIXME
+        RedPropertyType::Re => Ok(Variant::Regexp(value.into())),
 
         RedPropertyType::Date => match value {
             "object" => Ok(Variant::now()),

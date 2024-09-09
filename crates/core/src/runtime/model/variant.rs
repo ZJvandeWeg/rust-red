@@ -75,6 +75,9 @@ pub enum Variant {
     /// Represents a Date value (timestamp inside).
     Date(SystemTime),
 
+    /// Represents a regular expression string.
+    Regexp(String),
+
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
 
@@ -610,6 +613,8 @@ impl Variant {
             Variant::Rational(f) => f.into_js(ctx).map_err(|e| e.into()),
 
             Variant::Date(t) => t.into_js(ctx).map_err(|e| e.into()),
+
+            Variant::Regexp(re) => re.into_js(ctx).map_err(|e| e.into()), // TODO FIXME
         }
     }
 
@@ -746,6 +751,7 @@ impl Serialize for Variant {
             Variant::String(v) => serializer.serialize_str(v),
             Variant::Bool(v) => serializer.serialize_bool(*v),
             Variant::Bytes(v) => serializer.serialize_bytes(v),
+            Variant::Regexp(v) => serializer.serialize_str(v),
             Variant::Date(v) => {
                 let ts = v
                     .duration_since(UNIX_EPOCH)
@@ -957,19 +963,31 @@ impl<'js> js::FromJs<'js> for Variant {
 
             js::Type::Object => {
                 if let Some(jo) = jv.as_object() {
-                    let mut map = BTreeMap::new();
-                    for result in jo.props::<String, js::Value>() {
-                        match result {
-                            Ok((ref k, v)) => {
-                                map.insert(k.clone(), Variant::from_js(_ctx, v)?);
-                            }
-                            Err(e) => {
-                                eprintln!("Error occurred: {:?}", e);
-                                panic!();
+                    let global = _ctx.globals();
+                    let date_ctor: js::Object = global.get("Date")?;
+                    let regexp_ctor: js::Object = global.get("RegExp")?;
+                    if jo.is_instance_of(date_ctor) {
+                        let st = jv.get::<SystemTime>()?;
+                        Ok(Variant::Date(st))
+                    } else if jo.is_instance_of(regexp_ctor) {
+                        let to_string_fn: js::Function = jo.get("toString")?;
+                        let re: String = to_string_fn.call((js::function::This(jv),))?;
+                        Ok(Variant::Regexp(re))
+                    } else {
+                        let mut map = BTreeMap::new();
+                        for result in jo.props::<String, js::Value>() {
+                            match result {
+                                Ok((ref k, v)) => {
+                                    map.insert(k.clone(), Variant::from_js(_ctx, v)?);
+                                }
+                                Err(e) => {
+                                    eprintln!("Error occurred: {:?}", e);
+                                    panic!();
+                                }
                             }
                         }
+                        Ok(Variant::Object(map))
                     }
-                    Ok(Variant::Object(map))
                 } else {
                     Err(js::Error::FromJs {
                         from: "JS object",
