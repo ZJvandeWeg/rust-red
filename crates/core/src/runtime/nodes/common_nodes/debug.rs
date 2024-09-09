@@ -2,8 +2,8 @@ use serde;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::red::json::RedFlowNodeConfig;
 use crate::runtime::flow::Flow;
+use crate::runtime::model::json::RedFlowNodeConfig;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;

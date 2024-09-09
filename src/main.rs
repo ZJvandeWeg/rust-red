@@ -6,8 +6,6 @@ use std::sync::Arc;
 
 // 3rd-party libs
 use clap::Parser;
-use red::json::deser::parse_red_id_value;
-use runtime::model::ElementId;
 use serde::Deserialize;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
@@ -17,6 +15,7 @@ use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::text::json_seq;
 use edgelink_core::*;
+use runtime::model::ElementId;
 
 include!(concat!(env!("OUT_DIR"), "/__use_node_plugins.rs"));
 
@@ -85,7 +84,10 @@ impl App {
                             is_first = true;
                         } else {
                             let entry = MsgInjectionEntry {
-                                nid: parse_red_id_value(&json_value["nid"]).unwrap(),
+                                nid: edgelink_core::runtime::model::json::helpers::parse_red_id_value(
+                                    &json_value["nid"],
+                                )
+                                .unwrap(),
                                 msg: Arc::new(RwLock::new(Msg::deserialize(&json_value["msg"])?)),
                             };
                             msgs_to_inject.push(entry);

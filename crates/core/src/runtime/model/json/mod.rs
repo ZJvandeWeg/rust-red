@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::runtime::model::*;
 use serde_json::Value as JsonValue;
 
-use super::env::RedEnvEntry;
+use crate::runtime::model::RedEnvEntry;
 
 pub mod deser;
 pub mod helpers;

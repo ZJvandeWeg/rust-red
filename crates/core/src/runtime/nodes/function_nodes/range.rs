@@ -32,16 +32,16 @@ struct RangeNodeConfig {
     #[serde(default)]
     round: bool,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    #[serde(deserialize_with = "json::deser::deser_f64_or_string_nan")]
     minin: f64,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    #[serde(deserialize_with = "json::deser::deser_f64_or_string_nan")]
     maxin: f64,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    #[serde(deserialize_with = "json::deser::deser_f64_or_string_nan")]
     minout: f64,
 
-    #[serde(deserialize_with = "crate::red::json::deser::deser_f64_or_string_nan")]
+    #[serde(deserialize_with = "json::deser::deser_f64_or_string_nan")]
     maxout: f64,
 
     #[serde(default = "default_config_property")]

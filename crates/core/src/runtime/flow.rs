@@ -8,16 +8,15 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
-use crate::red::env::RedEnvEntry;
-use crate::red::{json::*, RedPropertyType};
+use super::group::Group;
 use crate::runtime::engine::FlowEngine;
+use crate::runtime::eval;
+use crate::runtime::model::json::*;
+use crate::runtime::model::RedEnvEntry;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::Registry;
 use crate::EdgelinkError;
-
-use super::group::Group;
-use crate::red::eval;
 
 const NODE_MSG_CHANNEL_CAPACITY: usize = 32;
 
@@ -543,7 +542,7 @@ impl Flow {
             _ => {
                 let pkey = trimmed.strip_prefix("$parent.").unwrap_or(trimmed);
                 if let Some(ref parent) = self.engine.upgrade() {
-                    parent.get_env_var(pkey)
+                    parent.get_env(pkey)
                 } else {
                     None
                 }

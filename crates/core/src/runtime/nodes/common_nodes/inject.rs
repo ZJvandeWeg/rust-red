@@ -6,10 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
-use crate::red::eval;
-use crate::red::json::*;
-use crate::red::RedPropertyTriple;
-use crate::runtime::flow::Flow;
+use crate::runtime::eval;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
@@ -22,10 +19,7 @@ struct InjectNodeConfig {
     #[serde(default)]
     props: Vec<RedPropertyTriple>,
 
-    #[serde(
-        default,
-        deserialize_with = "crate::red::json::deser::str_to_option_f64"
-    )]
+    #[serde(default, deserialize_with = "json::deser::str_to_option_f64")]
     repeat: Option<f64>,
 
     #[serde(default)]

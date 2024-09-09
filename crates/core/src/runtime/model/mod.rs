@@ -11,15 +11,20 @@ use crate::EdgelinkError;
 
 mod msg;
 
-pub use msg::*;
 mod eid;
+mod env;
 mod error;
+pub mod json;
+mod prop_triple;
 pub mod propex;
 mod settings;
 mod variant;
 
 pub use eid::*;
+pub use env::*;
 pub use error::*;
+pub use msg::*;
+pub use prop_triple::*;
 pub use settings::*;
 pub use variant::*;
 

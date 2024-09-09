@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use tokio::sync::Mutex;
+
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
@@ -10,7 +12,6 @@ use crate::runtime::registry::*;
 use crate::text::parsing;
 use edgelink_macro::*;
 use serde::{Deserialize, Deserializer};
-use tokio::sync::Mutex;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Eq, Deserialize)]
 enum RbeFunc {
@@ -72,7 +73,7 @@ struct RbeNodeConfig {
     #[serde(
         default,
         rename = "start",
-        deserialize_with = "crate::red::json::deser::str_to_option_f64"
+        deserialize_with = "json::deser::str_to_option_f64"
     )]
     start_value: Option<f64>,
 

@@ -1,20 +1,20 @@
-use dashmap::DashMap;
-use serde::Deserialize;
 use std::io::Read;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+
+use dashmap::DashMap;
+use serde::Deserialize;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use super::model::json::{RedFlowConfig, RedGlobalNodeConfig};
+use super::model::*;
+use super::nodes::FlowNodeBehavior;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::Variant;
 use crate::runtime::nodes::{GlobalNodeBehavior, NodeFactory};
 use crate::runtime::registry::Registry;
 use crate::EdgelinkError;
-
-use super::model::{ElementId, Msg};
-use super::nodes::FlowNodeBehavior;
-use crate::red::json::{RedFlowConfig, RedGlobalNodeConfig};
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct FlowEngineArgs {
@@ -37,7 +37,7 @@ impl FlowEngineArgs {
 pub(crate) struct FlowEngineState {
     _context: Variant,
     shutdown: AtomicBool,
-    env_vars: DashMap<String, Variant>,
+    envs: DashMap<String, Variant>,
     flows: DashMap<ElementId, Arc<Flow>>,
     global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
@@ -56,7 +56,7 @@ impl FlowEngine {
         json: &serde_json::Value,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<FlowEngine>> {
-        let json_values = crate::red::json::deser::load_flows_json_value(json).map_err(|e| {
+        let json_values = json::deser::load_flows_json_value(json).map_err(|e| {
             log::error!("Failed to load NodeRED JSON value: {}", e);
             e
         })?;
@@ -67,7 +67,7 @@ impl FlowEngine {
                 all_flow_nodes: DashMap::new(),
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
-                env_vars: DashMap::from_iter(FlowEngine::get_env_vars()),
+                envs: DashMap::from_iter(FlowEngine::all_envs()),
                 _context: Variant::empty_object(),
                 shutdown: AtomicBool::new(true),
             },
@@ -219,9 +219,9 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
-        self.state.env_vars.clear();
-        for ev in FlowEngine::get_env_vars() {
-            self.state.env_vars.insert(ev.0, ev.1);
+        self.state.envs.clear();
+        for ev in FlowEngine::all_envs() {
+            self.state.envs.insert(ev.0, ev.1);
         }
 
         for f in self.state.flows.iter() {
@@ -285,12 +285,12 @@ impl FlowEngine {
         node.inject_msg(msg, cancel).await
     }
 
-    pub fn get_env_var(&self, key: &str) -> Option<Variant> {
+    pub fn get_env(&self, key: &str) -> Option<Variant> {
         // TODO exclude vars
         std::env::var(key).map(Variant::String).ok()
     }
 
-    fn get_env_vars() -> impl Iterator<Item = (String, Variant)> {
+    fn all_envs() -> impl Iterator<Item = (String, Variant)> {
         std::env::vars().map(|(k, v)| (k.to_string(), Variant::String(v)))
     }
 }

@@ -1,15 +1,10 @@
 use serde::Deserialize;
 
-use crate::{
-    runtime::{
-        flow::Flow,
-        model::{Msg, Variant},
-        nodes::FlowNodeBehavior,
-    },
-    utils, EdgelinkError,
-};
-
-use super::RedPropertyType;
+use crate::runtime::flow::*;
+use crate::runtime::model::*;
+use crate::runtime::nodes::*;
+use crate::utils;
+use crate::*;
 
 pub struct ParsedContextStoreProperty<'a> {
     pub store: &'a str,
@@ -45,7 +40,7 @@ fn context_store_parser(
 /// # Examples
 /// For example, `#:(file)::foo` results in ` ParsedContextStoreProperty{ store: "file", key: "foo" }`.
 /// ```
-/// use edgelink_core::red::eval::parse_context_store;
+/// use edgelink_core::runtime::eval::parse_context_store;
 ///
 /// let res = parse_context_store("#:(file)::foo").unwrap();
 /// assert_eq!("file", res.store);
@@ -126,7 +121,7 @@ fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Op
         get_setting(trimmed, node, flow_ref)
     } else {
         // FOO${ENV_VAR}BAR
-        Some(Variant::String(super::env::replace_vars(
+        Some(Variant::String(crate::runtime::model::replace_vars(
             trimmed,
             |env_name| match get_setting(env_name, node, flow_ref) {
                 Some(Variant::String(v)) => v,
@@ -301,8 +296,6 @@ pub fn evaluate_node_property_variant(
 
 #[cfg(test)]
 mod tests {
-    use crate::red::RedPropertyTriple;
-
     use super::*;
 
     #[test]

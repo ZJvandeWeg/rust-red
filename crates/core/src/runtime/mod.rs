@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod eval;
 pub mod flow;
 pub mod group;
 pub mod model;

@@ -25,7 +25,7 @@ struct LinkOutNodeConfig {
 
     #[serde(
         default,
-        deserialize_with = "crate::red::json::deser::deser_red_id_vec"
+        deserialize_with = "crate::runtime::model::json::deser::deser_red_id_vec"
     )]
     links: Vec<ElementId>,
 }

@@ -70,19 +70,19 @@ impl UdpOutNode {
 #[derive(Deserialize, Debug)]
 struct UdpOutNodeConfig {
     /// Remote address
-    #[serde(deserialize_with = "crate::red::json::deser::str_to_ipaddr")]
+    #[serde(deserialize_with = "crate::runtime::model::json::deser::str_to_ipaddr")]
     addr: Option<IpAddr>,
 
     /// Remote port
-    #[serde(deserialize_with = "crate::red::json::deser::str_to_option_u16")]
+    #[serde(deserialize_with = "crate::runtime::model::json::deser::str_to_option_u16")]
     port: Option<u16>,
 
     /// Local address
-    #[serde(deserialize_with = "crate::red::json::deser::str_to_ipaddr")]
+    #[serde(deserialize_with = "crate::runtime::model::json::deser::str_to_ipaddr")]
     iface: Option<IpAddr>,
 
     /// Local port
-    #[serde(deserialize_with = "crate::red::json::deser::str_to_option_u16")]
+    #[serde(deserialize_with = "crate::runtime::model::json::deser::str_to_option_u16")]
     outport: Option<u16>,
 
     ipv: UdpIpV,

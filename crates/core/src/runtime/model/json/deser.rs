@@ -9,10 +9,11 @@ use serde_json::Map as JsonMap;
 use serde_json::Value as JsonValue;
 use topological_sort::TopologicalSort;
 
-use crate::red::{json::*, RedPropertyType, RedTypeValue};
 use crate::runtime::model::ElementId;
 use crate::text::json::option_value_equals_str;
 use crate::EdgelinkError;
+
+use super::*;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let preprocessed = preprocess_subflows(root_jv)?;
@@ -825,7 +826,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::red::*;
 
     #[test]
     fn parse_red_property_triple_should_be_ok() {

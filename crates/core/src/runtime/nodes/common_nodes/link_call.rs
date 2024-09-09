@@ -7,8 +7,9 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
-use crate::red::json::deser::parse_red_id_str;
 use crate::runtime::flow::Flow;
+use crate::runtime::model::json::deser::parse_red_id_str;
+use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
@@ -28,16 +29,10 @@ struct LinkCallNodeConfig {
     #[serde(default, rename = "linkType")]
     link_type: LinkType,
 
-    #[serde(
-        default,
-        deserialize_with = "crate::red::json::deser::deser_red_id_vec"
-    )]
+    #[serde(default, deserialize_with = "json::deser::deser_red_id_vec")]
     links: Vec<ElementId>,
 
-    #[serde(
-        default,
-        deserialize_with = "crate::red::json::deser::str_to_option_f64"
-    )]
+    #[serde(default, deserialize_with = "json::deser::str_to_option_f64")]
     timeout: Option<f64>,
 }
 

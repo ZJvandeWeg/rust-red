@@ -3,9 +3,9 @@ use std::sync::Arc;
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::red::eval::evaluate_node_property;
-use crate::red::RedPropertyType;
+use crate::runtime::eval;
 use crate::runtime::flow::Flow;
+use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
@@ -115,7 +115,7 @@ impl ChangeNode {
 
     fn get_to_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
         if let (Some(tot), Some(to)) = (rule.tot.as_ref(), rule.to.as_ref()) {
-            evaluate_node_property(to, tot, Some(self), Some(msg))
+            eval::evaluate_node_property(to, tot, Some(self), Some(msg))
         } else {
             Err(
                 EdgelinkError::BadFlowsJson("The `tot` and `to` in the rule cannot be None".into())
@@ -126,7 +126,7 @@ impl ChangeNode {
 
     fn get_from_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
         if let (Some(fromt), Some(from)) = (rule.fromt.as_ref(), rule.from.as_ref()) {
-            evaluate_node_property(from, fromt, Some(self), Some(msg))
+            eval::evaluate_node_property(from, fromt, Some(self), Some(msg))
         } else {
             Err(EdgelinkError::BadFlowsJson(
                 "The `fromt` and `from` in the rule cannot be None".into(),
@@ -201,7 +201,7 @@ impl ChangeNode {
                 if let (Some(to_value), Ok(from_value), Ok(current)) = (
                     to_value,
                     self.get_from_value(rule, msg),
-                    evaluate_node_property(&rule.p, &rule.pt, Some(self), Some(msg)),
+                    eval::evaluate_node_property(&rule.p, &rule.pt, Some(self), Some(msg)),
                 ) {
                     // TODO
                     match current {

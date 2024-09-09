@@ -1,10 +1,8 @@
 use std::{collections::HashMap, sync::Weak};
 
-use super::{
-    flow::Flow,
-    model::{ElementId, Variant},
-};
-use crate::red::json::RedGroupConfig;
+use super::flow::*;
+use super::model::json::*;
+use super::model::*;
 
 #[derive(Debug)]
 pub enum GroupParent {

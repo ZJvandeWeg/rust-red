@@ -4,23 +4,21 @@ use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 
 use serde::de;
-
 use serde::ser::SerializeMap;
 use tokio::sync::RwLock;
-
-const LINK_SOURCE_PROPERTY: &str = "_linkSource";
 
 #[cfg(feature = "js")]
 mod js {
     pub use rquickjs::{prelude::*, *};
 }
 
-use crate::red::json::deser::parse_red_id_str;
+use crate::runtime::model::json::deser::parse_red_id_str;
 use crate::runtime::model::propex::*;
 use crate::runtime::model::*;
 
 pub mod wellknown {
     pub const MSG_ID_PROPERTY: &str = "_msgid";
+    pub const LINK_SOURCE_PROPERTY: &str = "_linkSource";
 }
 
 #[derive(Debug)]
@@ -281,7 +279,7 @@ impl Msg {
         }
 
         {
-            let link_source_atom = LINK_SOURCE_PROPERTY.into_js(ctx)?;
+            let link_source_atom = wellknown::LINK_SOURCE_PROPERTY.into_js(ctx)?;
             let link_source_buffer =
                 js::ArrayBuffer::new(ctx.clone(), bincode::serialize(&self.link_call_stack)?)?;
             let link_source_value = link_source_buffer.into_js(ctx)?;
@@ -375,7 +373,7 @@ impl serde::Serialize for Msg {
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(None)?;
-        map.serialize_entry(LINK_SOURCE_PROPERTY, &self.link_call_stack)?;
+        map.serialize_entry(wellknown::LINK_SOURCE_PROPERTY, &self.link_call_stack)?;
         for (k, v) in self.body.iter() {
             map.serialize_entry(k, v)?;
         }
@@ -406,9 +404,11 @@ impl<'de> serde::Deserialize<'de> for Msg {
 
                 while let Some(key) = map.next_key()? {
                     match key {
-                        LINK_SOURCE_PROPERTY => {
+                        wellknown::LINK_SOURCE_PROPERTY => {
                             if link_call_stack.is_some() {
-                                return Err(de::Error::duplicate_field(LINK_SOURCE_PROPERTY));
+                                return Err(de::Error::duplicate_field(
+                                    wellknown::LINK_SOURCE_PROPERTY,
+                                ));
                             }
                             link_call_stack = Some(map.next_value()?);
                         }
@@ -442,7 +442,7 @@ impl<'js> js::FromJs<'js> for Msg {
                     for result in jo.props::<String, js::Value>() {
                         match result {
                             Ok((ref k, v)) => match k.as_str() {
-                                LINK_SOURCE_PROPERTY => {
+                                wellknown::LINK_SOURCE_PROPERTY => {
                                     if let Some(bytes) = v
                                         .as_object()
                                         .and_then(|x| x.as_array_buffer())
@@ -451,7 +451,7 @@ impl<'js> js::FromJs<'js> for Msg {
                                         link_call_stack =
                                             bincode::deserialize(bytes).map_err(|_| {
                                                 js::Error::FromJs {
-                                                from: LINK_SOURCE_PROPERTY,
+                                                from: wellknown::LINK_SOURCE_PROPERTY,
                                                 to: "link_call_stack",
                                                 message: Some(
                                                     "Failed to deserialize `_linkSource` property"

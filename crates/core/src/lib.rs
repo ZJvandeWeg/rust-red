@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-pub mod red;
 pub mod runtime;
 pub mod text;
 pub mod utils;
