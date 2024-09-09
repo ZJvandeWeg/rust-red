@@ -262,6 +262,7 @@ impl Variant {
             Variant::String(s) => Ok(s.clone()),
             Variant::Rational(f) => Ok(f.to_string()),
             Variant::Integer(i) => Ok(i.to_string()),
+            Variant::Bool(b) => Ok(b.to_string()),
             _ => Err(VariantError::WrongType),
         }
     }

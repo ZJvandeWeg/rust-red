@@ -50,6 +50,10 @@ struct Rule {
 
     #[serde(default)]
     pub fromt: Option<RedPropertyType>,
+    /*
+    #[serde(default, rename = "dc")]
+    pub deep_clone: bool,
+    */
 }
 
 #[derive(Deserialize, Debug)]
@@ -100,6 +104,7 @@ impl ChangeNode {
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let json = handle_legacy_json(config.json.clone())?;
+        log::debug!("REG:\n{}", serde_json::to_string_pretty(&json)?);
         let change_config = ChangeNodeConfig::deserialize(&json)?;
         let node = ChangeNode {
             base: state,
@@ -138,9 +143,10 @@ impl ChangeNode {
     }
 
     fn apply_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+        let to_value = self.get_to_value(rule, msg).ok();
         match rule.t {
-            RuleKind::Set => self.apply_rule_set(rule, msg),
-            RuleKind::Change => self.apply_rule_change(rule, msg),
+            RuleKind::Set => self.apply_rule_set(rule, msg, to_value),
+            RuleKind::Change => self.apply_rule_change(rule, msg, to_value),
             RuleKind::Move => Ok(()),
             RuleKind::Delete => {
                 /*
@@ -152,11 +158,16 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_set(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+    fn apply_rule_set(
+        &self,
+        rule: &Rule,
+        msg: &mut Msg,
+        to_value: Option<Variant>,
+    ) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Set);
         match rule.pt {
             RedPropertyType::Msg => {
-                if let Ok(to_value) = self.get_to_value(rule, msg) {
+                if let Some(to_value) = to_value {
                     msg.set_trimmed_nav_property(&rule.p, to_value, true)?;
                 } else {
                     // Equals the `undefined` in JS
@@ -178,9 +189,73 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
-        let _from_value = self.get_from_value(rule, msg)?;
-        todo!()
+    fn apply_rule_change(
+        &self,
+        rule: &Rule,
+        msg: &mut Msg,
+        to_value: Option<Variant>,
+    ) -> crate::Result<()> {
+        assert!(rule.t == RuleKind::Change);
+        match rule.pt {
+            RedPropertyType::Msg => {
+                if let (Some(to_value), Ok(from_value), Ok(current)) = (
+                    to_value,
+                    self.get_from_value(rule, msg),
+                    evaluate_node_property(&rule.p, &rule.pt, Some(self), Some(msg)),
+                ) {
+                    // TODO
+                    match current {
+                        Variant::String(ref cs) => match from_value {
+                            Variant::Integer(_)
+                            | Variant::Rational(_)
+                            | Variant::Bool(_)
+                            | Variant::String(_)
+                                if current == from_value =>
+                            {
+                                // str representation of exact from number/boolean
+                                // only replace if they match exactly
+                                msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
+                            }
+                            _ => {
+                                dbg!(&from_value);
+                                dbg!(&to_value);
+                                let replaced = cs.replace(
+                                    from_value.to_string()?.as_str(), //TODO opti
+                                    to_value.to_string()?.as_str(),
+                                );
+                                if rule.tot == Some(RedPropertyType::Bool) && current == to_value {
+                                    // If the target type is boolean, and the replace call has resulted in "true"/"false",
+                                    // convert to boolean type (which 'value' already is)
+                                    msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
+                                } else {
+                                    msg.set_trimmed_nav_property(
+                                        &rule.p,
+                                        Variant::String(replaced),
+                                        false,
+                                    )?;
+                                }
+                            }
+                        },
+                        _ => todo!(),
+                    }
+                } else {
+                    // Equals the `undefined` in JS
+                    if msg.body.contains_key(&rule.p) {
+                        // TODO remove by propex
+                        msg.body.remove(&rule.p);
+                    }
+                }
+                Ok(())
+            }
+            RedPropertyType::Flow | RedPropertyType::Global => {
+                //
+                todo!()
+            }
+            _ => Err(EdgelinkError::NotSupported(
+                "We only support to set message property and flow/global context variables".into(),
+            )
+            .into()),
+        }
     }
 }
 
@@ -188,33 +263,27 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
     let mut rules: Vec<Value> = if let Some(Value::Array(existed_rules)) = n.get("rules") {
         existed_rules.to_vec()
     } else {
-        let mut rule = Value::Object(serde_json::Map::new());
+        let mut rule = serde_json::json!({
+            "t": if n["action"] == "replace" {
+                "set"
+            } else {
+                n["action"].as_str().unwrap_or("")
+            },
+            "p": n["property"].as_str().unwrap_or("")
+        });
 
-        let action = n.get("action").and_then(Value::as_str).unwrap_or("");
-        let property = n.get("property").and_then(Value::as_str).unwrap_or("");
-
-        rule["t"] = match action {
-            "replace" => Value::String("set".to_string()),
-            _ => Value::String(action.to_string()),
-        };
-
-        rule["p"] = Value::String(property.to_string());
-
-        match rule["t"].as_str().unwrap_or("") {
-            "set" | "move" => {
-                let to = n.get("to").and_then(Value::as_str).unwrap_or("");
-                rule["to"] = Value::String(to.to_string());
-            }
-            "change" => {
-                let from = n.get("from").and_then(Value::as_str).unwrap_or("");
-                let to = n.get("to").and_then(Value::as_str).unwrap_or("");
-                let reg = n.get("reg").and_then(Value::as_bool).unwrap_or(false);
-
-                rule["from"] = Value::String(from.to_string());
-                rule["to"] = Value::String(to.to_string());
-                rule["re"] = Value::Bool(reg);
-            }
-            _ => {}
+        // Check if "set" or "move" action, and add "to" field
+        if rule["t"] == "set" || rule["t"] == "move" {
+            rule["to"] = n
+                .get("to")
+                .cloned()
+                .unwrap_or(Value::String("".to_string()));
+        }
+        // If "change" action, add "from", "to" and "re" fields
+        else if rule["t"] == "change" {
+            rule["from"] = n.get("from").cloned().unwrap_or("".into());
+            rule["to"] = n.get("to").cloned().unwrap_or("".into());
+            rule["re"] = n.get("reg").cloned().unwrap_or(Value::Bool(true));
         }
         vec![rule]
     };
@@ -225,8 +294,10 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
             rule["pt"] = "msg".into();
         }
 
-        if let (Some("change"), Some(_)) = (rule.get("t").and_then(|t| t.as_str()), rule.get("re"))
-        {
+        if let (Some("change"), Some(true)) = (
+            rule.get("t").and_then(|t| t.as_str()),
+            rule.get("re").and_then(|x| x.as_bool()),
+        ) {
             rule["fromt"] = "re".into();
             rule.as_object_mut().unwrap().remove("re");
         }

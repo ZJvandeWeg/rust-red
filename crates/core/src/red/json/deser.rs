@@ -149,14 +149,21 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut sorted_flow_nodes = Vec::new();
     while let Some(node_id) = node_topo_sort.pop() {
         // We check for cycle errors before usage
-        let node = flow_nodes[&node_id].clone();
-        log::debug!(
-            "SORTED_NODES: node.id='{}', node.name='{}', node.type='{}'",
-            node_id,
-            node.get("name").and_then(|x| x.as_str()).unwrap_or(""),
-            node.get("type").and_then(|x| x.as_str()).unwrap_or("")
-        );
-        sorted_flow_nodes.push(node);
+        if let Some(node) = flow_nodes.get(&node_id).cloned() {
+            log::debug!(
+                "SORTED_NODES: node.id='{}', node.name='{}', node.type='{}'",
+                node_id,
+                node.get("name").and_then(|x| x.as_str()).unwrap_or(""),
+                node.get("type").and_then(|x| x.as_str()).unwrap_or("")
+            );
+            sorted_flow_nodes.push(node);
+        } else {
+            return Err(EdgelinkError::BadFlowsJson(format!(
+                "Cannot find the node id '{}'",
+                node_id
+            ))
+            .into());
+        }
     }
 
     let mut flow_configs = Vec::with_capacity(flows.len());
