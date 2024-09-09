@@ -22,13 +22,13 @@ For more information, visit the website: https://github.com/oldrev/edgelink
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, author, long_about=LONG_ABOUT)]
 pub struct CliArgs {
+    /// Path of the 'flows.json' file.
+    #[clap(default_value_t = default_flows_path())]
+    pub flows_path: String,
+
     /// Home directory of EdgeLink, default is `~/.edgelink`
     #[arg(long)]
     pub home: Option<String>,
-
-    /// Path of the 'flows.json' file.
-    #[arg(short, long, default_value_t = default_flows_path())]
-    pub flows_path: String,
 
     /// Path of the log configuration file.
     #[arg(short, long)]

@@ -103,7 +103,7 @@ async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout: fl
 
 
 async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 5) -> list[dict]:
-    el_args = ['-v', '0', '-f', flows_path]
+    el_args = ['-v', '0', flows_path]
     msgs = []
     process = await start_edgelink_process(el_args)
     try:
