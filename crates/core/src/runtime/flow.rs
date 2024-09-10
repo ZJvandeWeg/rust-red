@@ -245,20 +245,50 @@ impl Flow {
             }
         };
 
+        let subflow_instance = flow_config
+            .subflow_node_id
+            .and_then(|x| engine.find_flow_node_by_id(&x));
+
         let mut envs_builder = EnvStoreBuilder::new().with_parent(&engine.get_envs());
         if let Some(env_json) = flow_config.json.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }
-        envs_builder = envs_builder.extends([
-            (
-                "NR_FLOW_ID".into(),
-                Variant::String(flow_config.id.to_string()),
-            ),
-            (
-                "NR_FLOW_NAME".into(),
-                Variant::String(flow_config.label.clone()),
-            ),
-        ]);
+        envs_builder = match flow_kind {
+            FlowKind::GlobalFlow => envs_builder.extends([
+                ("NR_FLOW_ID".into(), flow_config.id.to_string().into()),
+                ("NR_FLOW_NAME".into(), flow_config.label.clone().into()),
+            ]),
+            FlowKind::Subflow => {
+                if subflow_instance.is_none() {
+                    return Err(EdgelinkError::BadFlowsJson(format!(
+                        "The ID of Sub-flow instance node is None"
+                    ))
+                    .into());
+                }
+                let subflow_instance = subflow_instance.as_ref().unwrap().clone();
+                envs_builder.extends([
+                    (
+                        "NR_SUBFLOW_ID".into(),
+                        subflow_instance.id().to_string().into(),
+                    ),
+                    ("NR_SUBFLOW_NAME".into(), subflow_instance.name().into()),
+                    (
+                        "NR_SUBFLOW_PATH".into(),
+                        format!(
+                            "{}/{}",
+                            subflow_instance
+                                .get_flow()
+                                .upgrade()
+                                .unwrap()
+                                .id()
+                                .to_string(),
+                            subflow_instance.id()
+                        )
+                        .into(),
+                    ),
+                ])
+            }
+        };
         let envs = envs_builder.build();
 
         let flow: Arc<Flow> = Arc::new(Flow {
@@ -294,10 +324,7 @@ impl Flow {
         // Add empty subflow forward ports
         if let Some(ref subflow_state) = flow.subflow_state {
             let mut subflow_state = subflow_state.write().unwrap();
-
-            if let Some(subflow_node_id) = flow_config.subflow_node_id {
-                subflow_state.instance_node = engine.find_flow_node_by_id(&subflow_node_id);
-            }
+            subflow_state.instance_node = subflow_instance;
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
                 let (msg_root_tx, msg_rx) =
