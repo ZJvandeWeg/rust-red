@@ -1143,10 +1143,10 @@ mod tests {
         let var = Variant::deserialize(&json).unwrap();
         assert!(var.is_null());
 
-        let json = json!(3.14);
+        let json = json!(3.34);
         let var = Variant::deserialize(&json).unwrap();
         assert!(var.is_rational());
-        assert_eq!((var.as_rational().unwrap() * 100.0) as i64, 314);
+        assert_eq!((var.as_rational().unwrap() * 100.0) as i64, 334);
 
         let json = json!(123);
         let var = Variant::deserialize(&json).unwrap();

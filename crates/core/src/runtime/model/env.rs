@@ -73,6 +73,12 @@ pub struct EnvStoreBuilder {
     envs: HashMap<String, Variant>,
 }
 
+impl Default for EnvStoreBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnvStoreBuilder {
     pub fn new() -> Self {
         Self {
@@ -116,7 +122,7 @@ impl EnvStoreBuilder {
 
     pub fn with_process_env(mut self) -> Self {
         for (k, v) in std::env::vars() {
-            self.envs.insert(k.into(), Variant::String(v));
+            self.envs.insert(k, Variant::String(v));
         }
         self
     }
@@ -133,7 +139,7 @@ impl EnvStoreBuilder {
             parent: RwLock::new(self.parent),
             envs: DashMap::with_capacity(self.envs.len()),
         };
-        this.envs.extend(self.envs.into_iter());
+        this.envs.extend(self.envs);
 
         Arc::new(this)
     }

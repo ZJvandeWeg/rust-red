@@ -260,9 +260,7 @@ impl Flow {
             ]),
             FlowKind::Subflow => {
                 if subflow_instance.is_none() {
-                    return Err(EdgelinkError::BadFlowsJson(format!(
-                        "The ID of Sub-flow instance node is None"
-                    ))
+                    return Err(EdgelinkError::BadFlowsJson("The ID of Sub-flow instance node is None".to_string())
                     .into());
                 }
                 let subflow_instance = subflow_instance.as_ref().unwrap().clone();
@@ -280,8 +278,7 @@ impl Flow {
                                 .get_flow()
                                 .upgrade()
                                 .unwrap()
-                                .id()
-                                .to_string(),
+                                .id(),
                             subflow_instance.id()
                         )
                         .into(),

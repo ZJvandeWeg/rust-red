@@ -59,13 +59,13 @@ pub struct RedPropertyTriple {
 
 impl RedPropertyType {
     pub fn is_constant(&self) -> bool {
-        match self {
+        matches!(
+            self,
             RedPropertyType::Str
-            | RedPropertyType::Num
-            | RedPropertyType::Json
-            | RedPropertyType::Bin
-            | RedPropertyType::Bool => true,
-            _ => false,
-        }
+                | RedPropertyType::Num
+                | RedPropertyType::Json
+                | RedPropertyType::Bin
+                | RedPropertyType::Bool
+        )
     }
 }
