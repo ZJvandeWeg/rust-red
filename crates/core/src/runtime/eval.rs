@@ -90,7 +90,7 @@ fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Op
  */
 pub fn evaluate_node_property(
     value: &str,
-    _type: &RedPropertyType,
+    _type: RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
@@ -252,7 +252,7 @@ mod tests {
             vt: RedPropertyType::Num,
             v: "10".to_string(),
         };
-        let evaluated = evaluate_node_property(&triple.v, &triple.vt, None, None).unwrap();
+        let evaluated = evaluate_node_property(&triple.v, triple.vt, None, None).unwrap();
         assert!(evaluated.is_integer());
         assert_eq!(evaluated.as_integer().unwrap(), 10);
     }

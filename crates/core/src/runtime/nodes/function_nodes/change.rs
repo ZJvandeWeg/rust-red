@@ -114,7 +114,7 @@ impl ChangeNode {
     }
 
     fn get_to_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
-        if let (Some(tot), Some(to)) = (rule.tot.as_ref(), rule.to.as_ref()) {
+        if let (Some(tot), Some(to)) = (rule.tot, rule.to.as_ref()) {
             eval::evaluate_node_property(to, tot, Some(self), Some(msg))
         } else {
             Err(
@@ -125,7 +125,7 @@ impl ChangeNode {
     }
 
     fn get_from_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
-        if let (Some(fromt), Some(from)) = (rule.fromt.as_ref(), rule.from.as_ref()) {
+        if let (Some(fromt), Some(from)) = (rule.fromt, rule.from.as_ref()) {
             eval::evaluate_node_property(from, fromt, Some(self), Some(msg))
         } else {
             Err(EdgelinkError::BadFlowsJson(
@@ -201,7 +201,7 @@ impl ChangeNode {
                 if let (Some(to_value), Ok(from_value), Ok(current)) = (
                     to_value,
                     self.get_from_value(rule, msg),
-                    eval::evaluate_node_property(&rule.p, &rule.pt, Some(self), Some(msg)),
+                    eval::evaluate_node_property(&rule.p, rule.pt, Some(self), Some(msg)),
                 ) {
                     // TODO
                     match current {

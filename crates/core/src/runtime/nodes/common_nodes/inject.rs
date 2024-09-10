@@ -164,7 +164,7 @@ impl InjectNode {
             .map(|i| {
                 (
                     i.p.to_string(),
-                    eval::evaluate_node_property(&i.v, &i.vt, Some(self), None).unwrap(),
+                    eval::evaluate_node_property(&i.v, i.vt, Some(self), None).unwrap(),
                 )
             })
             .collect();

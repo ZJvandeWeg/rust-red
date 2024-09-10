@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 
 use dashmap::DashMap;
@@ -10,9 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::group::Group;
 use crate::runtime::engine::FlowEngine;
-use crate::runtime::eval;
 use crate::runtime::model::json::*;
-use crate::runtime::model::RedEnvEntry;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use crate::runtime::registry::Registry;
@@ -550,7 +547,8 @@ impl Flow {
         }
     }
 
-    pub fn eval_env_entries(
+    /* 
+    pub fn eval_envs(
         &self,
         env_entries: &[RedEnvEntry],
     ) -> crate::Result<HashMap<String, Variant>> {
@@ -558,18 +556,12 @@ impl Flow {
 
         // preprocessing
         for e in env_entries.iter().filter(|&x| x.name != "env") {
-            let parsed_value = match e.type_name.as_str() {
-                "bool" => Variant::Bool(e.value.parse::<bool>().unwrap_or(false)),
-                "jsonata" => {
-                    todo!();
-                }
-                _ => eval::evaluate_node_property(
-                    &e.value,
-                    &RedPropertyType::from(&e.type_name)?,
-                    None,
-                    None,
-                )?,
-            };
+            let parsed_value = eval::evaluate_node_property(
+                &e.value,
+                e.type_,
+                None,
+                None,
+            )?;
             evaluated_entries.insert(e.name.clone(), parsed_value);
         }
 
@@ -587,7 +579,7 @@ impl Flow {
                 } else {
                     eval::evaluate_node_property(
                         &env_value_text,
-                        &RedPropertyType::from(&e.type_name)?,
+                        e.type_,
                         None,
                         None,
                     )?
@@ -606,6 +598,7 @@ impl Flow {
 
         Ok(evaluated_entries)
     }
+    */
 
     pub async fn start(&self) -> crate::Result<()> {
         // let mut state = self.shared.state.write().await;

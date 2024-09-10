@@ -30,7 +30,6 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut group_topo_sort = TopologicalSort::<ElementId>::new();
     let mut node_topo_sort = TopologicalSort::<ElementId>::new();
 
-    // Classify the JSON objects
     for jobject in all_values.iter() {
         if let Some(obj) = jobject.as_object() {
             if let (Some(ele_id), Some(type_value)) = (
@@ -77,7 +76,8 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
 
                     "group" => match obj.get("z") {
                         Some(_) => {
-                            let g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
+                            let mut g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
+                            g.json = jobject.clone();
                             if let Some(parent_id) = &g.g {
                                 group_topo_sort.add_dependency(*parent_id, ele_id);
                             } else {
@@ -183,7 +183,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
             None
         };
 
-        flow_config.json = flow.as_object().unwrap().clone();
+        flow_config.json = flow.clone();
         flow_config.groups = sorted_flow_groups
             .iter()
             .filter(|x| x.z == flow_config.id)

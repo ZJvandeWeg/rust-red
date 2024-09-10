@@ -3,8 +3,6 @@ use std::fmt::Display;
 use crate::runtime::model::*;
 use serde_json::Value as JsonValue;
 
-use crate::runtime::model::RedEnvEntry;
-
 pub mod deser;
 pub mod helpers;
 
@@ -30,8 +28,8 @@ pub struct RedGroupConfig {
     #[serde(default, deserialize_with = "deser::deser_red_optional_id")]
     pub g: Option<ElementId>,
 
-    #[serde(default)]
-    pub env: Vec<RedEnvEntry>,
+    #[serde(skip)]
+    pub json: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -51,11 +49,8 @@ pub struct RedFlowConfig {
     #[serde(alias = "type")]
     pub type_name: String,
 
-    #[serde(default)]
-    pub env: Vec<RedEnvEntry>,
-
     #[serde(skip)]
-    pub json: serde_json::Map<String, JsonValue>,
+    pub json: JsonValue,
 
     #[serde(skip)]
     pub nodes: Vec<RedFlowNodeConfig>,

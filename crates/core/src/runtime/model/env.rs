@@ -1,20 +1,79 @@
-/*
-use std::collections::HashMap;
+use std::sync::{Arc, RwLock, Weak};
 
-use super::red::eval;
-use super::red::json::RedPropertyType;
-use super::{flow::Flow, model::Variant, red::json::RedEnvEntry};
-*/
+use dashmap::DashMap;
 use nom;
 
+use super::{ElementId, RedPropertyType, Variant};
+
 #[derive(Debug, Clone, serde::Deserialize)]
-pub struct RedEnvEntry {
+pub struct EnvEntry {
     pub name: String,
 
     pub value: String,
 
     #[serde(alias = "type")]
-    pub type_name: String,
+    pub type_: RedPropertyType,
+}
+
+#[derive(Debug)]
+pub struct EnvStore {
+    pub parent: RwLock<Option<Weak<EnvStore>>>,
+    pub children: DashMap<ElementId, Arc<EnvStore>>,
+    pub envs: DashMap<String, Variant>,
+}
+
+#[derive(Debug)]
+pub struct EnvStoreBuilder {
+    parent: Option<Weak<EnvStore>>,
+    children: DashMap<ElementId, Arc<EnvStore>>,
+    envs: DashMap<String, Variant>,
+}
+
+impl EnvStoreBuilder {
+    pub fn new() -> Self {
+        Self {
+            parent: None,
+            children: DashMap::new(),
+            envs: DashMap::new(),
+        }
+    }
+
+    pub fn envs(mut self, envs: &[EnvEntry]) -> Self {
+        self.envs.extend(
+            envs.iter()
+                .map(|x| (x.name.clone(), x.value.clone().into())),
+        );
+        self
+    }
+
+    pub fn parent(mut self, parent: Arc<EnvStore>) -> Self {
+        self.parent = Some(Arc::downgrade(&parent));
+        self
+    }
+
+    pub fn add_child(self, eid: ElementId, child: Arc<EnvStore>) -> Self {
+        self.children.insert(eid, child);
+        self
+    }
+
+    pub fn build(self) -> Arc<EnvStore> {
+        let this = Arc::new(EnvStore {
+            parent: RwLock::new(self.parent),
+            children: DashMap::new(),
+            envs: self.envs,
+        });
+
+        for mut child in self.children.iter_mut() {
+            let mut cp = child
+                .value_mut()
+                .parent
+                .write()
+                .expect("We need the set the parent");
+            *cp = Some(Arc::downgrade(&this));
+        }
+
+        this
+    }
 }
 
 pub fn replace_vars<'a, F, R>(input: &'a str, converter: F) -> String
