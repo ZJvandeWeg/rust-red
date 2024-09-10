@@ -1,5 +1,5 @@
 use crate::runtime::model::*;
-use serde::{self, Deserialize};
+use serde;
 
 pub struct RedTypeValue<'a> {
     pub red_type: &'a str,
@@ -44,17 +44,6 @@ pub enum RedPropertyType {
 
     #[serde(rename = "env")]
     Env,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct RedPropertyTriple {
-    pub p: String,
-
-    #[serde(default)]
-    pub vt: RedPropertyType,
-
-    #[serde(default)]
-    pub v: String,
 }
 
 impl RedPropertyType {

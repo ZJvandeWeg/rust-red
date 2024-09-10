@@ -209,17 +209,5 @@ pub fn evaluate_node_property_variant(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_evaluate_node_property_without_msg() {
-        let triple = RedPropertyTriple {
-            p: "payload".to_string(),
-            vt: RedPropertyType::Num,
-            v: "10".to_string(),
-        };
-        let evaluated = evaluate_node_property(&triple.v, triple.vt, None, None, None).unwrap();
-        assert!(evaluated.is_integer());
-        assert_eq!(evaluated.as_integer().unwrap(), 10);
-    }
+    // use super::*;
 }

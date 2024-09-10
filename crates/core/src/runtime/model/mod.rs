@@ -14,7 +14,7 @@ mod eid;
 mod env;
 mod error;
 mod msg;
-mod prop_triple;
+mod red_types;
 mod settings;
 mod variant;
 
@@ -26,7 +26,7 @@ pub use eid::*;
 pub use env::*;
 pub use error::*;
 pub use msg::*;
-pub use prop_triple::*;
+pub use red_types::*;
 pub use settings::*;
 pub use variant::*;
 

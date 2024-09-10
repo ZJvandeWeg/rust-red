@@ -822,26 +822,3 @@ where
         None => Ok(None),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_red_property_triple_should_be_ok() {
-        let data = r#"
-        [{
-            "p": "timestamp",
-            "v": "",
-            "vt": "date"
-        }]
-        "#;
-
-        // Parse the string of data into serde_json::Value.
-        let v: serde_json::Value = serde_json::from_str(data).unwrap();
-        let triples = Vec::<RedPropertyTriple>::deserialize(&v).unwrap();
-        assert_eq!(1, triples.len());
-        assert_eq!("timestamp", triples[0].p);
-        assert_eq!(RedPropertyType::Date, triples[0].vt);
-    }
-}
