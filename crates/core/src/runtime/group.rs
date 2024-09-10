@@ -1,4 +1,5 @@
-use std::{collections::HashMap, sync::Weak};
+use std::sync::Arc;
+use std::sync::Weak;
 
 use super::flow::*;
 use super::model::json::*;
@@ -16,58 +17,63 @@ pub struct Group {
     pub name: String,
     pub flow: Weak<Flow>,
     pub parent: GroupParent,
-    pub env: HashMap<String, Variant>,
+    pub envs: Arc<EnvStore>,
 }
 
 impl Group {
-    pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: Weak<Flow>) -> crate::Result<Self> {
+    pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: &Arc<Flow>) -> crate::Result<Self> {
+        let mut envs_builder = EnvStoreBuilder::new().with_parent(&flow.get_envs());
+        if let Some(env_json) = config.json.get("env") {
+            envs_builder = envs_builder.load_json(env_json);
+        }
+        let envs = envs_builder
+            .extends([
+                ("NR_GROUP_ID".into(), Variant::String(config.id.to_string())),
+                ("NR_GROUP_NAME".into(), Variant::String(config.name.clone())),
+            ])
+            .build();
+
         let group = Group {
             id: config.id,
             name: config.name.clone(),
-            flow: flow.clone(),
-            parent: GroupParent::Flow(flow.clone()),
-            env: HashMap::new(),
+            flow: Arc::downgrade(flow),
+            parent: GroupParent::Flow(Arc::downgrade(flow)),
+            envs,
         };
         Ok(group)
     }
 
     pub(crate) fn new_subgroup(
         config: &RedGroupConfig,
-        flow: Weak<Flow>,
-        parent: Weak<Group>,
+        flow: &Arc<Flow>,
+        parent: &Arc<Group>,
     ) -> crate::Result<Self> {
+        let mut envs_builder = EnvStoreBuilder::new().with_parent(&parent.envs);
+        if let Some(env_json) = config.json.get("env") {
+            envs_builder = envs_builder.load_json(env_json);
+        }
+        let envs = envs_builder
+            .extends([
+                ("NR_GROUP_ID".into(), Variant::String(config.id.to_string())),
+                ("NR_GROUP_NAME".into(), Variant::String(config.name.clone())),
+            ])
+            .build();
+
         let group = Group {
             id: config.id,
             name: config.name.clone(),
-            flow: flow.clone(),
-            parent: GroupParent::Group(parent.clone()),
-            env: HashMap::new(),
+            flow: Arc::downgrade(flow),
+            parent: GroupParent::Group(Arc::downgrade(parent)),
+            envs,
         };
         Ok(group)
     }
 
-    pub fn get_setting(&self, key: &str) -> Option<Variant> {
-        if key == "NR_GROUP_NAME" {
-            return Some(Variant::String(self.name.clone()));
-        } else if key == "NR_GROUP_ID" {
-            return Some(Variant::String(self.id.to_string()));
-        }
-        /*
-        else if !key.starts_with("$parent.") {
-            if (this._env.hasOwnProperty(key)) {
-                return (this._env[key] && Object.hasOwn(this._env[key], 'value') && this._env[key].__clone__) ? clone(this._env[key].value) : this._env[key]
-            }
-        } else {
-            key = key.substring(8);
-        }
-        */
-        match &self.parent {
-            GroupParent::Flow(parent_flow) => {
-                parent_flow.upgrade().and_then(|x| x.get_setting(key))
-            }
-            GroupParent::Group(parent_group) => {
-                parent_group.upgrade().and_then(|x| x.get_setting(key))
-            }
-        }
+    pub fn get_envs(&self) -> Arc<EnvStore> {
+        self.envs.clone()
+    }
+
+    pub fn get_env(&self, key: &str) -> Option<Variant> {
+        self.envs.evalute_env(key)
     }
 }

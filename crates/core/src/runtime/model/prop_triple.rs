@@ -46,12 +46,6 @@ pub enum RedPropertyType {
     Env,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum RedPropertyTypeCategory {
-    Propex = 0,
-    Literal,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct RedPropertyTriple {
     pub p: String,
@@ -64,12 +58,14 @@ pub struct RedPropertyTriple {
 }
 
 impl RedPropertyType {
-    pub fn category(&self) -> RedPropertyTypeCategory {
+    pub fn is_constant(&self) -> bool {
         match self {
-            RedPropertyType::Msg | RedPropertyType::Flow | RedPropertyType::Global => {
-                RedPropertyTypeCategory::Propex
-            }
-            _ => RedPropertyTypeCategory::Literal,
+            RedPropertyType::Str
+            | RedPropertyType::Num
+            | RedPropertyType::Json
+            | RedPropertyType::Bin
+            | RedPropertyType::Bool => true,
+            _ => false,
         }
     }
 }

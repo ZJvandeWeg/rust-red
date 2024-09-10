@@ -78,7 +78,8 @@ pub struct FlowNode {
     pub msg_tx: MsgSender,
     pub msg_rx: MsgReceiverHolder,
     pub ports: Vec<Port>,
-    pub group: Weak<Group>,
+    pub group: Option<Weak<Group>>,
+    pub envs: Arc<EnvStore>,
 
     pub on_received: MsgEventSender,
     pub on_completed: MsgEventSender,
@@ -122,12 +123,16 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         self.get_node().ordering
     }
 
-    fn group(&self) -> &Weak<Group> {
+    fn group(&self) -> &Option<Weak<Group>> {
         &self.get_node().group
     }
 
     fn get_flow(&self) -> &Weak<Flow> {
         &self.get_node().flow
+    }
+
+    fn get_env(&self, key: &str) -> Option<Variant> {
+        self.get_node().envs.evalute_env(key)
     }
 
     fn get_engine(&self) -> Option<Arc<FlowEngine>> {

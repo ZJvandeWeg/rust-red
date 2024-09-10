@@ -89,6 +89,10 @@ pub enum Variant {
 }
 
 impl Variant {
+    pub fn empty_string() -> Variant {
+        Variant::String("".into())
+    }
+
     pub fn empty_object() -> Variant {
         Variant::Object(BTreeMap::new())
     }

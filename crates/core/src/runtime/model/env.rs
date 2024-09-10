@@ -1,12 +1,64 @@
-use std::sync::{Arc, RwLock, Weak};
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    sync::{Arc, RwLock, Weak},
+};
 
 use dashmap::DashMap;
 use nom;
+use serde::Deserialize;
+use serde_json::Value as JsonValue;
 
-use super::{ElementId, RedPropertyType, Variant};
+use super::{RedPropertyType, Variant};
+use crate::*;
+
+#[derive(Debug)]
+pub struct EnvStore {
+    pub parent: RwLock<Option<Weak<EnvStore>>>,
+    pub envs: DashMap<String, Variant>,
+}
+
+impl EnvStore {
+    pub fn evalute_env(&self, env_expr: &str) -> Option<Variant> {
+        self.get_normalized(env_expr)
+    }
+
+    pub fn get_env(&self, key: &str) -> Option<Variant> {
+        if let Some(value) = self.envs.get(key) {
+            Some(value.clone())
+        } else {
+            let parent = self.parent.read().ok()?;
+            parent
+                .as_ref()
+                .and_then(|p| p.upgrade())
+                .and_then(|p| p.evalute_env(key))
+        }
+    }
+
+    fn get_normalized(&self, env_expr: &str) -> Option<Variant> {
+        let trimmed = env_expr.trim();
+        if trimmed.starts_with("${") && env_expr.ends_with("}") {
+            // ${ENV_VAR}
+            let to_match = &trimmed[2..(env_expr.len() - 1)];
+            self.get_env(to_match)
+        } else if !trimmed.contains("${") {
+            // ENV_VAR
+            self.get_env(trimmed)
+        } else {
+            // FOO${ENV_VAR}BAR
+            Some(Variant::String(replace_vars(
+                trimmed,
+                |env_name| match self.get_env(env_name) {
+                    Some(v) => v.to_string().unwrap(), // FIXME
+                    _ => "".to_string(),
+                },
+            )))
+        }
+    }
+}
 
 #[derive(Debug, Clone, serde::Deserialize)]
-pub struct EnvEntry {
+struct EnvEntry {
     pub name: String,
 
     pub value: String,
@@ -16,63 +68,146 @@ pub struct EnvEntry {
 }
 
 #[derive(Debug)]
-pub struct EnvStore {
-    pub parent: RwLock<Option<Weak<EnvStore>>>,
-    pub children: DashMap<ElementId, Arc<EnvStore>>,
-    pub envs: DashMap<String, Variant>,
-}
-
-#[derive(Debug)]
 pub struct EnvStoreBuilder {
     parent: Option<Weak<EnvStore>>,
-    children: DashMap<ElementId, Arc<EnvStore>>,
-    envs: DashMap<String, Variant>,
+    envs: HashMap<String, Variant>,
 }
 
 impl EnvStoreBuilder {
     pub fn new() -> Self {
         Self {
             parent: None,
-            children: DashMap::new(),
-            envs: DashMap::new(),
+            envs: HashMap::new(),
         }
     }
 
-    pub fn envs(mut self, envs: &[EnvEntry]) -> Self {
-        self.envs.extend(
-            envs.iter()
-                .map(|x| (x.name.clone(), x.value.clone().into())),
-        );
+    pub fn with_parent(mut self, parent: &Arc<EnvStore>) -> Self {
+        self.parent = Some(Arc::downgrade(parent));
         self
     }
 
-    pub fn parent(mut self, parent: Arc<EnvStore>) -> Self {
-        self.parent = Some(Arc::downgrade(&parent));
+    pub fn load_json(mut self, jv: &JsonValue) -> Self {
+        if let Ok(mut entries) = Vec::<EnvEntry>::deserialize(jv) {
+            // TODO: Maybe dependency sorting? The Node-RED didn't have it.
+            entries.sort_by(|a, b| match (a.type_, b.type_) {
+                (RedPropertyType::Env, RedPropertyType::Env) => Ordering::Equal,
+                (RedPropertyType::Env, _) => Ordering::Less,
+                (_, RedPropertyType::Env) => Ordering::Greater,
+                _ => Ordering::Equal,
+            });
+
+            for e in entries.iter() {
+                if let Ok(var) = self.evaluate(&e.value, e.type_) {
+                    if !self.envs.contains_key(&e.name) {
+                        self.envs.insert(e.name.clone(), var);
+                    }
+                } else {
+                    log::warn!("Failed to evaluate environment variable property: {:?}", e);
+                }
+            }
+        } else {
+            log::warn!(
+                "Failed to parse environment variables: \n{}",
+                serde_json::to_string_pretty(&jv).unwrap()
+            );
+        }
         self
     }
 
-    pub fn add_child(self, eid: ElementId, child: Arc<EnvStore>) -> Self {
-        self.children.insert(eid, child);
+    pub fn with_process_env(mut self) -> Self {
+        for (k, v) in std::env::vars() {
+            self.envs.insert(k.into(), Variant::String(v));
+        }
+        self
+    }
+
+    pub fn extends<T: IntoIterator<Item = (String, Variant)>>(mut self, iter: T) -> Self {
+        for (k, v) in iter {
+            self.envs.insert(k, v);
+        }
         self
     }
 
     pub fn build(self) -> Arc<EnvStore> {
-        let this = Arc::new(EnvStore {
+        let mut this = EnvStore {
             parent: RwLock::new(self.parent),
-            children: DashMap::new(),
-            envs: self.envs,
-        });
+            envs: DashMap::with_capacity(self.envs.len()),
+        };
+        this.envs.extend(self.envs.into_iter());
 
-        for mut child in self.children.iter_mut() {
-            let mut cp = child
-                .value_mut()
-                .parent
-                .write()
-                .expect("We need the set the parent");
-            *cp = Some(Arc::downgrade(&this));
+        Arc::new(this)
+    }
+
+    fn evaluate(&self, value: &str, type_: RedPropertyType) -> crate::Result<Variant> {
+        match type_ {
+            RedPropertyType::Str => Ok(Variant::String(value.into())),
+
+            RedPropertyType::Num | RedPropertyType::Json => {
+                let jv: serde_json::Value = serde_json::from_str(value)?;
+                Ok(Variant::deserialize(jv)?)
+            }
+
+            RedPropertyType::Bool => Ok(Variant::Bool(value.trim_ascii().parse::<bool>()?)),
+
+            RedPropertyType::Bin => {
+                let jv: serde_json::Value = serde_json::from_str(value)?;
+                let arr = Variant::deserialize(&jv)?;
+                let bytes = arr.to_bytes().ok_or(EdgelinkError::InvalidData(format!(
+                    "Expected an array of bytes, got: {:?}",
+                    value
+                )))?;
+                Ok(Variant::from(bytes))
+            }
+
+            RedPropertyType::Jsonata => todo!(),
+
+            RedPropertyType::Env => match self.normalized_and_get_existed(value) {
+                Some(ev) => Ok(ev),
+                _ => Err(EdgelinkError::InvalidData(format!(
+                    "Cannot found the environment variable: '{}'",
+                    value
+                ))
+                .into()),
+            },
+
+            _ => Err(EdgelinkError::BadArguments(format!(
+                "Unsupported environment varibale type: '{}'",
+                value
+            ))
+            .into()),
         }
+    }
 
-        this
+    fn get_existed(&self, env: &str) -> Option<Variant> {
+        if let Some(value) = self.envs.get(env) {
+            Some(value.clone())
+        } else {
+            self.parent
+                .as_ref()
+                .and_then(|p| p.upgrade())
+                .and_then(|p| p.evalute_env(env))
+        }
+    }
+
+    fn normalized_and_get_existed(&self, value: &str) -> Option<Variant> {
+        let trimmed = value.trim();
+        if trimmed.starts_with("${") && value.ends_with("}") {
+            // ${ENV_VAR}
+            let to_match = &trimmed[2..(value.len() - 1)];
+            self.get_existed(to_match)
+        } else if !trimmed.contains("${") {
+            // ENV_VAR
+            self.get_existed(trimmed)
+        } else {
+            // FOO${ENV_VAR}BAR
+            Some(Variant::String(replace_vars(
+                trimmed,
+                |env_name| match self.get_existed(env_name) {
+                    Some(v) => v.to_string().unwrap(), // FIXME
+                    _ => "".to_string(),
+                },
+            )))
+        }
     }
 }
 
@@ -81,25 +216,24 @@ where
     F: Fn(&'a str) -> R,
     R: AsRef<str>,
 {
-    // 定义一个辅助函数，用于提取变量名
     fn variable_name(input: &str) -> nom::IResult<&str, &str> {
         nom::sequence::delimited(
-            nom::bytes::complete::tag("${"), // 以 "${" 开头
+            nom::bytes::complete::tag("${"), // Starts with "${"
             nom::sequence::preceded(
                 nom::character::complete::space0,
                 nom::bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_'),
-            ), // 读取变量名
+            ),
             nom::sequence::preceded(
                 nom::character::complete::space0,
                 nom::bytes::complete::tag("}"),
-            ), // 以 "}" 结束
+            ), // Ends with "}"
         )(input)
     }
 
     let mut output = input.to_string();
     let mut remaining_input = input;
 
-    // 继续解析直到输入字符串处理完毕
+    // Continue the parsing until it end
     while let Ok((remaining, var)) = variable_name(remaining_input) {
         let replacement = converter(var);
         output = output.replace(&format!("${{{}}}", var.trim()), replacement.as_ref());
@@ -118,12 +252,102 @@ pub fn parse_complex_env(expr: &str) -> Option<&str> {
 
 fn parse_complex_env_internal(input: &str) -> nom::IResult<&str, &str> {
     nom::sequence::delimited(
-        nom::bytes::complete::tag("${"), // 匹配起始符号 "${"
+        nom::bytes::complete::tag("${"),
         nom::sequence::delimited(
-            nom::character::complete::multispace0, // 可选的空白字符
-            nom::bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_'), // 匹配变量名
-            nom::character::complete::multispace0, // 可选的空白字符
+            nom::character::complete::multispace0,
+            nom::bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_'),
+            nom::character::complete::multispace0,
         ),
-        nom::bytes::complete::tag("}"), // 匹配结束符号 "}"
+        nom::bytes::complete::tag("}"),
     )(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::EnvStoreBuilder;
+    use crate::runtime::model::*;
+
+    #[test]
+    fn test_env_store_builder() {
+        let json = json!([
+            {
+                "name": "FOO",
+                "value": "foofoo",
+                "type": "str"
+            },
+            {
+                "name": "AGE",
+                "value": "41",
+                "type": "num"
+            },
+        ]);
+        let global = EnvStoreBuilder::new()
+            .load_json(&json)
+            .extends([("FILE_SIZE".into(), Variant::Integer(123))])
+            .build();
+        assert_eq!(
+            global.evalute_env("FOO").unwrap().as_str().unwrap(),
+            "foofoo"
+        );
+        assert_eq!(global.evalute_env("AGE").unwrap().as_integer().unwrap(), 41);
+
+        let json = json!([
+            {
+                "name": "BAR",
+                "value": "barbar",
+                "type": "str"
+            },
+        ]);
+        let flow = EnvStoreBuilder::new()
+            .with_parent(&global)
+            .load_json(&json)
+            .build();
+
+        let json = json!([
+            {
+                "name": "MY_FOO",
+                "value": "aaa",
+                "type": "str"
+            },
+            {
+                "name": "GLOBAL_FOO",
+                "value": "FOO",
+                "type": "env"
+            },
+            {
+                "name": "PARENT_BAR",
+                "value": "BAR",
+                "type": "env"
+            },
+            {
+                "name": "AGE",
+                "value": "100",
+                "type": "str"
+            }
+        ]);
+        let node = EnvStoreBuilder::new()
+            .with_parent(&flow)
+            .load_json(&json)
+            .build();
+        assert_eq!(node.evalute_env("MY_FOO").unwrap().as_str().unwrap(), "aaa");
+        assert_eq!(
+            node.evalute_env("${MY_FOO}").unwrap().as_str().unwrap(),
+            "aaa"
+        );
+        assert_eq!(
+            node.evalute_env("GLOBAL_FOO").unwrap().as_str().unwrap(),
+            "foofoo"
+        );
+        assert_eq!(
+            node.evalute_env("PARENT_BAR").unwrap().as_str().unwrap(),
+            "barbar"
+        );
+        assert_eq!(node.evalute_env("AGE").unwrap().as_str().unwrap(), "100");
+        assert_eq!(
+            node.evalute_env("FILE_SIZE").unwrap().as_integer().unwrap(),
+            123
+        );
+    }
 }

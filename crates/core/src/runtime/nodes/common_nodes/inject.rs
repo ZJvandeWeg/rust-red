@@ -157,6 +157,7 @@ impl InjectNode {
     }
 
     async fn inject_msg(&self, stop_token: CancellationToken) -> crate::Result<()> {
+        // TODO msg.field1 references msg.field2
         let mut msg_body: BTreeMap<String, Variant> = self
             .config
             .props
@@ -164,7 +165,14 @@ impl InjectNode {
             .map(|i| {
                 (
                     i.p.to_string(),
-                    eval::evaluate_node_property(&i.v, i.vt, Some(self), None).unwrap(),
+                    eval::evaluate_node_property(
+                        &i.v,
+                        i.vt,
+                        Some(self),
+                        self.get_flow().upgrade().as_deref(),
+                        None,
+                    )
+                    .unwrap(),
                 )
             })
             .collect();

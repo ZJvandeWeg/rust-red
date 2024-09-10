@@ -37,7 +37,6 @@ impl FlowEngineArgs {
 pub(crate) struct FlowEngineState {
     _context: Variant,
     shutdown: AtomicBool,
-    envs: DashMap<String, Variant>,
     flows: DashMap<ElementId, Arc<Flow>>,
     global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
@@ -48,6 +47,7 @@ pub struct FlowEngine {
 
     stop_token: CancellationToken,
     _args: FlowEngineArgs,
+    envs: Arc<EnvStore>,
 }
 
 impl FlowEngine {
@@ -61,16 +61,18 @@ impl FlowEngine {
             e
         })?;
 
+        let envs = EnvStoreBuilder::new().with_process_env().build();
+
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
             state: FlowEngineState {
                 all_flow_nodes: DashMap::new(),
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
-                envs: DashMap::from_iter(FlowEngine::all_envs()),
                 _context: Variant::empty_object(),
                 shutdown: AtomicBool::new(true),
             },
+            envs,
             _args: FlowEngineArgs::load(elcfg)?,
         });
 
@@ -219,11 +221,6 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
-        self.state.envs.clear();
-        for ev in FlowEngine::all_envs() {
-            self.state.envs.insert(ev.0, ev.1);
-        }
-
         for f in self.state.flows.iter() {
             f.value().start().await?;
         }
@@ -285,13 +282,12 @@ impl FlowEngine {
         node.inject_msg(msg, cancel).await
     }
 
-    pub fn get_env(&self, key: &str) -> Option<Variant> {
-        // TODO exclude vars
-        std::env::var(key).map(Variant::String).ok()
+    pub fn get_envs(&self) -> Arc<EnvStore> {
+        self.envs.clone()
     }
 
-    fn all_envs() -> impl Iterator<Item = (String, Variant)> {
-        std::env::vars().map(|(k, v)| (k.to_string(), Variant::String(v)))
+    pub fn get_env(&self, key: &str) -> Option<Variant> {
+        self.envs.evalute_env(key)
     }
 }
 

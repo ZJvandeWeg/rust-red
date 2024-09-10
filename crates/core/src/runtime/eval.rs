@@ -12,28 +12,25 @@ use crate::*;
  * @param {String} name - name of variable
  * @return {String} value of env var
  */
-fn get_setting(
+fn evaluate_env_property(
     name: &str,
     node: Option<&dyn FlowNodeBehavior>,
     flow: Option<&Flow>,
 ) -> Option<Variant> {
     if let Some(node) = node {
-        match name {
-            "NR_NODE_NAME" => return Some(Variant::String(node.name().into())),
-            "NR_NODE_ID" => return Some(Variant::String(node.id().to_string())),
-            "NR_NODE_PATH" => return None,
-            &_ => (),
-        };
+        if let Some(var) = node.get_env(name) {
+            return Some(var);
+        }
     }
 
     if let Some(flow_ref) = flow {
         if let Some(node) = node {
-            if let Some(group) = node.group().upgrade() {
-                return group.get_setting(name);
+            if let Some(ref group) = node.group().clone().and_then(|g| g.upgrade()) {
+                return group.get_env(name);
             }
         }
 
-        return flow_ref.get_setting(name);
+        return flow_ref.get_env(name);
     }
 
     // TODO FIXME
@@ -43,39 +40,6 @@ fn get_setting(
             .map(Variant::String)
             .unwrap_or(Variant::Null),
     )
-}
-
-/**
- * Checks if a String contains any Environment Variable specifiers and returns
- * it with their values substituted in place.
- *
- * For example, if the env var `WHO` is set to `Joe`, the string `Hello ${WHO}!`
- * will return `Hello Joe!`.
- * @param  {String} value - the string to parse
- * @param  {Node} node - the node evaluating the property
- * @return {String} The parsed string
- */
-fn evaluate_env_property(value: &str, node: Option<&dyn FlowNodeBehavior>) -> Option<Variant> {
-    let flow = node.and_then(|n| n.get_flow().upgrade());
-    let flow_ref = flow.as_ref().map(|arc| arc.as_ref());
-    let trimmed = value.trim();
-    if trimmed.starts_with("${") && value.ends_with("}") {
-        // ${ENV_VAR}
-        let name = &trimmed[2..(value.len() - 1)];
-        get_setting(name, node, flow_ref)
-    } else if !trimmed.contains("${") {
-        // ENV_VAR
-        get_setting(trimmed, node, flow_ref)
-    } else {
-        // FOO${ENV_VAR}BAR
-        Some(Variant::String(crate::runtime::model::replace_vars(
-            trimmed,
-            |env_name| match get_setting(env_name, node, flow_ref) {
-                Some(Variant::String(v)) => v,
-                _ => "".to_string(),
-            },
-        )))
-    }
 }
 
 /**
@@ -92,6 +56,7 @@ pub fn evaluate_node_property(
     value: &str,
     _type: RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
+    flow: Option<&Flow>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match _type {
@@ -142,7 +107,7 @@ pub fn evaluate_node_property(
 
         RedPropertyType::Jsonata => todo!(),
 
-        RedPropertyType::Env => match evaluate_env_property(value, node) {
+        RedPropertyType::Env => match evaluate_env_property(value, node, flow) {
             Some(ev) => Ok(ev),
             _ => Err(EdgelinkError::InvalidData(format!(
                 "Cannot found the environment variable: '{}'",
@@ -167,6 +132,7 @@ pub fn evaluate_node_property_variant(
     value: &Variant,
     type_: &RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
+    flow: Option<&Flow>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match (type_, value) {
@@ -224,7 +190,7 @@ pub fn evaluate_node_property_variant(
 
         (RedPropertyType::Jsonata, _) => todo!(),
 
-        (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node) {
+        (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node, flow) {
             Some(ev) => Ok(ev),
             _ => Err(EdgelinkError::InvalidData(format!(
                 "Cannot found the environment variable: '{}'",
@@ -252,7 +218,7 @@ mod tests {
             vt: RedPropertyType::Num,
             v: "10".to_string(),
         };
-        let evaluated = evaluate_node_property(&triple.v, triple.vt, None, None).unwrap();
+        let evaluated = evaluate_node_property(&triple.v, triple.vt, None, None, None).unwrap();
         assert!(evaluated.is_integer());
         assert_eq!(evaluated.as_integer().unwrap(), 10);
     }

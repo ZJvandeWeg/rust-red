@@ -92,7 +92,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 - [x] Flow :heavy_check_mark:
 - [x] Sub-flow :heavy_check_mark:
 - [x] Group
-- [ ] Environment Variables (WIP)
+- [x] Environment Variables (WIP)
 - [ ] Context
 - [ ] RED.util (WIP)
     - [x] `RED.util.cloneMessage()`

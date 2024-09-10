@@ -90,6 +90,7 @@ pub struct Flow {
 
     state: FlowState,
     subflow_state: Option<std::sync::RwLock<SubflowState>>,
+    envs: Arc<EnvStore>,
 }
 
 impl GraphElement for Flow {
@@ -244,6 +245,23 @@ impl Flow {
             }
         };
 
+        let mut envs_builder = EnvStoreBuilder::new().with_parent(&engine.get_envs());
+        if let Some(env_json) = flow_config.json.get("env") {
+            envs_builder = envs_builder.load_json(env_json);
+        }
+        let envs = envs_builder
+            .extends([
+                (
+                    "NR_FLOW_ID".into(),
+                    Variant::String(flow_config.id.to_string()),
+                ),
+                (
+                    "NR_FLOW_NAME".into(),
+                    Variant::String(flow_config.label.clone()),
+                ),
+            ])
+            .build();
+
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
             parent: None, //TODO FIXME
@@ -269,6 +287,7 @@ impl Flow {
                 })),
                 FlowKind::GlobalFlow => None,
             },
+            envs,
             stop_token: CancellationToken::new(),
             // groups: HashMap::new(), //   flow_config.groups.iter().map(|g| Group::new_flow_group(config, flow))
         });
@@ -322,12 +341,12 @@ impl Flow {
                 // Subgroup
                 Some(parent_id) => Group::new_subgroup(
                     gc,
-                    Arc::downgrade(&self),
-                    Arc::downgrade(self.state.groups.get(parent_id).unwrap().value()),
+                    &self,
+                    &self.state.groups.get(parent_id).unwrap(), //FIXME
                 )?,
 
                 // Root group
-                None => Group::new_flow_group(gc, Arc::downgrade(&self))?,
+                None => Group::new_flow_group(gc, &self)?,
             };
             self.state.groups.insert(group.id, Arc::new(group));
         }
@@ -531,23 +550,15 @@ impl Flow {
         }
     }
 
-    pub fn get_setting(&self, key: &str) -> Option<Variant> {
-        let trimmed = key.trim();
-        match trimmed {
-            "NR_FLOW_NAME" => Some(Variant::String(self.label.clone())),
-            "NR_FLOW_ID" => Some(Variant::String(self.id.clone().to_string())),
-            _ => {
-                let pkey = trimmed.strip_prefix("$parent.").unwrap_or(trimmed);
-                if let Some(ref parent) = self.engine.upgrade() {
-                    parent.get_env(pkey)
-                } else {
-                    None
-                }
-            }
-        }
+    pub fn get_envs(&self) -> Arc<EnvStore> {
+        self.envs.clone()
     }
 
-    /* 
+    pub fn get_env(&self, key: &str) -> Option<Variant> {
+        self.envs.evalute_env(key)
+    }
+
+    /*
     pub fn eval_envs(
         &self,
         env_entries: &[RedEnvEntry],
@@ -753,9 +764,9 @@ impl Flow {
             ports.push(port);
         }
 
-        let group_ref = match &node_config.g {
+        let group = match &node_config.g {
             Some(gid) => match state.groups.get(gid) {
-                Some(g) => Arc::downgrade(g.value()),
+                Some(g) => Some(g.value().clone()),
                 None => {
                     return Err(EdgelinkError::InvalidData(format!(
                         "Can not found the group id in groups: id='{}'",
@@ -764,8 +775,30 @@ impl Flow {
                     .into());
                 }
             },
-            None => Weak::new(),
+            None => None,
         };
+
+        let mut envs_builder = EnvStoreBuilder::new();
+        if let Some(ref g) = group {
+            envs_builder = envs_builder.with_parent(&g.get_envs());
+        } else {
+            envs_builder = envs_builder.with_parent(&self.get_envs());
+        }
+        if let Some(env_json) = node_config.json.get("env") {
+            envs_builder = envs_builder.load_json(env_json);
+        }
+        let envs = envs_builder
+            .extends([
+                (
+                    "NR_NODE_ID".into(),
+                    Variant::String(node_config.id.to_string()),
+                ),
+                (
+                    "NR_NODE_NAME".into(),
+                    Variant::String(node_config.name.clone()),
+                ),
+            ])
+            .build();
 
         Ok(FlowNode {
             id: node_config.id,
@@ -777,7 +810,8 @@ impl Flow {
             msg_tx: tx_root,
             msg_rx: MsgReceiverHolder::new(rx),
             ports,
-            group: group_ref,
+            group: group.map(|g| Arc::downgrade(&g)),
+            envs,
             on_received: MsgEventSender::new(1),
             on_completed: MsgEventSender::new(1),
             on_error: MsgEventSender::new(1),
