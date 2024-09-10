@@ -249,18 +249,17 @@ impl Flow {
         if let Some(env_json) = flow_config.json.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }
-        let envs = envs_builder
-            .extends([
-                (
-                    "NR_FLOW_ID".into(),
-                    Variant::String(flow_config.id.to_string()),
-                ),
-                (
-                    "NR_FLOW_NAME".into(),
-                    Variant::String(flow_config.label.clone()),
-                ),
-            ])
-            .build();
+        envs_builder = envs_builder.extends([
+            (
+                "NR_FLOW_ID".into(),
+                Variant::String(flow_config.id.to_string()),
+            ),
+            (
+                "NR_FLOW_NAME".into(),
+                Variant::String(flow_config.label.clone()),
+            ),
+        ]);
+        let envs = envs_builder.build();
 
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,

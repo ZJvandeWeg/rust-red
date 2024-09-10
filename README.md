@@ -97,7 +97,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 - [ ] RED.util (WIP)
     - [x] `RED.util.cloneMessage()`
     - [x] `RED.util.generateId()`
-- [x] Plug-in subsystem (Only static-linked plug-in only currently)
+- [x] Plug-in subsystem (Currently only static-linked)
 
 ### The Current Status of Nodes:
 
@@ -112,7 +112,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
         - [x] :heavy_check_mark: Link In
         - [x] :heavy_check_mark: Link Call
         - [x] :heavy_check_mark: Link Out
-        - [x] Comment (Ignore automatically)
+        - [x] Comment (Ignored automatically)
         - [x] GlobalConfig (WIP)
         - [x] Unknown
         - [x] :heavy_check_mark: Junction
