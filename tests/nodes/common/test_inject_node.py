@@ -89,7 +89,6 @@ async def test_0004():
     assert msgs[0]["payload"] == "0000000000000001"
 
 
-"""
 @pytest.mark.asyncio
 async def test_0005():
     '''inject path of node as environment variable'''
@@ -102,8 +101,7 @@ async def test_0005():
     injections = []
     msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
     assert msgs[0]["topic"] == 't1'
-    assert msgs[0]["payload"] == "100/1"  # TODO FIXME
-"""
+    assert msgs[0]["payload"] == "0000000000000100/0000000000000001"
 
 
 @pytest.mark.asyncio

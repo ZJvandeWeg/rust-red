@@ -797,6 +797,10 @@ impl Flow {
                     "NR_NODE_NAME".into(),
                     Variant::String(node_config.name.clone()),
                 ),
+                (
+                    "NR_NODE_PATH".into(),
+                    Variant::String(format!("{}/{}", self.id, node_config.id)),
+                ),
             ])
             .build();
 
