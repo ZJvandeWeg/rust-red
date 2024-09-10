@@ -36,7 +36,7 @@ fn context_store_parser(
 /// # Examples
 /// For example, `#:(file)::foo.bar` results in ` ParsedContextStoreProperty{ store: "file", key: "foo.bar" }`.
 /// ```
-/// use edgelink_core::runtime::context::parse_context_store;
+/// use edgelink_core::runtime::model::parse_context_store;
 ///
 /// let res = parse_context_store("#:(file)::foo.bar").unwrap();
 /// assert_eq!("file", res.store);
