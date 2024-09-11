@@ -1,10 +1,11 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, RwLock, Weak},
 };
 
 use dashmap::DashMap;
+use itertools::Itertools;
 use nom;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
@@ -90,6 +91,20 @@ impl EnvStoreBuilder {
 
     pub fn load_json(mut self, jv: &JsonValue) -> Self {
         if let Ok(mut entries) = Vec::<EnvEntry>::deserialize(jv) {
+            // Remove duplicated by name, only keep the last one
+            entries = {
+                let mut seen = HashSet::new();
+                entries
+                    .into_iter()
+                    .rev()
+                    .unique_by(|e| e.name.clone())
+                    .filter(|e| seen.insert(e.name.clone()))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect()
+            };
+
             // TODO: Maybe dependency sorting? The Node-RED didn't have it.
             entries.sort_by(|a, b| match (a.type_, b.type_) {
                 (RedPropertyType::Env, RedPropertyType::Env) => Ordering::Equal,
