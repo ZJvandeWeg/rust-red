@@ -27,7 +27,7 @@ class TestInjectNode:
 
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should be linked to multiple nodes''')
+    @pytest.mark.it('should be linked to multiple nodes')
     async def test_0002(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -47,7 +47,7 @@ class TestInjectNode:
 
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should be linked to multiple nodes''')
+    @pytest.mark.it('''should be linked from multiple nodes''')
     async def test_0003(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -93,7 +93,7 @@ class TestSubflow:
 
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should call link-in node by name and get response''')
+    @pytest.mark.it('should call link-in node by name and get response')
     async def test_0005(self):
         payload = float(time.time())
         flows = [
@@ -167,7 +167,7 @@ class TestSubflow:
 
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should call link-in node by name and get response''')
+    @pytest.mark.it('''should allow nested link-call flows''')
     async def test_0005(self):
         payload = float(time.time())
         flows = [

@@ -9,7 +9,7 @@ from tests import *
 class TestFunctionNode:
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should send returned message()''')
+    @pytest.mark.it('''should send returned message''')
     async def test_0002(self):
         node = {
             "type": "function",
