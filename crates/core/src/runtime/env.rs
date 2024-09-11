@@ -69,19 +69,12 @@ struct EnvEntry {
 }
 
 #[derive(Debug)]
+#[derive(Default)]
 pub struct EnvStoreBuilder {
     parent: Option<Weak<EnvStore>>,
     envs: HashMap<String, Variant>,
 }
 
-impl Default for EnvStoreBuilder {
-    fn default() -> Self {
-        Self {
-            parent: None,
-            envs: HashMap::new(),
-        }
-    }
-}
 
 impl EnvStoreBuilder {
     pub fn with_parent(mut self, parent: &Arc<EnvStore>) -> Self {
