@@ -76,39 +76,27 @@ impl FlowNodeBehavior for ChangeNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            with_uow(
-                self.as_ref(),
-                cancel.child_token(),
-                |node, msg| async move {
-                    {
-                        let mut msg_guard = msg.write().await;
-                        // We always relay the message, regardless of whether the rules are followed or not.
-                        if let Err(e) = node.apply_rules(&mut msg_guard) {
-                            // TODO Report Error to flow
-                            log::error!("Failed to apply rules: {}", e);
-                        }
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+                {
+                    let mut msg_guard = msg.write().await;
+                    // We always relay the message, regardless of whether the rules are followed or not.
+                    if let Err(e) = node.apply_rules(&mut msg_guard) {
+                        // TODO Report Error to flow
+                        log::error!("Failed to apply rules: {}", e);
                     }
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone())
-                        .await
-                },
-            )
+                }
+                node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone()).await
+            })
             .await;
         }
     }
 }
 
 impl ChangeNode {
-    fn build(
-        _flow: &Flow,
-        state: FlowNode,
-        config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let json = handle_legacy_json(config.json.clone())?;
         let change_config = ChangeNodeConfig::deserialize(&json)?;
-        let node = ChangeNode {
-            base: state,
-            config: change_config,
-        };
+        let node = ChangeNode { base: state, config: change_config };
         Ok(Box::new(node))
     }
 
@@ -116,10 +104,7 @@ impl ChangeNode {
         if let (Some(tot), Some(to)) = (rule.tot, rule.to.as_ref()) {
             eval::evaluate_node_property(to, tot, Some(self), None, Some(msg))
         } else {
-            Err(
-                EdgelinkError::BadFlowsJson("The `tot` and `to` in the rule cannot be None".into())
-                    .into(),
-            )
+            Err(EdgelinkError::BadFlowsJson("The `tot` and `to` in the rule cannot be None".into()).into())
         }
     }
 
@@ -127,10 +112,7 @@ impl ChangeNode {
         if let (Some(fromt), Some(from)) = (rule.fromt, rule.from.as_ref()) {
             eval::evaluate_node_property(from, fromt, Some(self), None, Some(msg))
         } else {
-            Err(EdgelinkError::BadFlowsJson(
-                "The `fromt` and `from` in the rule cannot be None".into(),
-            )
-            .into())
+            Err(EdgelinkError::BadFlowsJson("The `fromt` and `from` in the rule cannot be None".into()).into())
         }
     }
 
@@ -157,12 +139,7 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_set(
-        &self,
-        rule: &Rule,
-        msg: &mut Msg,
-        to_value: Option<Variant>,
-    ) -> crate::Result<()> {
+    fn apply_rule_set(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Set);
         match rule.pt {
             RedPropertyType::Msg => {
@@ -188,12 +165,7 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_change(
-        &self,
-        rule: &Rule,
-        msg: &mut Msg,
-        to_value: Option<Variant>,
-    ) -> crate::Result<()> {
+    fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Change);
         match rule.pt {
             RedPropertyType::Msg => {
@@ -205,10 +177,7 @@ impl ChangeNode {
                     // TODO
                     match current {
                         Variant::String(ref cs) => match from_value {
-                            Variant::Integer(_)
-                            | Variant::Rational(_)
-                            | Variant::Bool(_)
-                            | Variant::String(_)
+                            Variant::Integer(_) | Variant::Rational(_) | Variant::Bool(_) | Variant::String(_)
                                 if current == from_value =>
                             {
                                 // str representation of exact from number/boolean
@@ -227,11 +196,7 @@ impl ChangeNode {
                                     // convert to boolean type (which 'value' already is)
                                     msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
                                 } else {
-                                    msg.set_trimmed_nav_property(
-                                        &rule.p,
-                                        Variant::String(replaced),
-                                        false,
-                                    )?;
+                                    msg.set_trimmed_nav_property(&rule.p, Variant::String(replaced), false)?;
                                 }
                             }
                         },
@@ -273,10 +238,7 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
 
         // Check if "set" or "move" action, and add "to" field
         if rule["t"] == "set" || rule["t"] == "move" {
-            rule["to"] = n
-                .get("to")
-                .cloned()
-                .unwrap_or(Value::String("".to_string()));
+            rule["to"] = n.get("to").cloned().unwrap_or(Value::String("".to_string()));
         }
         // If "change" action, add "from", "to" and "re" fields
         else if rule["t"] == "change" {
@@ -293,19 +255,16 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
             rule["pt"] = "msg".into();
         }
 
-        if let (Some("change"), Some(true)) = (
-            rule.get("t").and_then(|t| t.as_str()),
-            rule.get("re").and_then(|x| x.as_bool()),
-        ) {
+        if let (Some("change"), Some(true)) =
+            (rule.get("t").and_then(|t| t.as_str()), rule.get("re").and_then(|x| x.as_bool()))
+        {
             rule["fromt"] = "re".into();
             rule.as_object_mut().unwrap().remove("re");
         }
 
-        if let (Some("set"), None, Some(Value::String(to))) = (
-            rule.get("t").and_then(|t| t.as_str()),
-            rule.get("tot"),
-            rule.get("to"),
-        ) {
+        if let (Some("set"), None, Some(Value::String(to))) =
+            (rule.get("t").and_then(|t| t.as_str()), rule.get("tot"), rule.get("to"))
+        {
             if to.starts_with("msg.") {
                 rule["to"] = to.trim_start_matches("msg.").into();
                 rule["tot"] = "msg".into();

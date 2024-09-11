@@ -17,9 +17,9 @@ use super::*;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let preprocessed = preprocess_subflows(root_jv)?;
-    let all_values = preprocessed.as_array().ok_or(EdgelinkError::BadFlowsJson(
-        "Cannot convert the value into an array".to_string(),
-    ))?;
+    let all_values = preprocessed
+        .as_array()
+        .ok_or(EdgelinkError::BadFlowsJson("Cannot convert the value into an array".to_string()))?;
 
     let mut flows = HashMap::new();
     let mut groups = HashMap::new();
@@ -34,9 +34,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
         if let Some(obj) = jobject.as_object() {
             if let (Some(ele_id), Some(type_value)) = (
                 obj.get("id").and_then(parse_red_id_value),
-                obj.get("type")
-                    .and_then(|x| x.as_str())
-                    .map(|x| parse_red_type_value(x)),
+                obj.get("type").and_then(|x| x.as_str()).map(|x| parse_red_type_value(x)),
             ) {
                 match type_value.red_type {
                     "tab" => {
@@ -44,8 +42,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                         if deps.is_empty() {
                             flow_topo_sort.insert(ele_id);
                         } else {
-                            deps.iter()
-                                .for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
+                            deps.iter().for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
                         }
                         flows.insert(ele_id, jobject.clone());
                     }
@@ -57,8 +54,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             if deps.is_empty() {
                                 node_topo_sort.insert(ele_id);
                             } else {
-                                deps.iter()
-                                    .for_each(|d| node_topo_sort.add_dependency(*d, ele_id));
+                                deps.iter().for_each(|d| node_topo_sort.add_dependency(*d, ele_id));
                             }
                             flow_nodes.insert(ele_id, jobject.clone());
                         } else {
@@ -67,8 +63,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             if deps.is_empty() {
                                 flow_topo_sort.insert(ele_id);
                             } else {
-                                deps.iter()
-                                    .for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
+                                deps.iter().for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
                             }
                             flows.insert(ele_id, jobject.clone());
                         }
@@ -86,10 +81,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             groups.insert(ele_id, g);
                         }
                         None => {
-                            return Err(EdgelinkError::BadFlowsJson(
-                                "The group must have a 'z' property".to_string(),
-                            )
-                            .into());
+                            return Err(
+                                EdgelinkError::BadFlowsJson("The group must have a 'z' property".to_string()).into()
+                            );
                         }
                     },
 
@@ -109,8 +103,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             flow_nodes.insert(ele_id, jobject.clone());
                         }
                         None => {
-                            let mut global_config: RedGlobalNodeConfig =
-                                serde_json::from_value(jobject.clone())?;
+                            let mut global_config: RedGlobalNodeConfig = serde_json::from_value(jobject.clone())?;
                             global_config.json = obj.clone();
                             global_nodes.push(global_config);
                         }
@@ -118,10 +111,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                 }
             }
         } else {
-            return Err(EdgelinkError::BadFlowsJson(
-                "The entry in `flows.json` must be object".to_string(),
-            )
-            .into());
+            return Err(EdgelinkError::BadFlowsJson("The entry in `flows.json` must be object".to_string()).into());
         }
     }
 
@@ -129,10 +119,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     while let Some(flow_id) = flow_topo_sort.pop() {
         let flow = flows
             .remove(&flow_id)
-            .ok_or(EdgelinkError::BadFlowsJson(format!(
-                "Cannot find the flow_id('{}') in flows",
-                flow_id
-            )))?;
+            .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the flow_id('{}') in flows", flow_id)))?;
         sorted_flows.push(flow);
     }
 
@@ -140,10 +127,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     while let Some(group_id) = group_topo_sort.pop() {
         let group = groups
             .remove(&group_id)
-            .ok_or(EdgelinkError::BadFlowsJson(format!(
-                "Cannot find the group_id('{}') in flows",
-                group_id
-            )))?;
+            .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the group_id('{}') in flows", group_id)))?;
         sorted_flow_groups.push(group);
     }
 
@@ -159,11 +143,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
             );
             sorted_flow_nodes.push(node);
         } else {
-            return Err(EdgelinkError::BadFlowsJson(format!(
-                "Cannot find the node id '{}'",
-                node_id
-            ))
-            .into());
+            return Err(EdgelinkError::BadFlowsJson(format!("Cannot find the node id '{}'", node_id)).into());
         }
     }
 
@@ -173,28 +153,19 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
 
         flow_config.subflow_node_id = if flow_config.type_name == "subflow" {
             let key_type = format!("subflow:{}", flow_config.id);
-            let node = all_values.iter().find(|x| {
-                x.get("type")
-                    .and_then(|y| y.as_str())
-                    .is_some_and(|y| y == key_type)
-            });
+            let node =
+                all_values.iter().find(|x| x.get("type").and_then(|y| y.as_str()).is_some_and(|y| y == key_type));
             node.and_then(|x| x.get("id")).and_then(parse_red_id_value)
         } else {
             None
         };
 
         flow_config.json = flow.clone();
-        flow_config.groups = sorted_flow_groups
-            .iter()
-            .filter(|x| x.z == flow_config.id)
-            .cloned()
-            .collect();
+        flow_config.groups = sorted_flow_groups.iter().filter(|x| x.z == flow_config.id).cloned().collect();
 
-        let owned_node_jvs = sorted_flow_nodes.iter().filter(|x| {
-            x.get("z")
-                .and_then(parse_red_id_value)
-                .map_or(false, |z| z == flow_config.id)
-        });
+        let owned_node_jvs = sorted_flow_nodes
+            .iter()
+            .filter(|x| x.get("z").and_then(parse_red_id_value).map_or(false, |z| z == flow_config.id));
 
         for (i, flow_node_jv) in owned_node_jvs.into_iter().enumerate() {
             let mut node_config: RedFlowNodeConfig = serde_json::from_value(flow_node_jv.clone())?;
@@ -206,10 +177,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
         flow_configs.push(flow_config);
     }
 
-    Ok(RedFlows {
-        flows: flow_configs,
-        global_nodes,
-    })
+    Ok(RedFlows { flows: flow_configs, global_nodes })
 }
 
 fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
@@ -228,39 +196,24 @@ fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
 
     // Find out all of subflow related elements
     for jv in elements.iter() {
-        if let Some(("subflow", subflow_id)) = jv
-            .get("type")
-            .and_then(|x| x.as_str())
-            .and_then(|x| x.split_once(':'))
-        {
-            let subflow = elements.iter().find(|x| {
-                x.get("id")
-                    .and_then(|y| y.as_str())
-                    .is_some_and(|y| y == subflow_id)
-            }).ok_or(
-                EdgelinkError::BadFlowsJson(
-                    format!(
-                        "The cannot found the subflow for subflow instance node(id='{}', type='{}', name='{}')",
-                        subflow_id, jv.get("type").and_then(|x|x.as_str()).unwrap_or(""),
-                        jv.get("name").and_then(|x| x.as_str()).unwrap_or("")))
-            )?;
+        if let Some(("subflow", subflow_id)) = jv.get("type").and_then(|x| x.as_str()).and_then(|x| x.split_once(':')) {
+            let subflow = elements
+                .iter()
+                .find(|x| x.get("id").and_then(|y| y.as_str()).is_some_and(|y| y == subflow_id))
+                .ok_or(EdgelinkError::BadFlowsJson(format!(
+                    "The cannot found the subflow for subflow instance node(id='{}', type='{}', name='{}')",
+                    subflow_id,
+                    jv.get("type").and_then(|x| x.as_str()).unwrap_or(""),
+                    jv.get("name").and_then(|x| x.as_str()).unwrap_or("")
+                )))?;
 
             // All elements belongs to this flow
             let children = elements
                 .iter()
-                .filter(|x| {
-                    x.get("z")
-                        .and_then(|y| y.as_str())
-                        .is_some_and(|y| y == subflow_id)
-                })
+                .filter(|x| x.get("z").and_then(|y| y.as_str()).is_some_and(|y| y == subflow_id))
                 .collect();
 
-            let pack = SubflowPack {
-                subflow_id,
-                instance: jv,
-                subflow,
-                children,
-            };
+            let pack = SubflowPack { subflow_id, instance: jv, subflow, children };
 
             elements_to_delete.insert(pack.instance);
             elements_to_delete.insert(pack.subflow);
@@ -280,10 +233,7 @@ fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
         {
             let mut new_subflow = pack.subflow.clone();
             new_subflow["id"] = JsonValue::String(subflow_new_id.to_string());
-            id_map.insert(
-                pack.subflow_id.to_string(),
-                new_subflow["id"].as_str().unwrap().to_string(),
-            );
+            id_map.insert(pack.subflow_id.to_string(), new_subflow["id"].as_str().unwrap().to_string());
             new_elements.push(new_subflow);
         }
 
@@ -297,12 +247,8 @@ fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
         // The children elements in the subflow
         for old_child in pack.children.iter() {
             let mut new_child = (*old_child).clone();
-            new_child["id"] =
-                generate_new_xored_id_value(subflow_new_id, old_child["id"].as_str().unwrap())?;
-            id_map.insert(
-                old_child["id"].as_str().unwrap().to_string(),
-                new_child["id"].as_str().unwrap().to_string(),
-            );
+            new_child["id"] = generate_new_xored_id_value(subflow_new_id, old_child["id"].as_str().unwrap())?;
+            id_map.insert(old_child["id"].as_str().unwrap().to_string(), new_child["id"].as_str().unwrap().to_string());
             new_elements.push(new_child);
         }
     }
@@ -396,34 +342,21 @@ fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
         }
     }
 
-    new_elements.extend(
-        elements
-            .iter()
-            .filter(|x| !elements_to_delete.contains(x))
-            .cloned(),
-    );
+    new_elements.extend(elements.iter().filter(|x| !elements_to_delete.contains(x)).cloned());
 
     Ok(JsonValue::Array(new_elements))
 }
 
 fn generate_new_xored_id_value(subflow_id: ElementId, old_id: &str) -> crate::Result<JsonValue> {
-    let old_id = parse_red_id_str(old_id).ok_or(EdgelinkError::BadFlowsJson(format!(
-        "Cannot parse id: '{}'",
-        old_id
-    )))?;
+    let old_id =
+        parse_red_id_str(old_id).ok_or(EdgelinkError::BadFlowsJson(format!("Cannot parse id: '{}'", old_id)))?;
     Ok(JsonValue::String((subflow_id ^ old_id).to_string()))
 }
 
 pub fn parse_red_type_value(t: &str) -> RedTypeValue {
     match t.split_once(':') {
-        Some((x, y)) => RedTypeValue {
-            red_type: x,
-            id: parse_red_id_str(y),
-        },
-        None => RedTypeValue {
-            red_type: t,
-            id: None,
-        },
+        Some((x, y)) => RedTypeValue { red_type: x, id: parse_red_id_str(y) },
+        None => RedTypeValue { red_type: t, id: None },
     }
 }
 
@@ -463,8 +396,7 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
             .iter()
             .filter(|x| {
                 option_value_equals_str(&x.get("type"), "link in")
-                    && x.get("id")
-                        .map_or(false, |id| related_link_in_ids.contains(id))
+                    && x.get("id").map_or(false, |id| related_link_in_ids.contains(id))
             })
             .filter(|x| x.get("z") != this_id) // Remove itself!
             .filter_map(|x| x.get("z"))
@@ -473,10 +405,7 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
     }
 
     fn get_subflow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
-        let subflow_id = self
-            .get("id")
-            .and_then(|x| x.as_str())
-            .expect("Must have `id`");
+        let subflow_id = self.get("id").and_then(|x| x.as_str()).expect("Must have `id`");
 
         elements
             .iter()
@@ -502,28 +431,14 @@ impl RedFlowNodeJsonObject for JsonMap<String, JsonValue> {
         let mut result = HashSet::new();
 
         // Add wires
-        if let Some(wires) = self
-            .get("wires")
-            .and_then(|wires_value| wires_value.as_array())
-        {
-            let iter = wires
-                .iter()
-                .filter_map(|port| port.as_array())
-                .flatten()
-                .filter_map(parse_red_id_value);
+        if let Some(wires) = self.get("wires").and_then(|wires_value| wires_value.as_array()) {
+            let iter = wires.iter().filter_map(|port| port.as_array()).flatten().filter_map(parse_red_id_value);
             result.extend(iter);
         }
 
         // Add scope
-        if let Some(scopes) = self
-            .get("scope")
-            .and_then(|wires_value| wires_value.as_array())
-        {
-            let iter = scopes
-                .iter()
-                .filter_map(|port| port.as_array())
-                .flatten()
-                .filter_map(parse_red_id_value);
+        if let Some(scopes) = self.get("scope").and_then(|wires_value| wires_value.as_array()) {
+            let iter = scopes.iter().filter_map(|port| port.as_array()).flatten().filter_map(parse_red_id_value);
             result.extend(iter);
         }
 
@@ -601,10 +516,7 @@ where
 
                 for hex_str in inner_seq {
                     let node_id = parse_red_id_str(&hex_str)
-                        .ok_or(EdgelinkError::BadFlowsJson(format!(
-                            "Bad ID string: '{}'",
-                            &hex_str
-                        )))
+                        .ok_or(EdgelinkError::BadFlowsJson(format!("Bad ID string: '{}'", &hex_str)))
                         .map_err(de::Error::custom)?;
                     node_ids.push(node_id);
                 }
@@ -634,11 +546,7 @@ impl RedPropertyType {
             "bool" => Ok(RedPropertyType::Bool),
             "jsonata" => Ok(RedPropertyType::Jsonata),
             "env" => Ok(RedPropertyType::Env),
-            _ => Err(EdgelinkError::BadFlowsJson(format!(
-                "Unsupported property type: '{}'",
-                ptype
-            ))
-            .into()),
+            _ => Err(EdgelinkError::BadFlowsJson(format!("Unsupported property type: '{}'", ptype)).into()),
         }
     }
 }
@@ -653,9 +561,9 @@ where
             if s.is_empty() {
                 Ok(None)
             } else {
-                s.parse::<u64>().map(Some).map_err(|_| {
-                    de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid u64")
-                })
+                s.parse::<u64>()
+                    .map(Some)
+                    .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid u64"))
             }
         }
         None => Ok(None),
@@ -784,9 +692,9 @@ where
             if s.is_empty() {
                 Ok(None)
             } else {
-                s.parse::<u16>().map(Some).map_err(|_| {
-                    de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid u16")
-                })
+                s.parse::<u16>()
+                    .map(Some)
+                    .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &"An invalid u16"))
             }
         }
         None => Ok(None),
@@ -813,10 +721,7 @@ where
             }
             // If neither, return an error
             else {
-                Err(de::Error::invalid_value(
-                    de::Unexpected::Str(&s),
-                    &"a valid IP address",
-                ))
+                Err(de::Error::invalid_value(de::Unexpected::Str(&s), &"a valid IP address"))
             }
         }
         None => Ok(None),

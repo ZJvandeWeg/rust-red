@@ -18,12 +18,7 @@ pub fn parse_float_lossy<T: std::str::FromStr>(input: &str) -> Option<T> {
             has_digits = false;
             end_idx = i + 1;
         } else if (c == '+' || c == '-')
-            && (i == 0
-                || input
-                    .chars()
-                    .nth(i - 1)
-                    .map(|p| p == 'e' || p == 'E')
-                    .unwrap_or(false))
+            && (i == 0 || input.chars().nth(i - 1).map(|p| p == 'e' || p == 'E').unwrap_or(false))
         {
             end_idx = i + 1;
         } else {
@@ -32,12 +27,8 @@ pub fn parse_float_lossy<T: std::str::FromStr>(input: &str) -> Option<T> {
     }
 
     if has_exponent && !has_digits {
-        end_idx = input
-            .char_indices()
-            .take_while(|&(_, c)| c != 'e' && c != 'E')
-            .map(|(i, _)| i)
-            .last()
-            .map_or(0, |i| i + 1);
+        end_idx =
+            input.char_indices().take_while(|&(_, c)| c != 'e' && c != 'E').map(|(i, _)| i).last().map_or(0, |i| i + 1);
     }
 
     if end_idx > 0 {

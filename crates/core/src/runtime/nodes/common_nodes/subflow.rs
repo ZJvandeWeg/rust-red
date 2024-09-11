@@ -14,11 +14,7 @@ struct SubflowNode {
 }
 
 impl SubflowNode {
-    fn build(
-        _flow: &Flow,
-        state: FlowNode,
-        config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let subflow_id = config
             .json
             .get("type")
@@ -30,10 +26,7 @@ impl SubflowNode {
             ))?;
 
         //let subflow = flow.engine.upgrade().unwrap().flows
-        let node = SubflowNode {
-            base: state,
-            subflow_id,
-        };
+        let node = SubflowNode { base: state, subflow_id };
         Ok(Box::new(node))
     }
 }
@@ -52,15 +45,8 @@ impl FlowNodeBehavior for SubflowNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
             with_uow(self.as_ref(), stop_token.clone(), |node, msg| async move {
-                if let Some(engine) = node
-                    .get_node()
-                    .flow
-                    .upgrade()
-                    .and_then(|f| f.engine.upgrade())
-                {
-                    engine
-                        .inject_msg_to_flow(&node.subflow_id, msg, cancel.clone())
-                        .await?;
+                if let Some(engine) = node.get_node().flow.upgrade().and_then(|f| f.engine.upgrade()) {
+                    engine.inject_msg_to_flow(&node.subflow_id, msg, cancel.clone()).await?;
                 }
 
                 Ok(())

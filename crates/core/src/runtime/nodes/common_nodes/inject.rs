@@ -68,20 +68,13 @@ impl InjectNode {
             }
         }
 
-        let node = InjectNode {
-            base: base_node,
-            config: inject_node_config,
-        };
+        let node = InjectNode { base: base_node, config: inject_node_config };
         Ok(Box::new(node))
     }
 
     async fn once_task(&self, stop_token: CancellationToken) -> crate::Result<()> {
         if let Some(once_delay_value) = self.config.once_delay {
-            crate::utils::async_util::delay(
-                Duration::from_secs_f64(once_delay_value),
-                stop_token.clone(),
-            )
-            .await?;
+            crate::utils::async_util::delay(Duration::from_secs_f64(once_delay_value), stop_token.clone()).await?;
         }
 
         self.inject_msg(stop_token).await?;
@@ -96,9 +89,7 @@ impl InjectNode {
 
         if self.config.crontab.is_empty() {
             log::error!("Cron expression is missing");
-            return Err(
-                EdgelinkError::BadFlowsJson("Cron expression is missing".to_string()).into(),
-            );
+            return Err(EdgelinkError::BadFlowsJson("Cron expression is missing".to_string()).into());
         }
 
         log::debug!("cron_expr='{}'", &self.config.crontab);
@@ -136,12 +127,7 @@ impl InjectNode {
                 });
             }
             Err(e) => {
-                log::error!(
-                    "Failed to parse cron: '{}' [node.name='{}']: {}",
-                    self.config.crontab,
-                    self.name(),
-                    e
-                );
+                log::error!("Failed to parse cron: '{}' [node.name='{}']: {}", self.config.crontab, self.name(), e);
                 return Err(e.into());
             }
         }
@@ -150,17 +136,9 @@ impl InjectNode {
         Ok(())
     }
 
-    async fn repeat_task(
-        &self,
-        repeat_interval: f64,
-        stop_token: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn repeat_task(&self, repeat_interval: f64, stop_token: CancellationToken) -> crate::Result<()> {
         while !stop_token.is_cancelled() {
-            crate::utils::async_util::delay(
-                Duration::from_secs_f64(repeat_interval),
-                stop_token.clone(),
-            )
-            .await?;
+            crate::utils::async_util::delay(Duration::from_secs_f64(repeat_interval), stop_token.clone()).await?;
             self.inject_msg(stop_token.clone()).await?;
         }
         log::info!("The `repeat` task has been stopped.");
@@ -176,31 +154,18 @@ impl InjectNode {
             .map(|i| {
                 (
                     i.p.to_string(),
-                    eval::evaluate_node_property(
-                        &i.v,
-                        i.vt,
-                        Some(self),
-                        self.get_flow().upgrade().as_deref(),
-                        None,
-                    )
-                    .unwrap(),
+                    eval::evaluate_node_property(&i.v, i.vt, Some(self), self.get_flow().upgrade().as_deref(), None)
+                        .unwrap(),
                 )
             })
             .collect();
-        msg_body.insert(
-            wellknown::MSG_ID_PROPERTY.to_string(),
-            Variant::String(Msg::generate_id().to_string()),
-        );
+        msg_body.insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::String(Msg::generate_id().to_string()));
 
-        let envelope = Envelope {
-            port: 0,
-            msg: Msg::new_with_body(msg_body),
-        };
+        let envelope = Envelope { port: 0, msg: Msg::new_with_body(msg_body) };
 
         {
             let to_notify = envelope.msg.read().await;
-            self.notify_uow_completed(&to_notify, stop_token.clone())
-                .await;
+            self.notify_uow_completed(&to_notify, stop_token.clone()).await;
         }
 
         self.fan_out_one(&envelope, stop_token.clone()).await
@@ -228,10 +193,7 @@ impl FlowNodeBehavior for InjectNode {
 
         if let Some(repeat_interval) = self.config.repeat {
             is_executed = true;
-            if let Err(e) = self
-                .repeat_task(repeat_interval, stop_token.child_token())
-                .await
-            {
+            if let Err(e) = self.repeat_task(repeat_interval, stop_token.child_token()).await {
                 log::warn!("The 'repeat_task' failed: {}", e.to_string());
             }
         } else if !self.config.crontab.is_empty() {
@@ -242,11 +204,7 @@ impl FlowNodeBehavior for InjectNode {
         }
 
         if !is_executed {
-            log::warn!(
-                "The InjectNode(id='{}', name='{}') has no trigger.",
-                self.id(),
-                self.name()
-            );
+            log::warn!("The InjectNode(id='{}', name='{}') has no trigger.", self.id(), self.name());
             stop_token.cancelled().await;
         }
     }

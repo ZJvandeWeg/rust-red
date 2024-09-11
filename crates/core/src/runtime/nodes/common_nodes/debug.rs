@@ -29,20 +29,13 @@ struct DebugNode {
 }
 
 impl DebugNode {
-    fn build(
-        _flow: &Flow,
-        state: FlowNode,
-        _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.json)?;
         if debug_config.complete.is_empty() {
             debug_config.complete = "payload".to_string();
         }
 
-        let node = DebugNode {
-            base: state,
-            config: debug_config,
-        };
+        let node = DebugNode { base: state, config: debug_config };
         Ok(Box::new(node))
     }
 }
@@ -62,11 +55,7 @@ impl FlowNodeBehavior for DebugNode {
             if self.config.active {
                 match self.recv_msg(stop_token.child_token()).await {
                     Ok(msg) => {
-                        log::info!(
-                            "Message Received [Node: {}] ：\n{:#?}",
-                            self.name(),
-                            msg.as_ref()
-                        )
+                        log::info!("Message Received [Node: {}] ：\n{:#?}", self.name(), msg.as_ref())
                     }
                     Err(ref err) => {
                         log::error!("Error: {:#?}", err);

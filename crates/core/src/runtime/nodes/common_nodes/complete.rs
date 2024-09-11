@@ -12,11 +12,7 @@ struct CompleteNode {
 }
 
 impl CompleteNode {
-    fn build(
-        _flow: &Flow,
-        state: FlowNode,
-        _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = CompleteNode { base: state };
         Ok(Box::new(node))
     }
@@ -36,22 +32,17 @@ impl FlowNodeBehavior for CompleteNode {
         while !stop_token.is_cancelled() {
             // We are not using the Unit of Work stuff here!
             match self.recv_msg(stop_token.clone()).await {
-                Ok(msg) => {
-                    match self
-                        .fan_out_one(&Envelope { port: 0, msg }, stop_token.clone())
-                        .await
-                    {
-                        Ok(_) => {}
-                        Err(err) => {
-                            log::error!(
-                                "Fatal error: failed to fan out message in CompleteNode(id='{}', name='{}'): {:?}",
-                                self.id(),
-                                self.name(),
-                                err
-                            );
-                        }
+                Ok(msg) => match self.fan_out_one(&Envelope { port: 0, msg }, stop_token.clone()).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        log::error!(
+                            "Fatal error: failed to fan out message in CompleteNode(id='{}', name='{}'): {:?}",
+                            self.id(),
+                            self.name(),
+                            err
+                        );
                     }
-                }
+                },
                 Err(ref err) => {
                     log::error!("Error: {:#?}", err);
                     break;

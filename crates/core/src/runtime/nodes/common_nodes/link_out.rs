@@ -23,10 +23,7 @@ struct LinkOutNodeConfig {
     #[serde(default)]
     mode: LinkOutMode,
 
-    #[serde(
-        default,
-        deserialize_with = "crate::runtime::model::json::deser::deser_red_id_vec"
-    )]
+    #[serde(default, deserialize_with = "crate::runtime::model::json::deser::deser_red_id_vec")]
     links: Vec<ElementId>,
 }
 
@@ -39,11 +36,7 @@ struct LinkOutNode {
 }
 
 impl LinkOutNode {
-    fn build(
-        flow: &Flow,
-        state: FlowNode,
-        _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let link_out_config = LinkOutNodeConfig::deserialize(&_config.json)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
@@ -55,23 +48,15 @@ impl LinkOutNode {
                 } else if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
-                    log::error!(
-                        "LinkOutNode: Cannot found the required `link in` node(id={})!",
-                        link_in_id
+                    log::error!("LinkOutNode: Cannot found the required `link in` node(id={})!", link_in_id);
+                    return Err(
+                        EdgelinkError::BadFlowsJson("Cannot found the required `link in` node".to_string()).into()
                     );
-                    return Err(EdgelinkError::BadFlowsJson(
-                        "Cannot found the required `link in` node".to_string(),
-                    )
-                    .into());
                 }
             }
         }
 
-        let node = LinkOutNode {
-            base: state,
-            mode: link_out_config.mode,
-            linked_nodes,
-        };
+        let node = LinkOutNode { base: state, mode: link_out_config.mode, linked_nodes };
         Ok(Box::new(node))
     }
 
@@ -82,43 +67,24 @@ impl LinkOutNode {
                     if let Some(link_node) = link_node.upgrade() {
                         link_node.inject_msg(msg.clone(), cancel.clone()).await?;
                     } else {
-                        let err_msg = format!(
-                            "The required `link in` was unavailable in `link out` node(id={})!",
-                            self.id()
-                        );
+                        let err_msg =
+                            format!("The required `link in` was unavailable in `link out` node(id={})!", self.id());
                         return Err(EdgelinkError::InvalidOperation(err_msg).into());
                     }
                 }
             }
             LinkOutMode::Return => {
-                let flow = self
-                    .get_node()
-                    .flow
-                    .upgrade()
-                    .expect("The flow cannot be released!");
-                let engine = flow
-                    .engine
-                    .upgrade()
-                    .expect("The engine cannot be released");
+                let flow = self.get_node().flow.upgrade().expect("The flow cannot be released!");
+                let engine = flow.engine.upgrade().expect("The engine cannot be released");
                 let stack_top = {
                     let mut msg_guard = msg.write().await;
                     msg_guard.pop_link_source()
                 };
                 if let Some(ref source_link) = stack_top {
-                    if let Some(target_node) =
-                        engine.find_flow_node_by_id(&source_link.link_call_node_id)
-                    {
-                        if let Some(link_call_node) =
-                            target_node.as_any().downcast_ref::<LinkCallNode>()
-                        {
+                    if let Some(target_node) = engine.find_flow_node_by_id(&source_link.link_call_node_id) {
+                        if let Some(link_call_node) = target_node.as_any().downcast_ref::<LinkCallNode>() {
                             link_call_node
-                                .return_msg(
-                                    msg.clone(),
-                                    source_link.id,
-                                    self.id(),
-                                    flow.id(),
-                                    cancel.clone(),
-                                )
+                                .return_msg(msg.clone(), source_link.id, self.id(), flow.id(), cancel.clone())
                                 .await?;
                         } else {
                             return Err(EdgelinkError::InvalidOperation(format!(
@@ -161,10 +127,7 @@ impl FlowNodeBehavior for LinkOutNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            with_uow(self.as_ref(), stop_token.clone(), |node, msg| {
-                node.uow(msg, cancel.clone())
-            })
-            .await;
+            with_uow(self.as_ref(), stop_token.clone(), |node, msg| node.uow(msg, cancel.clone())).await;
         }
     }
 }

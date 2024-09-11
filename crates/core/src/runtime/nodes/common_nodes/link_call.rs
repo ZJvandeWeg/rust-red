@@ -67,11 +67,7 @@ pub(crate) struct LinkCallNode {
 }
 
 impl LinkCallNode {
-    fn build(
-        flow: &Flow,
-        state: FlowNode,
-        config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let link_call_config = LinkCallNodeConfig::deserialize(&config.json)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
@@ -83,14 +79,8 @@ impl LinkCallNode {
                 } else if let Some(link_in) = engine.find_flow_node_by_id(link_in_id) {
                     linked_nodes.push(Arc::downgrade(&link_in));
                 } else {
-                    log::error!(
-                        "LinkCallNode: Cannot found the required `link in` node(id={})!",
-                        link_in_id
-                    );
-                    return Err(EdgelinkError::BadFlowsJson(
-                        "Cannot found the required `link in`".to_string(),
-                    )
-                    .into());
+                    log::error!("LinkCallNode: Cannot found the required `link in` node(id={})!", link_in_id);
+                    return Err(EdgelinkError::BadFlowsJson("Cannot found the required `link in`".to_string()).into());
                 }
             }
         }
@@ -100,20 +90,12 @@ impl LinkCallNode {
             config: link_call_config,
             event_id_atomic: AtomicU64::new(1),
             linked_nodes,
-            mut_state: Mutex::new(LinkCallMutState {
-                msg_events: HashMap::new(),
-                timeout_tasks: JoinSet::new(),
-            }),
+            mut_state: Mutex::new(LinkCallMutState { msg_events: HashMap::new(), timeout_tasks: JoinSet::new() }),
         };
         Ok(Box::new(node))
     }
 
-    async fn uow(
-        &self,
-        node: Arc<Self>,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn uow(&self, node: Arc<Self>, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
         self.forward_call_msg(node.clone(), msg, cancel).await
     }
 
@@ -128,44 +110,27 @@ impl LinkCallNode {
         {
             let mut locked_msg = msg.write().await;
             entry_id = ElementId::with_u64(self.event_id_atomic.fetch_add(1, Ordering::Relaxed));
-            locked_msg.push_link_source(LinkCallStackEntry {
-                id: entry_id,
-                link_call_node_id: self.id(),
-            });
+            locked_msg.push_link_source(LinkCallStackEntry { id: entry_id, link_call_node_id: self.id() });
             cloned_msg = Arc::new(RwLock::new(locked_msg.clone()));
         }
         {
             let mut mut_state = self.mut_state.lock().await;
-            let timeout_handle = mut_state
-                .timeout_tasks
-                .spawn(async move { node.timeout_task(entry_id).await });
-            mut_state.msg_events.insert(
-                entry_id,
-                MsgEvent {
-                    _msg: cloned_msg,
-                    timeout_handle,
-                },
-            );
+            let timeout_handle = mut_state.timeout_tasks.spawn(async move { node.timeout_task(entry_id).await });
+            mut_state.msg_events.insert(entry_id, MsgEvent { _msg: cloned_msg, timeout_handle });
         }
         self.fan_out_linked_msg(msg, cancel.clone()).await?;
         Ok(())
     }
 
-    async fn fan_out_linked_msg(
-        &self,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn fan_out_linked_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
         match self.config.link_type {
             LinkType::Static => {
                 for link_node in self.linked_nodes.iter() {
                     if let Some(link_node) = link_node.upgrade() {
                         link_node.inject_msg(msg.clone(), cancel.clone()).await?;
                     } else {
-                        let err_msg = format!(
-                            "The required `link in` was unavailable in `link out` node(id={})!",
-                            self.id()
-                        );
+                        let err_msg =
+                            format!("The required `link in` was unavailable in `link out` node(id={})!", self.id());
                         return Err(EdgelinkError::InvalidOperation(err_msg).into());
                     }
                 }
@@ -188,13 +153,11 @@ impl LinkCallNode {
         Ok(())
     }
 
-    fn get_dynamic_target_node(
-        &self,
-        msg: &Msg,
-    ) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
-        let target_field = msg.body.get("target").ok_or(EdgelinkError::InvalidData(
-            "There are no `target` field in the msg!".to_string(),
-        ))?;
+    fn get_dynamic_target_node(&self, msg: &Msg) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
+        let target_field = msg
+            .body
+            .get("target")
+            .ok_or(EdgelinkError::InvalidData("There are no `target` field in the msg!".to_string()))?;
 
         let result = match target_field {
             Variant::String(target_name) => {
@@ -210,10 +173,7 @@ impl LinkCallNode {
                 } else {
                     // Secondly, we are looking into the node names in this flow
                     // Otherwises, we should looking into the node names in the whole engine
-                    let flow = self
-                        .get_flow()
-                        .upgrade()
-                        .expect("The flow must be instanced!");
+                    let flow = self.get_flow().upgrade().expect("The flow must be instanced!");
 
                     if let Some(node) = flow.get_node_by_name(target_name)? {
                         Some(node)
@@ -223,10 +183,7 @@ impl LinkCallNode {
                 }
             }
             _ => {
-                let err_msg = format!(
-                    "Unsupported dynamic target in `msg.target`: {:?}",
-                    target_field
-                );
+                let err_msg = format!("Unsupported dynamic target in `msg.target`: {:?}", target_field);
                 return Err(EdgelinkError::InvalidOperation(err_msg).into());
             }
         };
@@ -235,9 +192,7 @@ impl LinkCallNode {
                 .get_node()
                 .flow
                 .upgrade()
-                .ok_or(EdgelinkError::InvalidOperation(
-                    "The flow cannot be released".to_string(),
-                ))?;
+                .ok_or(EdgelinkError::InvalidOperation("The flow cannot be released".to_string()))?;
             if flow.is_subflow() {
                 return Err(EdgelinkError::InvalidData(
                     "A `link call` cannot call a `link in` node inside a subflow".to_string(),
@@ -275,10 +230,8 @@ impl FlowNodeBehavior for LinkCallNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
             let node = self.clone();
-            with_uow(self.as_ref(), cancel.clone(), |_, msg| async move {
-                node.uow(node.clone(), msg, cancel).await
-            })
-            .await;
+            with_uow(self.as_ref(), cancel.clone(), |_, msg| async move { node.uow(node.clone(), msg, cancel).await })
+                .await;
         }
 
         {
@@ -307,11 +260,8 @@ impl LinkCallNodeBehavior for LinkCallNode {
             drop(event);
             Ok(())
         } else {
-            Err(EdgelinkError::InvalidOperation(format!(
-                "Cannot find and(or) remove the event id: '{}'",
-                stack_id
-            ))
-            .into())
+            Err(EdgelinkError::InvalidOperation(format!("Cannot find and(or) remove the event id: '{}'", stack_id))
+                .into())
         }
     }
 }

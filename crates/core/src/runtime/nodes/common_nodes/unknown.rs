@@ -16,15 +16,8 @@ struct UnknownGlobalNode {
 }
 
 impl UnknownGlobalNode {
-    fn build(
-        _engine: Arc<FlowEngine>,
-        _config: &RedGlobalNodeConfig,
-    ) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
-        let node = UnknownGlobalNode {
-            id: _config.id,
-            name: _config.name.clone(),
-            type_: UNKNOWN_GLOBAL_NODE_TYPE,
-        };
+    fn build(_engine: Arc<FlowEngine>, _config: &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
+        let node = UnknownGlobalNode { id: _config.id, name: _config.name.clone(), type_: UNKNOWN_GLOBAL_NODE_TYPE };
         Ok(Box::new(node))
     }
 }
@@ -54,11 +47,7 @@ struct UnknownFlowNode {
 }
 
 impl UnknownFlowNode {
-    fn build(
-        _flow: &Flow,
-        base: FlowNode,
-        _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, base: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = UnknownFlowNode { state: base };
         Ok(Box::new(node))
     }

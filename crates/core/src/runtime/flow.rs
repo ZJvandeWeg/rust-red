@@ -39,9 +39,7 @@ impl FlowArgs {
 
 impl Default for FlowArgs {
     fn default() -> Self {
-        Self {
-            node_msg_queue_capacity: 16,
-        }
+        Self { node_msg_queue_capacity: 16 }
     }
 }
 
@@ -114,33 +112,21 @@ impl SubflowOutputPort {
                 Ok(msg) => {
                     // Find out the subflow:xxx node
                     let instance_node = {
-                        let flow = self
-                            .owner
-                            .upgrade()
-                            .expect("The owner of this sub-flow node has been released already!!!");
+                        let flow =
+                            self.owner.upgrade().expect("The owner of this sub-flow node has been released already!!!");
 
-                        let subflow_state = flow
-                            .subflow_state
-                            .as_ref()
-                            .expect("Subflow must have a subflow_state!");
+                        let subflow_state = flow.subflow_state.as_ref().expect("Subflow must have a subflow_state!");
 
-                        let subflow_state_guard = subflow_state
-                            .read()
-                            .expect("Cannot acquire the lock of field `subflow_state`!!!");
+                        let subflow_state_guard =
+                            subflow_state.read().expect("Cannot acquire the lock of field `subflow_state`!!!");
 
                         subflow_state_guard.instance_node.clone()
                     };
 
                     if let Some(instance_node) = instance_node {
                         let instance_node = instance_node.clone();
-                        let envelope = Envelope {
-                            port: self.index,
-                            msg,
-                        };
-                        if let Err(e) = instance_node
-                            .fan_out_one(&envelope, stop_token.clone())
-                            .await
-                        {
+                        let envelope = Envelope { port: self.index, msg };
+                        if let Err(e) = instance_node.fan_out_one(&envelope, stop_token.clone()).await {
                             log::warn!("Failed to fan-out message: {:?}", e);
                         }
                     } else {
@@ -157,11 +143,7 @@ impl SubflowOutputPort {
 }
 
 impl SubflowState {
-    fn populate_in_nodes(
-        &mut self,
-        flow_state: &FlowState,
-        flow_config: &RedFlowConfig,
-    ) -> crate::Result<()> {
+    fn populate_in_nodes(&mut self, flow_state: &FlowState, flow_config: &RedFlowConfig) -> crate::Result<()> {
         // this is a subflow with in ports
         for wire_obj in flow_config.in_ports.iter().flat_map(|x| x.wires.iter()) {
             if let Some(node) = flow_state.nodes.get(&wire_obj.id) {
@@ -196,11 +178,8 @@ impl SubflowState {
 
 impl FlowState {
     async fn start_nodes(&self, stop_token: CancellationToken) -> crate::Result<()> {
-        let nodes_ordering = self
-            .nodes
-            .iter()
-            .sorted_by(|a, b| a.ordering().cmp(&b.ordering()))
-            .map(|x| x.value().clone());
+        let nodes_ordering =
+            self.nodes.iter().sorted_by(|a, b| a.ordering().cmp(&b.ordering())).map(|x| x.value().clone());
 
         for node in nodes_ordering.into_iter() {
             if node.get_node().disabled {
@@ -241,14 +220,10 @@ impl Flow {
         let flow_kind = match flow_config.type_name.as_str() {
             "tab" => FlowKind::GlobalFlow,
             "subflow" => FlowKind::Subflow,
-            _ => {
-                return Err(EdgelinkError::BadFlowsJson("Unsupported flow type".to_string()).into())
-            }
+            _ => return Err(EdgelinkError::BadFlowsJson("Unsupported flow type".to_string()).into()),
         };
 
-        let subflow_instance = flow_config
-            .subflow_node_id
-            .and_then(|x| engine.find_flow_node_by_id(&x));
+        let subflow_instance = flow_config.subflow_node_id.and_then(|x| engine.find_flow_node_by_id(&x));
 
         let mut envs_builder = EnvStoreBuilder::default();
         envs_builder = match flow_kind {
@@ -257,10 +232,7 @@ impl Flow {
                 if let Some(ref instance) = subflow_instance {
                     envs_builder.with_parent(&instance.get_envs())
                 } else {
-                    log::warn!(
-                        "Cannot found the instance node of the subflow: id='{}'",
-                        flow_config.id
-                    );
+                    log::warn!("Cannot found the instance node of the subflow: id='{}'", flow_config.id);
                     envs_builder.with_parent(&engine.get_envs())
                 }
             }
@@ -275,26 +247,18 @@ impl Flow {
             ]),
             FlowKind::Subflow => {
                 if subflow_instance.is_none() {
-                    return Err(EdgelinkError::BadFlowsJson(
-                        "The ID of Sub-flow instance node is None".to_string(),
-                    )
-                    .into());
+                    return Err(
+                        EdgelinkError::BadFlowsJson("The ID of Sub-flow instance node is None".to_string()).into()
+                    );
                 }
                 let subflow_instance = subflow_instance.as_ref().unwrap().clone();
                 envs_builder.extends([
-                    (
-                        "NR_SUBFLOW_ID".into(),
-                        subflow_instance.id().to_string().into(),
-                    ),
+                    ("NR_SUBFLOW_ID".into(), subflow_instance.id().to_string().into()),
                     ("NR_SUBFLOW_NAME".into(), subflow_instance.name().into()),
                     (
                         "NR_SUBFLOW_PATH".into(),
-                        format!(
-                            "{}/{}",
-                            subflow_instance.get_flow().upgrade().unwrap().id(),
-                            subflow_instance.id()
-                        )
-                        .into(),
+                        format!("{}/{}", subflow_instance.get_flow().upgrade().unwrap().id(), subflow_instance.id())
+                            .into(),
                     ),
                 ])
             }
@@ -337,8 +301,7 @@ impl Flow {
             subflow_state.instance_node = subflow_instance;
 
             for (index, _) in flow_config.out_ports.iter().enumerate() {
-                let (msg_root_tx, msg_rx) =
-                    tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
+                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
 
                 subflow_state.tx_ports.push(Arc::new(SubflowOutputPort {
                     index,
@@ -353,8 +316,7 @@ impl Flow {
             let flow = flow.clone();
             flow.clone().populate_groups(flow_config)?;
 
-            flow.clone()
-                .populate_nodes(flow_config, reg.as_ref(), engine.as_ref())?;
+            flow.clone().populate_nodes(flow_config, reg.as_ref(), engine.as_ref())?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
@@ -400,8 +362,7 @@ impl Flow {
             let meta_node = if let Some(meta_node) = reg.get(&node_config.type_name) {
                 meta_node
             } else if node_config.type_name.starts_with("subflow:") {
-                reg.get("subflow")
-                    .expect("The `subflow` node must be existed")
+                reg.get("subflow").expect("The `subflow` node must be existed")
             } else {
                 log::warn!(
                     "Unknown flow node type: (type='{}', id='{}', name='{}')",
@@ -409,30 +370,21 @@ impl Flow {
                     node_config.id,
                     node_config.name
                 );
-                reg.get("unknown.flow")
-                    .expect("The `unknown.flow` node must be existed")
+                reg.get("unknown.flow").expect("The `unknown.flow` node must be existed")
             };
 
             let node = match meta_node.factory {
                 NodeFactory::Flow(factory) => {
-                    let mut node_state = self
-                        .clone()
-                        .new_flow_node_state(meta_node, &self.state, node_config, engine)
-                        .map_err(|e| {
-                            log::error!(
-                                "Failed to create flow node(id='{}'): {:?}",
-                                node_config.id,
-                                e
-                            );
+                    let mut node_state =
+                        self.clone().new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
+                            log::error!("Failed to create flow node(id='{}'): {:?}", node_config.id, e);
                             e
                         })?;
 
                     // Redirect all the output node wires in the subflow to the output port of the subflow.
                     if let Some(subflow_state) = &self.subflow_state {
                         let subflow_state = subflow_state.read().unwrap();
-                        for (subflow_port_index, red_port) in
-                            flow_config.out_ports.iter().enumerate()
-                        {
+                        for (subflow_port_index, red_port) in flow_config.out_ports.iter().enumerate() {
                             let red_wires = red_port.wires.iter().filter(|x| x.id == node_state.id);
                             for red_wire in red_wires {
                                 // Makre sure the target node has one port at least!
@@ -440,11 +392,8 @@ impl Flow {
                                     node_state.ports.push(Port::empty());
                                 }
                                 if let Some(node_port) = node_state.ports.get_mut(red_wire.port) {
-                                    let subflow_tx_port =
-                                        &subflow_state.tx_ports[subflow_port_index];
-                                    let node_wire = PortWire {
-                                        msg_sender: subflow_tx_port.msg_tx.clone(),
-                                    };
+                                    let subflow_tx_port = &subflow_state.tx_ports[subflow_port_index];
+                                    let node_wire = PortWire { msg_sender: subflow_tx_port.msg_tx.clone() };
                                     node_port.wires.push(node_wire)
                                 } else {
                                     return Err(EdgelinkError::BadFlowsJson(format!(
@@ -513,9 +462,7 @@ impl Flow {
         if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
             for src_id in scope {
                 if let Some(src_id) = helpers::parse_red_id_value(src_id) {
-                    if let Some(ref mut complete_nodes) =
-                        self.state.complete_nodes_map.get_mut(&src_id)
-                    {
+                    if let Some(ref mut complete_nodes) = self.state.complete_nodes_map.get_mut(&src_id) {
                         if !complete_nodes.iter().any(|x| x.id() == node.id()) {
                             complete_nodes.push(node.clone());
                         } else {
@@ -526,19 +473,13 @@ impl Flow {
                             .into());
                         }
                     } else {
-                        self.state
-                            .complete_nodes_map
-                            .insert(src_id, Vec::from([node.clone()]));
+                        self.state.complete_nodes_map.insert(src_id, Vec::from([node.clone()]));
                     }
                 }
             }
             Ok(())
         } else {
-            Err(EdgelinkError::BadFlowsJson(format!(
-                "CompleteNode has no 'scope' property: {}",
-                node
-            ))
-            .into())
+            Err(EdgelinkError::BadFlowsJson(format!("CompleteNode has no 'scope' property: {}", node)).into())
         }
     }
 
@@ -578,11 +519,7 @@ impl Flow {
         } else if nfound == 0 {
             Ok(None)
         } else {
-            Err(EdgelinkError::InvalidOperation(format!(
-                "There are multiple node with name '{}'",
-                name
-            ))
-            .into())
+            Err(EdgelinkError::InvalidOperation(format!("There are multiple node with name '{}'", name)).into())
         }
     }
 
@@ -690,44 +627,26 @@ impl Flow {
         {
             self.state.stop_nodes().await?;
         }
-        log::info!(
-            "---- All node in flow/subflow(id='{}') has been stopped.",
-            self.id
-        );
+        log::info!("---- All node in flow/subflow(id='{}') has been stopped.", self.id);
 
         Ok(())
     }
 
-    pub async fn notify_node_uow_completed(
-        &self,
-        emitter_id: &ElementId,
-        msg: &Msg,
-        cancel: CancellationToken,
-    ) {
+    pub async fn notify_node_uow_completed(&self, emitter_id: &ElementId, msg: &Msg, cancel: CancellationToken) {
         if let Some(complete_nodes) = self.state.complete_nodes_map.get(emitter_id) {
             for complete_node in complete_nodes.iter() {
                 let to_send = Arc::new(RwLock::new(msg.clone()));
-                match complete_node
-                    .inject_msg(to_send, cancel.child_token())
-                    .await
-                {
+                match complete_node.inject_msg(to_send, cancel.child_token()).await {
                     Ok(()) => {}
                     Err(err) => {
-                        log::warn!(
-                            "Failed to inject msg in notify_node_completed(): {}",
-                            err.to_string()
-                        );
+                        log::warn!("Failed to inject msg in notify_node_completed(): {}", err.to_string());
                     }
                 }
             }
         }
     }
 
-    pub async fn inject_msg(
-        &self,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    pub async fn inject_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
         tokio::select! {
             result = self.inject_msg_internal(msg, cancel.clone()) => result,
 
@@ -738,11 +657,7 @@ impl Flow {
         }
     }
 
-    async fn inject_msg_internal(
-        &self,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn inject_msg_internal(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
         if let Some(subflow_state) = &self.subflow_state {
             let in_nodes = {
                 let subflow_state = subflow_state.read().unwrap();
@@ -754,8 +669,7 @@ impl Flow {
                     node.inject_msg(msg.clone(), cancel.clone()).await?;
                 } else {
                     let to_clone = msg.read().await;
-                    node.inject_msg(Arc::new(RwLock::new(to_clone.clone())), cancel.clone())
-                        .await?;
+                    node.inject_msg(Arc::new(RwLock::new(to_clone.clone())), cancel.clone()).await?;
                 }
                 msg_sent = true;
             }
@@ -783,10 +697,8 @@ impl Flow {
                 // Next we find the node in the entire engine, otherwise there is an error
                 let node_in_engine = engine.find_flow_node_by_id(nid);
                 let node_entry = node_in_flow.or(node_in_engine).ok_or(EdgelinkError::InvalidData(format!(
-                        "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
-                        node_config.id,
-                        node_config.name,
-                        nid
+                    "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
+                    node_config.id, node_config.name, nid
                 )))?;
                 let tx = node_entry.get_node().msg_tx.to_owned();
                 let pw = PortWire {
@@ -825,18 +737,9 @@ impl Flow {
         }
         let envs = envs_builder
             .extends([
-                (
-                    "NR_NODE_ID".into(),
-                    Variant::String(node_config.id.to_string()),
-                ),
-                (
-                    "NR_NODE_NAME".into(),
-                    Variant::String(node_config.name.clone()),
-                ),
-                (
-                    "NR_NODE_PATH".into(),
-                    Variant::String(format!("{}/{}", self.id, node_config.id)),
-                ),
+                ("NR_NODE_ID".into(), Variant::String(node_config.id.to_string())),
+                ("NR_NODE_NAME".into(), Variant::String(node_config.name.clone())),
+                ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.id, node_config.id))),
             ])
             .build();
 

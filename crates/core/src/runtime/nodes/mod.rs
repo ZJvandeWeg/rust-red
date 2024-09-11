@@ -48,11 +48,9 @@ impl fmt::Display for NodeKind {
     }
 }
 
-type GlobalNodeFactoryFn =
-    fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>>;
+type GlobalNodeFactoryFn = fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>>;
 
-type FlowNodeFactoryFn =
-    fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>>;
+type FlowNodeFactoryFn = fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeFactory {
@@ -145,11 +143,7 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         flow.engine.upgrade()
     }
 
-    async fn inject_msg(
-        &self,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn inject_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
         select! {
             result = self.get_node().msg_tx.send(msg) => {
                 result.map_err(|e| e.into())
@@ -179,25 +173,13 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         }
     }
 
-    async fn fan_out_one(
-        &self,
-        envelope: &Envelope,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn fan_out_one(&self, envelope: &Envelope, cancel: CancellationToken) -> crate::Result<()> {
         if self.get_node().ports.is_empty() {
-            log::warn!(
-                "No output wires in this node: Node(id='{}', name='{}')",
-                self.id(),
-                self.name()
-            );
+            log::warn!("No output wires in this node: Node(id='{}', name='{}')", self.id(), self.name());
             return Ok(());
         }
         if envelope.port >= self.get_node().ports.len() {
-            return Err(crate::EdgelinkError::BadArguments(format!(
-                "Invalid port index {}",
-                envelope.port
-            ))
-            .into());
+            return Err(crate::EdgelinkError::BadArguments(format!("Invalid port index {}", envelope.port)).into());
         }
 
         let port = &self.get_node().ports[envelope.port];
@@ -218,11 +200,7 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         Ok(())
     }
 
-    async fn fan_out_many(
-        &self,
-        envelopes: &[Envelope],
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
+    async fn fan_out_many(&self, envelopes: &[Envelope], cancel: CancellationToken) -> crate::Result<()> {
         if self.get_node().ports.is_empty() {
             log::warn!("No output wires in this node: Node(id='{}')", self.id());
             return Ok(());
@@ -247,23 +225,15 @@ impl dyn GlobalNodeBehavior {
 
 impl fmt::Debug for dyn GlobalNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "GlobalNode(id='{}', type='{}', name='{}')",
-            self.id(),
-            self.type_name(),
-            self.name(),
-        ))
+        f.write_fmt(
+            format_args!("GlobalNode(id='{}', type='{}', name='{}')", self.id(), self.type_name(), self.name(),),
+        )
     }
 }
 
 impl fmt::Display for dyn GlobalNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "FlowNode(id='{}', type='{}', name='{}')",
-            self.id(),
-            self.type_name(),
-            self.name(),
-        ))
+        f.write_fmt(format_args!("FlowNode(id='{}', type='{}', name='{}')", self.id(), self.type_name(), self.name(),))
     }
 }
 
@@ -275,23 +245,13 @@ impl dyn FlowNodeBehavior {
 
 impl fmt::Debug for dyn FlowNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "FlowNode(id='{}', type='{}', name='{}')",
-            self.id(),
-            self.type_str(),
-            self.name(),
-        ))
+        f.write_fmt(format_args!("FlowNode(id='{}', type='{}', name='{}')", self.id(), self.type_str(), self.name(),))
     }
 }
 
 impl fmt::Display for dyn FlowNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "FlowNode(id='{}', type='{}', name='{}')",
-            self.id(),
-            self.type_str(),
-            self.name(),
-        ))
+        f.write_fmt(format_args!("FlowNode(id='{}', type='{}', name='{}')", self.id(), self.type_str(), self.name(),))
     }
 }
 
@@ -310,8 +270,7 @@ where
             // Report the completion
             {
                 let msg_guard = msg.read().await;
-                node.notify_uow_completed(&msg_guard, cancel.child_token())
-                    .await;
+                node.notify_uow_completed(&msg_guard, cancel.child_token()).await;
             }
         }
         Err(ref err) => {

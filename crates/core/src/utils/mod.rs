@@ -7,10 +7,7 @@ pub mod time;
 pub fn generate_uid() -> u64 {
     let mut rng = rand::thread_rng();
     let random_part: u64 = rng.gen();
-    let timestamp_part = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time error!!!")
-        .as_nanos() as u64;
+    let timestamp_part = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time error!!!").as_nanos() as u64;
 
     timestamp_part ^ random_part
 }

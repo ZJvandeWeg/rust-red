@@ -66,10 +66,7 @@ impl RangeNode {
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let range_config = RangeNodeConfig::deserialize(&config.json)?;
-        let node = RangeNode {
-            base: base_node,
-            config: range_config,
-        };
+        let node = RangeNode { base: base_node, config: range_config };
         Ok(Box::new(node))
     }
 
@@ -94,15 +91,13 @@ impl RangeNode {
 
                     RangeAction::Roll => {
                         let divisor = self.config.maxin - self.config.minin;
-                        n = ((n - self.config.minin) % divisor + divisor) % divisor
-                            + self.config.minin;
+                        n = ((n - self.config.minin) % divisor + divisor) % divisor + self.config.minin;
                     }
 
                     _ => {}
                 };
 
-                let mut new_value = ((n - self.config.minin)
-                    / (self.config.maxin - self.config.minin)
+                let mut new_value = ((n - self.config.minin) / (self.config.maxin - self.config.minin)
                     * (self.config.maxout - self.config.minout))
                     + self.config.minout;
                 if self.config.round {
@@ -148,21 +143,16 @@ impl FlowNodeBehavior for RangeNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.child_token();
-            with_uow(
-                self.as_ref(),
-                cancel.child_token(),
-                |node, msg| async move {
-                    let do_send = {
-                        let mut msg_guard = msg.write().await;
-                        node.do_range(&mut msg_guard)
-                    };
-                    if do_send {
-                        node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
-                            .await?;
-                    }
-                    Ok(())
-                },
-            )
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+                let do_send = {
+                    let mut msg_guard = msg.write().await;
+                    node.do_range(&mut msg_guard)
+                };
+                if do_send {
+                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                }
+                Ok(())
+            })
             .await;
         }
     }

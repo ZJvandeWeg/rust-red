@@ -9,9 +9,5 @@ use nom::{
 };
 
 pub fn identifier(i: &str) -> nom::IResult<&str, &str, nom::error::VerboseError<&str>> {
-    recognize(pair(
-        alt((alpha1, tag("_"))),
-        many0_count(alt((alphanumeric1, tag("_")))),
-    ))
-    .parse(i)
+    recognize(pair(alt((alpha1, tag("_"))), many0_count(alt((alphanumeric1, tag("_")))))).parse(i)
 }

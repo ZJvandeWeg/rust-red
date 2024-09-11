@@ -12,11 +12,7 @@ use crate::*;
  * @param {String} name - name of variable
  * @return {String} value of env var
  */
-fn evaluate_env_property(
-    name: &str,
-    node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Flow>,
-) -> Option<Variant> {
+fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Flow>) -> Option<Variant> {
     if let Some(node) = node {
         if let Some(var) = node.get_env(name) {
             return Some(var);
@@ -35,11 +31,7 @@ fn evaluate_env_property(
 
     // TODO FIXME
     // We should use the snapshot in the FlowEngine
-    Some(
-        std::env::var(name)
-            .map(Variant::String)
-            .unwrap_or(Variant::Null),
-    )
+    Some(std::env::var(name).map(Variant::String).unwrap_or(Variant::Null))
 }
 
 /**
@@ -78,10 +70,9 @@ pub fn evaluate_node_property(
         RedPropertyType::Bin => {
             let jv: serde_json::Value = serde_json::from_str(value)?;
             let arr = Variant::deserialize(&jv)?;
-            let bytes = arr.to_bytes().ok_or(EdgelinkError::InvalidData(format!(
-                "Expected an array of bytes, got: {:?}",
-                value
-            )))?;
+            let bytes = arr
+                .to_bytes()
+                .ok_or(EdgelinkError::InvalidData(format!("Expected an array of bytes, got: {:?}", value)))?;
             Ok(Variant::from(bytes))
         }
 
@@ -90,11 +81,7 @@ pub fn evaluate_node_property(
                 if let Some(pv) = msg.get_trimmed_nav_property(value) {
                     Ok(pv.clone())
                 } else {
-                    Err(EdgelinkError::BadArguments(format!(
-                        "Cannot get the property(s) from `msg`: {}",
-                        value
-                    ))
-                    .into())
+                    Err(EdgelinkError::BadArguments(format!("Cannot get the property(s) from `msg`: {}", value)).into())
                 }
             } else {
                 Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into())
@@ -109,11 +96,7 @@ pub fn evaluate_node_property(
 
         RedPropertyType::Env => match evaluate_env_property(value, node, flow) {
             Some(ev) => Ok(ev),
-            _ => Err(EdgelinkError::InvalidData(format!(
-                "Cannot found the environment variable: '{}'",
-                value
-            ))
-            .into()),
+            _ => Err(EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", value)).into()),
         },
     }
 }
@@ -155,10 +138,9 @@ pub fn evaluate_node_property_variant(
         (RedPropertyType::Bin, Variant::String(s)) => {
             let jv: serde_json::Value = serde_json::from_str(s.as_str())?;
             let arr = Variant::deserialize(&jv)?;
-            let bytes = arr.to_bytes().ok_or(EdgelinkError::InvalidData(format!(
-                "Expected an array of bytes, got: {:?}",
-                value
-            )))?;
+            let bytes = arr
+                .to_bytes()
+                .ok_or(EdgelinkError::InvalidData(format!("Expected an array of bytes, got: {:?}", value)))?;
             Ok(Variant::from(bytes))
         }
         (RedPropertyType::Bin, Variant::Bytes(_)) => Ok(value.clone()),
@@ -183,27 +165,17 @@ pub fn evaluate_node_property_variant(
         // process the context variables
         (RedPropertyType::Flow | RedPropertyType::Global, _) => todo!(),
 
-        (RedPropertyType::Bool, Variant::String(s)) => {
-            Ok(Variant::Bool(s.trim_ascii().parse::<bool>()?))
-        }
+        (RedPropertyType::Bool, Variant::String(s)) => Ok(Variant::Bool(s.trim_ascii().parse::<bool>()?)),
         (RedPropertyType::Bool, Variant::Bool(_)) => Ok(value.clone()), // TODO javascript rules
 
         (RedPropertyType::Jsonata, _) => todo!(),
 
         (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node, flow) {
             Some(ev) => Ok(ev),
-            _ => Err(EdgelinkError::InvalidData(format!(
-                "Cannot found the environment variable: '{}'",
-                s
-            ))
-            .into()),
+            _ => Err(EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", s)).into()),
         },
 
-        (_, _) => Err(EdgelinkError::BadArguments(format!(
-            "Unable to evaluate property value: {:?}",
-            value
-        ))
-        .into()),
+        (_, _) => Err(EdgelinkError::BadArguments(format!("Unable to evaluate property value: {:?}", value)).into()),
     }
 }
 

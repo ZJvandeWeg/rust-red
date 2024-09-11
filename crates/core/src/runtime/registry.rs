@@ -29,9 +29,7 @@ impl Default for RegistryBuilder {
 
 impl RegistryBuilder {
     pub fn new() -> Self {
-        Self {
-            meta_nodes: HashMap::new(),
-        }
+        Self { meta_nodes: HashMap::new() }
     }
 
     pub fn register(mut self, meta_node: &'static MetaNode) -> Self {
@@ -52,9 +50,7 @@ impl RegistryBuilder {
             log::warn!("There are no meta node in the Registry!");
         }
 
-        let result = Arc::new(RegistryImpl {
-            meta_nodes: Arc::new(self.meta_nodes),
-        });
+        let result = Arc::new(RegistryImpl { meta_nodes: Arc::new(self.meta_nodes) });
         Ok(result)
     }
 }
@@ -73,8 +69,6 @@ impl Registry for RegistryImpl {
 
 impl std::fmt::Debug for dyn Registry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Registry")
-            .field("meta_nodes", self.all())
-            .finish()
+        f.debug_struct("Registry").field("meta_nodes", self.all()).finish()
     }
 }

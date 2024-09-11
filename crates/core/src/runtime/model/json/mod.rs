@@ -147,10 +147,6 @@ pub struct RedFlows {
 
 impl Display for RedFlowNodeConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "NodeJSON(id='{}', name='{}', type='{}')",
-            self.id, self.name, self.type_name
-        )
+        write!(f, "NodeJSON(id='{}', name='{}', type='{}')", self.id, self.name, self.type_name)
     }
 }

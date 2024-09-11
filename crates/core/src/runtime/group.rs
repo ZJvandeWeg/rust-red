@@ -35,11 +35,7 @@ impl Group {
         Ok(group)
     }
 
-    pub(crate) fn new_subgroup(
-        config: &RedGroupConfig,
-        flow: &Arc<Flow>,
-        parent: &Arc<Group>,
-    ) -> crate::Result<Self> {
+    pub(crate) fn new_subgroup(config: &RedGroupConfig, flow: &Arc<Flow>, parent: &Arc<Group>) -> crate::Result<Self> {
         let envs_builder = EnvStoreBuilder::default().with_parent(&parent.envs);
 
         let group = Group {

@@ -112,17 +112,11 @@ impl Variant {
                 for e in array.iter() {
                     if let Some(byte) = e.as_i64() {
                         if !(0..=0xFF).contains(&byte) {
-                            return Err(EdgelinkError::NotSupported(
-                                "Invalid byte value".to_owned(),
-                            )
-                            .into());
+                            return Err(EdgelinkError::NotSupported("Invalid byte value".to_owned()).into());
                         }
                         bytes.push(byte as u8)
                     } else {
-                        return Err(EdgelinkError::NotSupported(
-                            "Invalid byte JSON value type".to_owned(),
-                        )
-                        .into());
+                        return Err(EdgelinkError::NotSupported("Invalid byte JSON value type".to_owned()).into());
                     }
                 }
                 Ok(Variant::Bytes(bytes))
@@ -139,9 +133,7 @@ impl Variant {
                 Variant::Rational(f) if *f >= 0.0 && *f <= 255.0 => bytes.push(*f as u8),
                 Variant::Integer(i) if *i >= 0 && *i <= 255 => bytes.push(*i as u8),
                 _ => {
-                    return Err(
-                        EdgelinkError::NotSupported("Unsupported Variant type".into()).into(),
-                    );
+                    return Err(EdgelinkError::NotSupported("Unsupported Variant type".into()).into());
                 }
             }
         }
@@ -164,11 +156,9 @@ impl Variant {
         match self {
             Variant::Bytes(ref bytes) => Some(bytes.clone()),
             Variant::String(ref s) => Some(s.bytes().collect()),
-            Variant::Array(ref arr) => arr
-                .iter()
-                .flat_map(|x| x.to_u8())
-                .next()
-                .map(|_| arr.iter().filter_map(|x| x.to_u8()).collect()),
+            Variant::Array(ref arr) => {
+                arr.iter().flat_map(|x| x.to_u8()).next().map(|_| arr.iter().filter_map(|x| x.to_u8()).collect())
+            }
             Variant::Rational(f) => Some(f.to_string().bytes().collect()),
             Variant::Integer(i) => Some(i.to_string().bytes().collect()),
             _ => None,
@@ -401,10 +391,7 @@ impl Variant {
         }
     }
 
-    pub fn get_item_by_propex_segments_mut(
-        &mut self,
-        psegs: &[PropexSegment],
-    ) -> Option<&mut Variant> {
+    pub fn get_item_by_propex_segments_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
         match psegs.len() {
             0 => None,
             1 => self.get_item_by_propex_segment_mut(&psegs[0]),
@@ -455,11 +442,7 @@ impl Variant {
         self.get_item_by_propex_segments(&prop_segs)
     }
 
-    pub fn set_object_property(
-        &mut self,
-        prop: String,
-        value: Variant,
-    ) -> Result<(), VariantError> {
+    pub fn set_object_property(&mut self, prop: String, value: Variant) -> Result<(), VariantError> {
         match self {
             Variant::Object(ref mut this_obj) => {
                 this_obj.insert(prop, value);
@@ -468,7 +451,10 @@ impl Variant {
             _ => {
                 log::warn!(
                     "Only an object variant can be set the property '{}' to '{:?}', instead this variant is:\n{:?}",
-                    prop, value, self);
+                    prop,
+                    value,
+                    self
+                );
                 Err(VariantError::WrongType)
             }
         }
@@ -504,11 +490,7 @@ impl Variant {
         }
     }
 
-    pub fn set_property_by_propex_segment(
-        &mut self,
-        pseg: &PropexSegment,
-        value: Variant,
-    ) -> Result<(), VariantError> {
+    pub fn set_property_by_propex_segment(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
         match pseg {
             PropexSegment::IntegerIndex(index) => self.set_array_item(*index, value),
             PropexSegment::StringIndex(prop) => self.set_object_property(prop.to_string(), value),
@@ -569,12 +551,9 @@ impl Variant {
         if let Some(terminal_obj) = self.get_item_by_propex_segments_mut(psegs) {
             *terminal_obj = value;
             Ok(())
-        } else if let Some(parent_obj) =
-            self.get_item_by_propex_segments_mut(&psegs[0..=psegs.len() - 2])
-        {
+        } else if let Some(parent_obj) = self.get_item_by_propex_segments_mut(&psegs[0..=psegs.len() - 2]) {
             // 没有就获取上一个属性
-            parent_obj
-                .set_property_by_propex_segment(psegs.last().expect("We're so over"), value)?;
+            parent_obj.set_property_by_propex_segment(psegs.last().expect("We're so over"), value)?;
             Ok(())
         } else {
             Err(VariantError::OutOfRange)
@@ -602,9 +581,7 @@ impl Variant {
 
             Variant::Bool(b) => Ok(js::Value::new_bool(ctx.clone(), *b)),
 
-            Variant::Bytes(bytes) => {
-                Ok(js::ArrayBuffer::new_copy(ctx.clone(), bytes)?.into_value())
-            }
+            Variant::Bytes(bytes) => Ok(js::ArrayBuffer::new_copy(ctx.clone(), bytes)?.into_value()),
 
             Variant::Integer(i) => Ok(js::Value::new_int(ctx.clone(), *i)),
 
@@ -627,8 +604,7 @@ impl Variant {
         use js::FromIteratorJs;
         if let Variant::Array(items) = self {
             let iter = items.iter().map(|e| e.as_js_value(ctx).unwrap()); // TODO FIXME
-            js::Array::from_iter_js(ctx, iter)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()).into())
+            js::Array::from_iter_js(ctx, iter).map_err(|e| EdgelinkError::InvalidData(e.to_string()).into())
         } else {
             Err(crate::EdgelinkError::InvalidOperation("Bad variant type".to_string()).into())
         }
@@ -640,16 +616,11 @@ impl Variant {
         if let Variant::Object(map) = self {
             let obj = js::Object::new(ctx.clone())?;
             for (k, v) in map {
-                let prop_name = k
-                    .into_atom(ctx)
-                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+                let prop_name = k.into_atom(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
-                let prop_value = v
-                    .as_js_value(ctx)
-                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+                let prop_value = v.as_js_value(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
-                obj.set(prop_name, prop_value)
-                    .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+                obj.set(prop_name, prop_value).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
             }
             Ok(obj)
         } else {
@@ -720,8 +691,7 @@ impl From<char> for Variant {
 impl From<&[(String, Variant)]> for Variant {
     #[inline]
     fn from(value: &[(String, Variant)]) -> Self {
-        let map: BTreeMap<String, Variant> =
-            value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
+        let map: BTreeMap<String, Variant> = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -729,10 +699,7 @@ impl From<&[(String, Variant)]> for Variant {
 impl<const N: usize> From<[(&str, Variant); N]> for Variant {
     #[inline]
     fn from(value: [(&str, Variant); N]) -> Self {
-        let map: BTreeMap<String, Variant> = value
-            .iter()
-            .map(|x| (x.0.to_string(), x.1.clone()))
-            .collect();
+        let map: BTreeMap<String, Variant> = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -757,9 +724,7 @@ impl Serialize for Variant {
             Variant::Bytes(v) => serializer.serialize_bytes(v),
             Variant::Regexp(v) => serializer.serialize_str(v),
             Variant::Date(v) => {
-                let ts = v
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(serde::ser::Error::custom)?;
+                let ts = v.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;
                 serializer.serialize_u64(ts.as_millis() as u64)
             }
             Variant::Array(v) => {
@@ -790,14 +755,10 @@ impl From<serde_json::Value> for Variant {
                 Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
             }
             serde_json::Value::String(string) => Variant::String(string.to_owned()),
-            serde_json::Value::Array(array) => {
-                Variant::Array(array.iter().map(Variant::from).collect())
-            }
+            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: BTreeMap<String, Variant> = object
-                    .iter()
-                    .map(|(k, v)| (k.to_owned(), Variant::from(v)))
-                    .collect();
+                let new_map: BTreeMap<String, Variant> =
+                    object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -814,14 +775,10 @@ impl From<&serde_json::Value> for Variant {
                 Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
             }
             serde_json::Value::String(string) => Variant::String(string.clone()),
-            serde_json::Value::Array(array) => {
-                Variant::Array(array.iter().map(Variant::from).collect())
-            }
+            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: BTreeMap<String, Variant> = object
-                    .iter()
-                    .map(|(k, v)| (k.clone(), Variant::from(v)))
-                    .collect();
+                let new_map: BTreeMap<String, Variant> =
+                    object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -993,19 +950,11 @@ impl<'js> js::FromJs<'js> for Variant {
                         Ok(Variant::Object(map))
                     }
                 } else {
-                    Err(js::Error::FromJs {
-                        from: "JS object",
-                        to: "Variant::Object",
-                        message: None,
-                    })
+                    Err(js::Error::FromJs { from: "JS object", to: "Variant::Object", message: None })
                 }
             }
 
-            _ => Err(js::Error::FromJs {
-                from: "Unknown JS type",
-                to: "",
-                message: None,
-            }),
+            _ => Err(js::Error::FromJs { from: "Unknown JS type", to: "", message: None }),
         }
     }
 }
@@ -1027,12 +976,8 @@ mod tests {
         let inner_array = var2.as_array_mut().unwrap()[2].as_array_mut().unwrap();
         inner_array[0] = Variant::Integer(999);
 
-        let value1 = var1.as_array().unwrap()[2].as_array().unwrap()[0]
-            .as_integer()
-            .unwrap();
-        let value2 = var2.as_array().unwrap()[2].as_array().unwrap()[0]
-            .as_integer()
-            .unwrap();
+        let value1 = var1.as_array().unwrap()[2].as_array().unwrap()[0].as_integer().unwrap();
+        let value2 = var2.as_array().unwrap()[2].as_array().unwrap()[0].as_integer().unwrap();
 
         assert_eq!(value1, 901);
         assert_eq!(value2, 999);
@@ -1064,39 +1009,19 @@ mod tests {
             ),
         ]);
 
-        let value1 = obj1
-            .get_object_nav_property("value1")
-            .unwrap()
-            .as_integer()
-            .unwrap();
+        let value1 = obj1.get_object_nav_property("value1").unwrap().as_integer().unwrap();
         assert_eq!(value1, 123);
 
-        let ccc_1 = obj1
-            .get_object_nav_property("value3.ccc")
-            .unwrap()
-            .as_integer()
-            .unwrap();
+        let ccc_1 = obj1.get_object_nav_property("value3.ccc").unwrap().as_integer().unwrap();
         assert_eq!(ccc_1, 555);
 
-        let ccc_2 = obj1
-            .get_object_nav_property("['value3'].ccc")
-            .unwrap()
-            .as_integer()
-            .unwrap();
+        let ccc_2 = obj1.get_object_nav_property("['value3'].ccc").unwrap().as_integer().unwrap();
         assert_eq!(ccc_2, 555);
 
-        let ccc_3 = obj1
-            .get_object_nav_property("['value3'][\"ccc\"]")
-            .unwrap()
-            .as_integer()
-            .unwrap();
+        let ccc_3 = obj1.get_object_nav_property("['value3'][\"ccc\"]").unwrap().as_integer().unwrap();
         assert_eq!(ccc_3, 555);
 
-        let ddd_1 = obj1
-            .get_object_nav_property("value3.ddd")
-            .unwrap()
-            .as_integer()
-            .unwrap();
+        let ddd_1 = obj1.get_object_nav_property("value3.ddd").unwrap().as_integer().unwrap();
         assert_eq!(ddd_1, 999);
     }
 
@@ -1104,35 +1029,17 @@ mod tests {
     fn variant_propex_set_nav_property_with_empty_object_should_be_ok() {
         let mut obj1 = Variant::empty_object();
 
-        obj1.set_object_nav_property("address.country", Variant::String("US".to_string()), true)
-            .unwrap();
-        obj1.set_object_nav_property("address.zip", Variant::String("12345".to_string()), true)
-            .unwrap();
+        obj1.set_object_nav_property("address.country", Variant::String("US".to_string()), true).unwrap();
+        obj1.set_object_nav_property("address.zip", Variant::String("12345".to_string()), true).unwrap();
 
-        obj1.set_object_nav_property("array_field[0]", Variant::String("11111".to_string()), true)
-            .unwrap();
-        obj1.set_object_nav_property("array_field[1]", Variant::String("22222".to_string()), true)
-            .unwrap();
+        obj1.set_object_nav_property("array_field[0]", Variant::String("11111".to_string()), true).unwrap();
+        obj1.set_object_nav_property("array_field[1]", Variant::String("22222".to_string()), true).unwrap();
 
         let obj_address = obj1.get_object_property("address").unwrap();
 
         assert!(obj_address.is_object());
-        assert_eq!(
-            obj_address
-                .get_object_property("country")
-                .unwrap()
-                .as_str()
-                .unwrap(),
-            "US"
-        );
-        assert_eq!(
-            obj_address
-                .get_object_property("zip")
-                .unwrap()
-                .as_str()
-                .unwrap(),
-            "12345"
-        );
+        assert_eq!(obj_address.get_object_property("country").unwrap().as_str().unwrap(), "US");
+        assert_eq!(obj_address.get_object_property("zip").unwrap().as_str().unwrap(), "12345");
 
         assert_eq!(obj_address.len(), 2);
     }

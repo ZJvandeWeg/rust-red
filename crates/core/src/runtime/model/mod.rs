@@ -105,11 +105,7 @@ pub trait GraphElement {
 }
 
 pub trait SettingHolder {
-    fn get_setting<'a>(
-        name: &'a str,
-        node: Option<&'a dyn FlowNodeBehavior>,
-        flow: Option<&'a Flow>,
-    ) -> &'a Variant;
+    fn get_setting<'a>(name: &'a str, node: Option<&'a dyn FlowNodeBehavior>, flow: Option<&'a Flow>) -> &'a Variant;
 }
 
 pub trait RuntimeElement: Any {

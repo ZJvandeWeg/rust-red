@@ -41,10 +41,7 @@ struct App {
 }
 
 impl App {
-    pub fn default(
-        elargs: Arc<CliArgs>,
-        app_config: Option<&config::Config>,
-    ) -> edgelink_core::Result<Self> {
+    pub fn default(elargs: Arc<CliArgs>, app_config: Option<&config::Config>) -> edgelink_core::Result<Self> {
         log::info!("Discovering all nodes...");
         // edgelink_core::runtime::registry::collect_nodes();
         log::info!("Loading node registry...");
@@ -105,11 +102,7 @@ impl App {
             FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?
         };
 
-        Ok(App {
-            _registry: reg,
-            engine,
-            msgs_to_inject: Mutex::new(msgs_to_inject),
-        })
+        Ok(App { _registry: reg, engine, msgs_to_inject: Mutex::new(msgs_to_inject) })
     }
 
     async fn main_flow_task(self: Arc<Self>, cancel: CancellationToken) -> crate::Result<()> {
@@ -119,9 +112,7 @@ impl App {
         {
             let mut entries = self.msgs_to_inject.lock().await;
             for e in entries.iter() {
-                self.engine
-                    .inject_msg(&e.nid, e.msg.clone(), cancel.clone())
-                    .await?;
+                self.engine.inject_msg(&e.nid, e.msg.clone(), cancel.clone()).await?;
             }
             entries.clear();
         }
@@ -165,17 +156,9 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
         .map(|x| x.join(".edgelink").to_string_lossy().to_string())
         .expect("Cannot got the `~/home` directory");
 
-    let edgelink_home_dir = cli_args
-        .home
-        .clone()
-        .or(std::env::var("EDGELINK_HOME").ok())
-        .or(Some(home_dir));
+    let edgelink_home_dir = cli_args.home.clone().or(std::env::var("EDGELINK_HOME").ok()).or(Some(home_dir));
 
-    let run_env = cli_args
-        .env
-        .clone()
-        .and(std::env::var("EDGELINK_RUN_ENV").ok())
-        .unwrap_or("dev".to_string());
+    let run_env = cli_args.env.clone().and(std::env::var("EDGELINK_RUN_ENV").ok()).unwrap_or("dev".to_string());
 
     if cli_args.verbose > 0 {
         if let Some(ref x) = edgelink_home_dir {
@@ -183,16 +166,11 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
         }
     }
 
-    if let Some(md) = edgelink_home_dir
-        .as_ref()
-        .and_then(|x| std::fs::metadata(x).ok())
-    {
+    if let Some(md) = edgelink_home_dir.as_ref().and_then(|x| std::fs::metadata(x).ok()) {
         if md.is_dir() {
             let cfg = config::Config::builder()
                 .add_source(config::File::with_name("edgelinkd.toml"))
-                .add_source(
-                    config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false),
-                )
+                .add_source(config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false))
                 .set_override("home_dir", edgelink_home_dir)?
                 .set_override("run_env", run_env)?
                 .set_override("node.msg_queue_capacity", 1)?
@@ -208,11 +186,7 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
 
 async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
     if cli_args.verbose > 0 {
-        eprintln!(
-            "EdgeLink v{} - #{}\n",
-            consts::APP_VERSION,
-            consts::GIT_HASH
-        );
+        eprintln!("EdgeLink v{} - #{}\n", consts::APP_VERSION, consts::GIT_HASH);
         eprintln!("Loading configuration..");
     }
     let cfg = load_config(&cli_args)?;
@@ -227,11 +201,7 @@ async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
 
     // let m = Modal {};
     // m.run().await;
-    log::info!(
-        "EdgeLink Version={}-#{}",
-        consts::APP_VERSION,
-        consts::GIT_HASH
-    );
+    log::info!("EdgeLink Version={}-#{}", consts::APP_VERSION, consts::GIT_HASH);
     log::info!("==========================================================\n");
 
     // That's right, a CancellationToken. I guess you could say that safely
@@ -240,9 +210,7 @@ async fn app_main(cli_args: Arc<CliArgs>) -> anyhow::Result<()> {
 
     let ctrl_c_token = cancel.clone();
     tokio::task::spawn(async move {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to install CTRL+C signal handler");
+        tokio::signal::ctrl_c().await.expect("Failed to install CTRL+C signal handler");
         log::info!("CTRL+C pressed, cancelling tasks...");
         ctrl_c_token.cancel();
     });

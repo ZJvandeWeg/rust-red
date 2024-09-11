@@ -70,11 +70,7 @@ struct RbeNodeConfig {
     #[serde(skip, default)]
     is_percent: bool,
 
-    #[serde(
-        default,
-        rename = "start",
-        deserialize_with = "json::deser::str_to_option_f64"
-    )]
+    #[serde(default, rename = "start", deserialize_with = "json::deser::str_to_option_f64")]
     start_value: Option<f64>,
 
     #[serde(rename = "septopics", default = "rbe_setopics_default")]
@@ -110,9 +106,7 @@ where
 
     match value {
         // If it's already a float, return it directly
-        serde_json::Value::Number(num) => num
-            .as_f64()
-            .ok_or_else(|| serde::de::Error::custom("Invalid f64")),
+        serde_json::Value::Number(num) => num.as_f64().ok_or_else(|| serde::de::Error::custom("Invalid f64")),
 
         // If it's a string, handle different cases
         serde_json::Value::String(s) => {
@@ -145,10 +139,7 @@ struct RbeNodeState {
 
 impl Default for RbeNodeState {
     fn default() -> Self {
-        Self {
-            current_gap: 0.0,
-            prev: HashMap::new(),
-        }
+        Self { current_gap: 0.0, prev: HashMap::new() }
     }
 }
 
@@ -167,17 +158,10 @@ impl RbeNode {
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut rbe_config = RbeNodeConfig::deserialize(&config.json)?;
-        rbe_config.is_percent = config
-            .json
-            .get("gap")
-            .and_then(|x| x.as_str())
-            .is_some_and(|x| x.trim().ends_with('%'));
+        rbe_config.is_percent =
+            config.json.get("gap").and_then(|x| x.as_str()).is_some_and(|x| x.trim().ends_with('%'));
 
-        let node = RbeNode {
-            base: base_node,
-            config: rbe_config,
-            state: Mutex::new(RbeNodeState::default()),
-        };
+        let node = RbeNode { base: base_node, config: rbe_config, state: Mutex::new(RbeNodeState::default()) };
 
         Ok(Box::new(node))
     }
@@ -234,11 +218,7 @@ impl RbeNode {
 
                 // Handle the initial value of previous_value
                 if prev_value.is_none() && self.config.func.is_narrowband() {
-                    prev_value = if let Some(sv) = self.config.start_value {
-                        Some(sv)
-                    } else {
-                        Some(num_value)
-                    };
+                    prev_value = if let Some(sv) = self.config.start_value { Some(sv) } else { Some(num_value) };
                 }
 
                 // Calculate node.gap
@@ -263,8 +243,7 @@ impl RbeNode {
                 let diff = (num_value - prev_value.unwrap_or(0.0)).abs();
 
                 if (diff == state.current_gap
-                    && (self.config.func == RbeFunc::DeadbandEq
-                        || self.config.func == RbeFunc::Narrowband))
+                    && (self.config.func == RbeFunc::DeadbandEq || self.config.func == RbeFunc::Narrowband))
                     || (diff > state.current_gap && self.config.func.is_deadband())
                     || (diff < state.current_gap && self.config.func.is_narrowband())
                 {
@@ -309,22 +288,17 @@ impl FlowNodeBehavior for RbeNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            with_uow(
-                self.as_ref(),
-                cancel.child_token(),
-                |node, msg| async move {
-                    let can_send = {
-                        let mut msg_guard = msg.write().await;
-                        let mut state_guard = node.state.lock().await;
-                        node.do_filter(&mut msg_guard, &mut state_guard)
-                    };
-                    if can_send {
-                        node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token())
-                            .await?;
-                    }
-                    Ok(())
-                },
-            )
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+                let can_send = {
+                    let mut msg_guard = msg.write().await;
+                    let mut state_guard = node.state.lock().await;
+                    node.do_filter(&mut msg_guard, &mut state_guard)
+                };
+                if can_send {
+                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                }
+                Ok(())
+            })
             .await;
         }
 

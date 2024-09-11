@@ -12,11 +12,7 @@ struct LinkInNode {
 }
 
 impl LinkInNode {
-    fn build(
-        _flow: &Flow,
-        state: FlowNode,
-        _config: &RedFlowNodeConfig,
-    ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+    fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = LinkInNode { base: state };
         Ok(Box::new(node))
     }
@@ -35,14 +31,9 @@ impl FlowNodeBehavior for LinkInNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
-            with_uow(
-                self.as_ref(),
-                cancel.child_token(),
-                |node, msg| async move {
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone())
-                        .await
-                },
-            )
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+                node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone()).await
+            })
             .await;
         }
     }

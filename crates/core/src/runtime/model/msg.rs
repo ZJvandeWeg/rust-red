@@ -46,10 +46,7 @@ impl Msg {
         let msg = Msg {
             link_call_stack: None,
             body: BTreeMap::from([
-                (
-                    wellknown::MSG_ID_PROPERTY.to_string(),
-                    Msg::generate_id_variant(),
-                ),
+                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
                 ("payload".to_string(), Variant::Null),
             ]),
         };
@@ -57,10 +54,7 @@ impl Msg {
     }
 
     pub fn new_with_body(body: BTreeMap<String, Variant>) -> Arc<RwLock<Self>> {
-        let msg = Msg {
-            link_call_stack: None,
-            body,
-        };
+        let msg = Msg { link_call_stack: None, body };
         Arc::new(RwLock::new(msg))
     }
 
@@ -68,10 +62,7 @@ impl Msg {
         let msg = Msg {
             link_call_stack: None,
             body: BTreeMap::from([
-                (
-                    wellknown::MSG_ID_PROPERTY.to_string(),
-                    Msg::generate_id_variant(),
-                ),
+                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
                 ("payload".to_string(), payload),
             ]),
         };
@@ -79,10 +70,7 @@ impl Msg {
     }
 
     pub fn id(&self) -> Option<ElementId> {
-        self.body
-            .get(wellknown::MSG_ID_PROPERTY)
-            .and_then(|x| x.as_str())
-            .and_then(parse_red_id_str)
+        self.body.get(wellknown::MSG_ID_PROPERTY).and_then(|x| x.as_str()).and_then(parse_red_id_str)
     }
 
     pub fn generate_id() -> ElementId {
@@ -161,21 +149,12 @@ impl Msg {
         let _ = self.body.insert(prop, value);
     }
 
-    pub fn set_nav_property(
-        &mut self,
-        expr: &str,
-        value: Variant,
-        create_missing: bool,
-    ) -> crate::Result<()> {
+    pub fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         if expr.is_empty() {
-            return Err(crate::EdgelinkError::BadArguments(
-                "The argument expr cannot be empty".to_string(),
-            )
-            .into());
+            return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
         }
 
-        let segs =
-            propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+        let segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::StringIndex(name)) => name,
@@ -189,11 +168,7 @@ impl Msg {
         };
 
         // If create_missing is true and first_prop doesn't exist, we should create it here.
-        let first_prop = match (
-            self.get_property_mut(first_prop_name),
-            create_missing,
-            segs.len(),
-        ) {
+        let first_prop = match (self.get_property_mut(first_prop_name), create_missing, segs.len()) {
             (Some(prop), _, _) => prop,
             (None, true, 1) => {
                 // Only one level of the property
@@ -236,9 +211,9 @@ impl Msg {
                 *pv = value;
                 Ok(())
             }
-            None if create_missing => first_prop
-                .set_property_by_propex_segments(&segs[1..], value, true)
-                .map_err(Into::into),
+            None if create_missing => {
+                first_prop.set_property_by_propex_segments(&segs[1..], value, true).map_err(Into::into)
+            }
             None => Err(crate::EdgelinkError::InvalidOperation(
                 "Unable to set property: missing intermediate segments".into(),
             )
@@ -246,12 +221,7 @@ impl Msg {
         }
     }
 
-    pub fn set_trimmed_nav_property(
-        &mut self,
-        expr: &str,
-        value: Variant,
-        create_missing: bool,
-    ) -> crate::Result<()> {
+    pub fn set_trimmed_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.set_nav_property(stripped_expr, value, create_missing)
@@ -266,22 +236,16 @@ impl Msg {
         use rquickjs::IntoJs;
         let obj = js::Object::new(ctx.clone())?;
         for (k, v) in self.body.iter() {
-            let prop_name = k
-                .into_atom(ctx)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            let prop_name = k.into_atom(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
-            let prop_value = v
-                .as_js_value(ctx)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            let prop_value = v.as_js_value(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
 
-            obj.set(prop_name, prop_value)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
+            obj.set(prop_name, prop_value).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
         }
 
         {
             let link_source_atom = wellknown::LINK_SOURCE_PROPERTY.into_js(ctx)?;
-            let link_source_buffer =
-                js::ArrayBuffer::new(ctx.clone(), bincode::serialize(&self.link_call_stack)?)?;
+            let link_source_buffer = js::ArrayBuffer::new(ctx.clone(), bincode::serialize(&self.link_call_stack)?)?;
             let link_source_value = link_source_buffer.into_js(ctx)?;
 
             //.map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
@@ -346,10 +310,7 @@ impl Msg {
 
 impl Clone for Msg {
     fn clone(&self) -> Self {
-        Self {
-            link_call_stack: self.link_call_stack.clone(),
-            body: self.body.clone(),
-        }
+        Self { link_call_stack: self.link_call_stack.clone(), body: self.body.clone() }
     }
 }
 
@@ -406,9 +367,7 @@ impl<'de> serde::Deserialize<'de> for Msg {
                     match key {
                         wellknown::LINK_SOURCE_PROPERTY => {
                             if link_call_stack.is_some() {
-                                return Err(de::Error::duplicate_field(
-                                    wellknown::LINK_SOURCE_PROPERTY,
-                                ));
+                                return Err(de::Error::duplicate_field(wellknown::LINK_SOURCE_PROPERTY));
                             }
                             link_call_stack = Some(map.next_value()?);
                         }
@@ -419,10 +378,7 @@ impl<'de> serde::Deserialize<'de> for Msg {
                     }
                 }
 
-                Ok(Msg {
-                    body,
-                    link_call_stack,
-                })
+                Ok(Msg { body, link_call_stack })
             }
         }
 
@@ -443,21 +399,16 @@ impl<'js> js::FromJs<'js> for Msg {
                         match result {
                             Ok((ref k, v)) => match k.as_str() {
                                 wellknown::LINK_SOURCE_PROPERTY => {
-                                    if let Some(bytes) = v
-                                        .as_object()
-                                        .and_then(|x| x.as_array_buffer())
-                                        .and_then(|x| x.as_bytes())
+                                    if let Some(bytes) =
+                                        v.as_object().and_then(|x| x.as_array_buffer()).and_then(|x| x.as_bytes())
                                     {
                                         link_call_stack =
-                                            bincode::deserialize(bytes).map_err(|_| {
-                                                js::Error::FromJs {
+                                            bincode::deserialize(bytes).map_err(|_| js::Error::FromJs {
                                                 from: wellknown::LINK_SOURCE_PROPERTY,
                                                 to: "link_call_stack",
                                                 message: Some(
-                                                    "Failed to deserialize `_linkSource` property"
-                                                        .to_string(),
+                                                    "Failed to deserialize `_linkSource` property".to_string(),
                                                 ),
-                                            }
                                             })?;
                                     }
                                 }
@@ -471,23 +422,12 @@ impl<'js> js::FromJs<'js> for Msg {
                             }
                         }
                     }
-                    Ok(Msg {
-                        link_call_stack,
-                        body,
-                    })
+                    Ok(Msg { link_call_stack, body })
                 } else {
-                    Err(js::Error::FromJs {
-                        from: "JS object",
-                        to: "Variant::Object",
-                        message: None,
-                    })
+                    Err(js::Error::FromJs { from: "JS object", to: "Variant::Object", message: None })
                 }
             }
-            _ => Err(js::Error::FromJs {
-                from: "Unsupported JS type",
-                to: "",
-                message: None,
-            }),
+            _ => Err(js::Error::FromJs { from: "Unsupported JS type", to: "", message: None }),
         }
     }
 }
@@ -510,37 +450,18 @@ mod tests {
         msg.set_property("name".into(), "world".into());
         assert_eq!(msg.get_property("name").unwrap().as_str().unwrap(), "world");
 
-        msg.set_nav_property("foo.bar", "changed2".into(), false)
-            .unwrap();
+        msg.set_nav_property("foo.bar", "changed2".into(), false).unwrap();
         assert_eq!(
-            msg.get_property("foo")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .get("bar")
-                .unwrap()
-                .as_str()
-                .unwrap(),
+            msg.get_property("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(),
             "changed2"
         );
 
-        assert!(msg
-            .set_nav_property("foo.new_field", "new_value".into(), false)
-            .is_err());
+        assert!(msg.set_nav_property("foo.new_field", "new_value".into(), false).is_err());
 
-        assert!(msg
-            .set_nav_property("foo.new_new_field", "new_new_value".into(), true)
-            .is_ok());
+        assert!(msg.set_nav_property("foo.new_new_field", "new_new_value".into(), true).is_ok());
 
         assert_eq!(
-            msg.get_property("foo")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .get("new_new_field")
-                .unwrap()
-                .as_str()
-                .unwrap(),
+            msg.get_property("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
             "new_new_value"
         );
     }
@@ -550,38 +471,19 @@ mod tests {
         let jv = json!({});
         let mut msg = Msg::deserialize(&jv).unwrap();
 
-        msg.set_nav_property("foo.bar", "changed2".into(), true)
-            .unwrap();
+        msg.set_nav_property("foo.bar", "changed2".into(), true).unwrap();
         assert!(msg.contains_property("foo"));
         assert_eq!(
-            msg.get_property("foo")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .get("bar")
-                .unwrap()
-                .as_str()
-                .unwrap(),
+            msg.get_property("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(),
             "changed2"
         );
 
-        assert!(msg
-            .set_nav_property("foo.new_field", "new_value".into(), false)
-            .is_err());
+        assert!(msg.set_nav_property("foo.new_field", "new_value".into(), false).is_err());
 
-        assert!(msg
-            .set_nav_property("foo.new_new_field", "new_new_value".into(), true)
-            .is_ok());
+        assert!(msg.set_nav_property("foo.new_new_field", "new_new_value".into(), true).is_ok());
 
         assert_eq!(
-            msg.get_property("foo")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .get("new_new_field")
-                .unwrap()
-                .as_str()
-                .unwrap(),
+            msg.get_property("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
             "new_new_value"
         );
     }

@@ -59,10 +59,7 @@ impl PropexSegment<'_> {
 
 fn parse_double_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
-        context(
-            "double_quoted_string",
-            preceded(char('\"'), cut(terminated(parse_str, char('\"')))),
-        ),
+        context("double_quoted_string", preceded(char('\"'), cut(terminated(parse_str, char('\"'))))),
         PropexSegment::StringIndex,
     )
     .parse(i)
@@ -70,10 +67,7 @@ fn parse_double_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseEr
 
 fn parse_single_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
-        context(
-            "double_quoted_string",
-            preceded(char('\''), cut(terminated(parse_str, char('\'')))),
-        ),
+        context("double_quoted_string", preceded(char('\''), cut(terminated(parse_str, char('\''))))),
         PropexSegment::StringIndex,
     )
     .parse(i)
@@ -88,10 +82,7 @@ fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str
 }
 
 fn parse_integer_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map_res(digit1, |digit_str: &str| {
-        digit_str.parse::<usize>().map(PropexSegment::IntegerIndex)
-    })
-    .parse(i)
+    map_res(digit1, |digit_str: &str| digit_str.parse::<usize>().map(PropexSegment::IntegerIndex)).parse(i)
 }
 
 fn parse_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
@@ -105,14 +96,7 @@ fn parse_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
 
 fn parse_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
-        context(
-            "property",
-            delimited(
-                multispace0,
-                crate::text::nom_parsers::identifier,
-                multispace0,
-            ),
-        ),
+        context("property", delimited(multispace0, crate::text::nom_parsers::identifier, multispace0)),
         PropexSegment::StringIndex,
     )
     .parse(i)
@@ -124,11 +108,7 @@ fn parse_subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>
             "subproperty",
             preceded(
                 delimited(multispace0, char('.'), multispace0),
-                delimited(
-                    multispace0,
-                    crate::text::nom_parsers::identifier,
-                    multispace0,
-                ),
+                delimited(multispace0, crate::text::nom_parsers::identifier, multispace0),
             ),
         ),
         PropexSegment::StringIndex,

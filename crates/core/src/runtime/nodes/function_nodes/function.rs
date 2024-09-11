@@ -52,10 +52,7 @@ impl FlowNodeBehavior for FunctionNode {
         let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
         let mut resolver = js::loader::BuiltinResolver::default();
         resolver.add_module("console");
-        let loaders = (
-            js::loader::ScriptLoader::default(),
-            js::loader::ModuleLoader::default(),
-        );
+        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
         js_rt.set_loader(resolver, loaders).await;
 
         let _ = self.init_async(&js_ctx).await;
@@ -63,33 +60,26 @@ impl FlowNodeBehavior for FunctionNode {
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
             let cancel = stop_token.child_token();
-            with_uow(
-                self.as_ref(),
-                cancel.child_token(),
-                |node, msg| async move {
-                    let res = {
-                        let mut msg_guard = msg.write().await;
-                        node.filter_msg(&mut msg_guard, sub_ctx).await
-                    };
-                    match res {
-                        Ok(changed_msgs) => {
-                            let envelopes = changed_msgs
-                                .into_iter()
-                                .map(|x| Envelope {
-                                    port: x.0,
-                                    msg: Arc::new(RwLock::new(x.1)),
-                                })
-                                .collect::<SmallVec<[Envelope; 4]>>();
+            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+                let res = {
+                    let mut msg_guard = msg.write().await;
+                    node.filter_msg(&mut msg_guard, sub_ctx).await
+                };
+                match res {
+                    Ok(changed_msgs) => {
+                        let envelopes = changed_msgs
+                            .into_iter()
+                            .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
+                            .collect::<SmallVec<[Envelope; 4]>>();
 
-                            node.fan_out_many(&envelopes, cancel.child_token()).await?;
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                    Ok(())
-                },
-            )
+                        node.fan_out_many(&envelopes, cancel.child_token()).await?;
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                Ok(())
+            })
             .await;
         }
 
@@ -111,35 +101,26 @@ impl FunctionNode {
             function_config.outputs = 1;
         }
 
-        let node = FunctionNode {
-            base: base_node,
-
-            config: function_config,
-        };
+        let node = FunctionNode { base: base_node, config: function_config };
         Ok(Box::new(node))
     }
 
-    async fn filter_msg(
-        &self,
-        msg: &mut Msg,
-        js_ctx: &js::AsyncContext,
-    ) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
+    async fn filter_msg(&self, msg: &mut Msg, js_ctx: &js::AsyncContext) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
         let origin_msg = &msg;
-        let eval_result: js::Result<SmallVec<[(usize, Msg); 4]>> =
-            js::async_with!(js_ctx => |ctx| {
-                let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-                let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
-                let args =(js::Value::new_null(ctx.clone()), js_msg);
-                let js_res_value: js::Result<js::Value> = user_func.call(args);
-                match js_res_value.catch(&ctx) {
-                    Ok(js_result) => self.convert_return_value(&ctx , js_result),
-                    Err(e) => {
-                        log::error!("Javascript user function exception: {:?}", e);
-                        Err(js::Error::Exception)
-                    }
+        let eval_result: js::Result<SmallVec<[(usize, Msg); 4]>> = js::async_with!(js_ctx => |ctx| {
+            let user_func : js::Function = ctx.globals().get("__el_user_func")?;
+            let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
+            let args =(js::Value::new_null(ctx.clone()), js_msg);
+            let js_res_value: js::Result<js::Value> = user_func.call(args);
+            match js_res_value.catch(&ctx) {
+                Ok(js_result) => self.convert_return_value(&ctx , js_result),
+                Err(e) => {
+                    log::error!("Javascript user function exception: {:?}", e);
+                    Err(js::Error::Exception)
                 }
-            })
-            .await;
+            }
+        })
+        .await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
@@ -164,12 +145,7 @@ impl FunctionNode {
             }
             js::Type::Array => {
                 // Returns an array of Msgs
-                for (port, ele) in js_result
-                    .as_array()
-                    .unwrap()
-                    .iter::<js::Value>()
-                    .enumerate()
-                {
+                for (port, ele) in js_result.as_array().unwrap().iter::<js::Value>().enumerate() {
                     match ele {
                         Ok(ele) => {
                             if ele.is_object() {
@@ -196,10 +172,7 @@ impl FunctionNode {
                 }
             }
             _ => {
-                log::warn!(
-                    "Wrong type of the return values: Javascript type={}",
-                    js_result.type_of()
-                );
+                log::warn!("Wrong type of the return values: Javascript type={}", js_result.type_of());
             }
         }
         Ok(items)

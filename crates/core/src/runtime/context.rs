@@ -5,9 +5,7 @@ pub struct ContextStoreProperty<'a> {
     pub key: &'a str,
 }
 
-fn context_store_parser(
-    input: &str,
-) -> nom::IResult<&str, ContextStoreProperty<'_>, nom::error::VerboseError<&str>> {
+fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty<'_>, nom::error::VerboseError<&str>> {
     use crate::text::nom_parsers::*;
     use nom::{
         bytes::complete::tag,
@@ -18,11 +16,7 @@ fn context_store_parser(
 
     let (input, _) = tag("#:")(input)?;
 
-    let (input, store) = delimited(
-        char('('),
-        delimited(multispace0, identifier, multispace0),
-        char(')'),
-    )(input)?;
+    let (input, store) = delimited(char('('), delimited(multispace0, identifier, multispace0), char(')'))(input)?;
 
     let (input, _) = tag("::")(input)?;
     let (input, key) = rest(input)?;
@@ -48,9 +42,6 @@ fn context_store_parser(
 pub fn parse_context_store(key: &str) -> crate::Result<ContextStoreProperty<'_>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
-        Err(e) => Err(EdgelinkError::BadArguments(
-            format!("Can not parse the key: '{0}'", e).to_owned(),
-        )
-        .into()),
+        Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),
     }
 }

@@ -77,13 +77,9 @@ impl FlowEngine {
             _args: FlowEngineArgs::load(elcfg)?,
         });
 
-        engine
-            .clone()
-            .load_flows(&json_values.flows, reg.clone(), elcfg)?;
+        engine.clone().load_flows(&json_values.flows, reg.clone(), elcfg)?;
 
-        engine
-            .clone()
-            .load_global_nodes(&json_values.global_nodes, reg.clone())?;
+        engine.clone().load_global_nodes(&json_values.global_nodes, reg.clone())?;
 
         Ok(engine)
     }
@@ -120,21 +116,15 @@ impl FlowEngine {
     ) -> crate::Result<()> {
         // load flows
         for flow_config in flow_configs.iter() {
-            log::debug!(
-                "---- Loading flow/subflow: (id='{}', label='{}')...",
-                flow_config.id,
-                flow_config.label
-            );
+            log::debug!("---- Loading flow/subflow: (id='{}', label='{}')...", flow_config.id, flow_config.label);
             let flow = Flow::new(self.clone(), flow_config, reg.clone(), elcfg)?;
             {
                 // register all nodes
                 for fnode in flow.get_all_flow_nodes().iter() {
                     if self.state.all_flow_nodes.contains_key(&fnode.id()) {
-                        return Err(EdgelinkError::InvalidData(format!(
-                            "This flow node already existed: {}",
-                            fnode
-                        ))
-                        .into());
+                        return Err(
+                            EdgelinkError::InvalidData(format!("This flow node already existed: {}", fnode)).into()
+                        );
                     }
                     self.state.all_flow_nodes.insert(fnode.id(), fnode.clone());
                 }
@@ -181,9 +171,7 @@ impl FlowEngine {
                 }
             };
 
-            self.state
-                .global_nodes
-                .insert(*global_node.id(), Arc::from(global_node));
+            self.state.global_nodes.insert(*global_node.id(), Arc::from(global_node));
         }
         Ok(())
     }
@@ -214,10 +202,7 @@ impl FlowEngine {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
-            Err(
-                EdgelinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id))
-                    .into(),
-            )
+            Err(EdgelinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id)).into())
         }
     }
 
@@ -226,9 +211,7 @@ impl FlowEngine {
             f.value().start().await?;
         }
 
-        self.state
-            .shutdown
-            .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.state.shutdown.store(false, std::sync::atomic::Ordering::Relaxed);
 
         log::info!("-- All flows started.");
         Ok(())
@@ -242,9 +225,7 @@ impl FlowEngine {
             i.value().stop().await?;
         }
 
-        self.state
-            .shutdown
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.state.shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
         //drop(self.stopped_tx);
         log::info!("-- All flows stopped.");
         Ok(())
@@ -254,10 +235,7 @@ impl FlowEngine {
         self.state.all_flow_nodes.get(id).map(|x| x.value().clone())
     }
 
-    pub fn find_flow_node_by_name(
-        &self,
-        name: &str,
-    ) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
+    pub fn find_flow_node_by_name(&self, name: &str) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
         for i in self.state.flows.iter() {
             let flow = i.value();
             let opt_node = flow.get_node_by_name(name)?;
@@ -276,10 +254,7 @@ impl FlowEngine {
     ) -> crate::Result<()> {
         let node = self
             .find_flow_node_by_id(flow_node_id)
-            .ok_or(EdgelinkError::BadArguments(format!(
-                "Cannot found the flow node, id='{}'",
-                flow_node_id
-            )))?;
+            .ok_or(EdgelinkError::BadArguments(format!("Cannot found the flow node, id='{}'", flow_node_id)))?;
         node.inject_msg(msg, cancel).await
     }
 
