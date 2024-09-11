@@ -29,12 +29,16 @@ def extract_it_strings_js(file_path):
             matches = JS_IT_PATTERN.findall(line)
             for match in matches:
                 try:
-                    escaped_string = ast.literal_eval(match)
+                    try:
+                        escaped_string = ast.literal_eval(match).strip()
+                    except ValueError as e:
+                        print(f"\t\t{Fore.YELLOW}Warning: unable to parse string: '{match}'{Style.RESET_ALL}")
+                        continue
                     specs.append(escaped_string)
                     # print(f"{counter:04d}|\"{escaped_string}\"")
                     counter += 1
                 except SyntaxError as e:
-                    print(f"Unable to parse JS string: {match}")
+                    print(f"Unable to parse JS string: '{match}'")
                     raise e
     return specs
 
@@ -47,7 +51,7 @@ def extract_it_strings_py(file_path):
             matches = PY_IT_PATTERN.findall(line)
             for match in matches:
                 try:
-                    escaped_string = ast.literal_eval(match)
+                    escaped_string = ast.literal_eval(match).strip()
                     specs.append(escaped_string)
                     # print(f"{counter:04d}|\"{escaped_string}\"")
                     counter += 1

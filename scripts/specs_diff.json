@@ -1,8 +1,15 @@
 [
     ["nodes/test_subflow.py", "test/nodes/subflow/subflow_spec.js"],
+
+    ["nodes/common/test_inject_node.py", "test/nodes/core/common/20-inject_spec.js"],
     ["nodes/common/test_link_nodes.py", "test/nodes/core/common/60-link_spec.js"],
+
     ["nodes/function/test_function_node.py", "test/nodes/core/function/10-function_spec.js"],
+    ["nodes/function/test_switch_node.py", "test/nodes/core/function/10-switch_spec.js"],
     ["nodes/function/test_change_node.py", "test/nodes/core/function/15-change_spec.js"],
-    ["nodes/function/test_rbe_node.py", "test/nodes/core/function/rbe_spec.js"],
-    ["nodes/function/test_range_node.py", "test/nodes/core/function/16-range_spec.js"]
+    ["nodes/function/test_range_node.py", "test/nodes/core/function/16-range_spec.js"],
+    ["nodes/function/test_template_node.py", "test/nodes/core/function/80-template_spec.js"],
+    ["nodes/function/test_delay_node.py", "test/nodes/core/function/89-delay_spec.js"],
+    ["nodes/function/test_trigger_node.py", "test/nodes/core/function/89-trigger_spec.js"],
+    ["nodes/function/test_rbe_node.py", "test/nodes/core/function/rbe_spec.js"]
 ]
