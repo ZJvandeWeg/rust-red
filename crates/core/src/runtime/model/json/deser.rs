@@ -148,8 +148,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut flow_configs = Vec::with_capacity(flows.len());
-    for flow in sorted_flows.iter() {
+    for (flow_ordering, flow) in sorted_flows.iter().enumerate() {
         let mut flow_config: RedFlowConfig = serde_json::from_value(flow.clone())?;
+        flow_config.ordering = flow_ordering;
 
         flow_config.subflow_node_id = if flow_config.type_name == "subflow" {
             let key_type = format!("subflow:{}", flow_config.id);

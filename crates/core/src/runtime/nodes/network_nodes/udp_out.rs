@@ -120,10 +120,6 @@ impl FlowNodeBehavior for UdpOutNode {
         &self.base
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         let local_addr: SocketAddr = match self.config.outport {
             Some(port) => SocketAddr::new(self.config.iface.unwrap(), port),

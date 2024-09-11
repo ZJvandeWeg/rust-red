@@ -178,10 +178,6 @@ impl FlowNodeBehavior for InjectNode {
         &self.base
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         let mut is_executed = false;
         if self.config.once {

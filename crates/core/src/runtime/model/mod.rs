@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
@@ -27,6 +27,15 @@ pub use settings::*;
 pub use variant::*;
 
 use super::flow::Flow;
+
+pub trait FlowsElement {
+    fn id(&self) -> ElementId;
+    fn name(&self) -> &str;
+    fn type_str(&self) -> &'static str;
+    fn ordering(&self) -> usize;
+    fn as_any(&self) -> &dyn ::std::any::Any;
+    fn parent_element(&self) -> Option<Arc<dyn FlowsElement>>;
+}
 
 #[derive(Debug)]
 pub struct PortWire {
@@ -95,13 +104,6 @@ impl MsgReceiverHolder {
             }
         }
     }
-}
-
-pub trait GraphElement {
-    fn parent(&self) -> Option<Weak<Self>>
-    where
-        Self: Sized;
-    fn parent_ref(&self) -> Option<Weak<dyn GraphElement>>;
 }
 
 pub trait SettingHolder {

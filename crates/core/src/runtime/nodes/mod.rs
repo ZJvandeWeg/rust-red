@@ -98,29 +98,10 @@ pub trait GlobalNodeBehavior: 'static + Send + Sync {
 }
 
 #[async_trait]
-pub trait FlowNodeBehavior: 'static + Send + Sync {
+pub trait FlowNodeBehavior: 'static + Send + Sync + FlowsElement {
     fn get_node(&self) -> &FlowNode;
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken);
-
-    /// Cast the global node to the any type
-    fn as_any(&self) -> &dyn Any;
-
-    fn id(&self) -> ElementId {
-        self.get_node().id
-    }
-
-    fn name(&self) -> &str {
-        &self.get_node().name
-    }
-
-    fn type_str(&self) -> &'static str {
-        self.get_node().type_str
-    }
-
-    fn ordering(&self) -> usize {
-        self.get_node().ordering
-    }
 
     fn group(&self) -> &Option<Weak<Group>> {
         &self.get_node().group

@@ -24,10 +24,6 @@ impl FlowNodeBehavior for LinkInNode {
         &self.base
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();

@@ -59,10 +59,6 @@ impl FlowNodeBehavior for UnknownFlowNode {
         &self.state
     }
 
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
             stop_token.cancelled().await;

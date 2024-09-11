@@ -21,6 +21,32 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
+        impl FlowsElement for #struct_name {
+            fn id(&self) -> ElementId {
+                self.get_node().id
+            }
+
+            fn name(&self) -> &str {
+                &self.get_node().name
+            }
+
+            fn type_str(&self) -> &'static str {
+                self.get_node().type_str
+            }
+
+            fn ordering(&self) -> usize {
+                self.get_node().ordering
+            }
+
+            fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {
+                self.get_node().flow.upgrade().and_then(|arc| Some(arc as std::sync::Arc<dyn FlowsElement>))
+            }
+
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
+        }
+
         #[linkme::distributed_slice(__META_NODES)]
         static #meta_node_name: MetaNode = MetaNode {
             kind: NodeKind::Flow,
@@ -49,6 +75,7 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #input
+
 
         #[linkme::distributed_slice(__META_NODES)]
         static #meta_node_name: MetaNode = MetaNode {

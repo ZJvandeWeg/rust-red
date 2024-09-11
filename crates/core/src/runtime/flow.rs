@@ -82,6 +82,8 @@ pub struct Flow {
     pub label: String,
     pub disabled: bool,
     pub args: FlowArgs,
+    pub ordering: usize,
+    pub type_str: &'static str,
 
     pub engine: Weak<FlowEngine>,
 
@@ -92,16 +94,32 @@ pub struct Flow {
     envs: Arc<EnvStore>,
 }
 
-impl GraphElement for Flow {
-    fn parent(&self) -> Option<Weak<Flow>> {
-        self.parent.clone()
+impl FlowsElement for Flow {
+    fn id(&self) -> ElementId {
+        self.id
     }
 
-    fn parent_ref(&self) -> Option<Weak<dyn GraphElement>> {
+    fn name(&self) -> &str {
+        &self.label
+    }
+
+    fn type_str(&self) -> &'static str {
+        self.type_str
+    }
+
+    fn ordering(&self) -> usize {
+        self.ordering
+    }
+
+    fn parent_element(&self) -> Option<Arc<dyn FlowsElement>> {
         self.parent
             .as_ref()
             .and_then(|weak_parent| weak_parent.upgrade())
-            .map(|arc| Arc::downgrade(&(arc as Arc<dyn GraphElement>)))
+            .and_then(|arc| Some(arc as Arc<dyn FlowsElement>))
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
     }
 }
 
@@ -271,7 +289,12 @@ impl Flow {
             engine: Arc::downgrade(&engine),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
+            ordering: flow_config.ordering,
             args: FlowArgs::load(options)?,
+            type_str: match flow_kind {
+                FlowKind::GlobalFlow => "flow",
+                FlowKind::Subflow => "subflow",
+            },
             state: FlowState {
                 groups: DashMap::new(),
                 nodes: DashMap::new(),

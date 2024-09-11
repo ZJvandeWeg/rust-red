@@ -66,6 +66,9 @@ pub struct RedFlowConfig {
 
     #[serde(skip)]
     pub subflow_node_id: Option<ElementId>,
+
+    #[serde(skip, default)]
+    pub ordering: usize,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
