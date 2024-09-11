@@ -4,6 +4,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rquickjs::function::Constructor;
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{self, de, Deserializer};
 use serde::{Deserialize, Serialize};
@@ -547,12 +548,10 @@ impl Variant {
             }
         }
 
-        // 如果最后一个属性存在
         if let Some(terminal_obj) = self.get_item_by_propex_segments_mut(psegs) {
             *terminal_obj = value;
             Ok(())
         } else if let Some(parent_obj) = self.get_item_by_propex_segments_mut(&psegs[0..=psegs.len() - 2]) {
-            // 没有就获取上一个属性
             parent_obj.set_property_by_propex_segment(psegs.last().expect("We're so over"), value)?;
             Ok(())
         } else {
@@ -575,6 +574,7 @@ impl Variant {
 
     #[cfg(feature = "js")]
     pub fn as_js_value<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Value<'js>> {
+        use js::function::Constructor;
         use js::IntoJs;
         match self {
             Variant::Array(_) => Ok(js::Value::from_array(self.as_js_array(ctx)?)),
@@ -595,7 +595,11 @@ impl Variant {
 
             Variant::Date(t) => t.into_js(ctx).map_err(|e| e.into()),
 
-            Variant::Regexp(re) => re.into_js(ctx).map_err(|e| e.into()), // TODO FIXME
+            Variant::Regexp(re) => {
+                let global = ctx.globals();
+                let regexp_ctor: Constructor = global.get("RegExp")?;
+                regexp_ctor.construct((re,)).map_err(|e| e.into())
+            }
         }
     }
 
@@ -925,8 +929,8 @@ impl<'js> js::FromJs<'js> for Variant {
             js::Type::Object => {
                 if let Some(jo) = jv.as_object() {
                     let global = _ctx.globals();
-                    let date_ctor: js::Object = global.get("Date")?;
-                    let regexp_ctor: js::Object = global.get("RegExp")?;
+                    let date_ctor: Constructor = global.get("Date")?;
+                    let regexp_ctor: Constructor = global.get("RegExp")?;
                     if jo.is_instance_of(date_ctor) {
                         let st = jv.get::<SystemTime>()?;
                         Ok(Variant::Date(st))
