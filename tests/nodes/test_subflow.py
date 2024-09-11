@@ -370,7 +370,7 @@ class TestSubflow:
             ]},
             {"id": "2000", "z": "999", "g": "1000", "type": "group", "env": []},
             {"id": "1", "z": "999", "g": "2000",
-                "type": "subflow:100", "wires": [["n2"]]},
+                "type": "subflow:100", "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "console-json", "wires": []},
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "", "env": [],
                 "in": [{"wires": [{"id": "101"}]}],
