@@ -83,16 +83,18 @@ if __name__ == "__main__":
         py_specs = extract_it_strings_py(py_path)
 
         diff = difflib.Differ().compare(js_specs, py_specs)
-        differences = [line for line in diff
-                       if line.startswith('-') or line.startswith('+')]
+        differences = [line for line in diff if line.startswith('-') or line.startswith('+')]
+        # differences = [line for line in diff]
         total_diff_count += len(differences)
         if len(differences) > 0:
-            print(f'''{Fore.CYAN}{p[0]}{Style.RESET_ALL}''')
+            print(f'''{Fore.WHITE}{p[0]}({len(py_specs)}/{len(js_specs)}):{Style.RESET_ALL}''')
             for s in differences:
                 if s[0] == '-':
-                    print(f'''\t{Fore.RED}{s}{Style.RESET_ALL}''')
+                    print(f'''\t{Fore.RED}{s[0]}{Style.RESET_ALL}{s[1:]}''')
+                elif s[0] == '+':
+                    print(f'''\t{Fore.GREEN}{s[0]}{Style.RESET_ALL}{s[1:]}''')
                 else:
-                    print(f'''\t{Fore.GREEN}{s}{Style.RESET_ALL}''')
+                    print(f'''\t{Style.DIM}{s}{Style.RESET_ALL}''')
 
 
     if total_diff_count > 0:
