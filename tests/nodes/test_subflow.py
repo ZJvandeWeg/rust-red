@@ -131,21 +131,20 @@ class TestSubflow:
     @pytest.mark.it('should access last env var with same name')
     async def test_0006(self):
         flows = [
-            {"id": "100", "type": "tab", "label": "",
+            {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "100", "type": "subflow:200", "env": [
+            {"id": "1",  "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V0"},
                 {"name": "X", "type": "str", "value": "VX"},
                 {"name": "K", "type": "str", "value": "V1"}
             ], "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "console-json", "wires": []},
             # Subflow
-            {"id": "200", "type": "subflow", "name": "Subflow", "info": "",
-             "in": [{"wires": [{"id": "3"}]}],
-             "out": [{"wires": [{"id": "3", "port": 0}]
-                      }]
+            {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
+             "in": [{"wires": [{"id": "101"}]}],
+             "out": [{"wires": [{"id": "101", "port": 0}]}]
              },
-            {"id": "3", "type": "change", "z": "200",
+            {"id": "101", "type": "change", "z": "100",
                 "rules": [{"t": "set", "p": "V", "pt": "msg", "to": "K", "tot": "env"}],
                 "name": "set-env-node", "wires": []},
         ]
@@ -203,22 +202,22 @@ class TestSubflow:
     @pytest.mark.it('should overwrite env var of subflow template by env var of subflow instance')
     async def test_0008(self):
         flows = [
-            {"id": "100", "type": "tab", "label": "",
+            {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "100", "type": "subflow:200", "env": [
+            {"id": "1",  "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V"},
             ], "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "console-json", "wires": []},
             # Subflow
-            {"id": "200", "type": "subflow", "name": "Subflow", "info": "",
+            {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
              "env": [
                  {"name": "K", "type": "str", "value": "TV"},
              ],
-             "in": [{"wires": [{"id": "3"}]}],
-             "out": [{"wires": [{"id": "3", "port": 0}]
+             "in": [{"wires": [{"id": "101"}]}],
+             "out": [{"wires": [{"id": "101", "port": 0}]
                       }]
              },
-            {"id": "3", "type": "change", "z": "200",
+            {"id": "101", "type": "change", "z": "100",
                 "rules": [{"t": "set", "p": "V", "pt": "msg", "to": "K", "tot": "env"}],
                 "name": "set-env-node", "wires": []},
         ]
@@ -234,8 +233,7 @@ class TestSubflow:
         flows = [
             {"id": "100", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "t0",
-                "type": "subflow:200", "wires": [["2"]]},
+            {"id": "1",  "z": "t0", "type": "subflow:200", "wires": [["2"]]},
             {"id": "2", "z": "100", "type": "console-json", "wires": []},
             # Subflow1
             {"id": "200", "type": "subflow", "name": "Subflow1", "info": "",

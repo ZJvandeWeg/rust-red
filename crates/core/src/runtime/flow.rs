@@ -250,7 +250,21 @@ impl Flow {
             .subflow_node_id
             .and_then(|x| engine.find_flow_node_by_id(&x));
 
-        let mut envs_builder = EnvStoreBuilder::default().with_parent(&engine.get_envs());
+        let mut envs_builder = EnvStoreBuilder::default();
+        envs_builder = match flow_kind {
+            FlowKind::GlobalFlow => envs_builder.with_parent(&engine.get_envs()),
+            FlowKind::Subflow => {
+                if let Some(ref instance) = subflow_instance {
+                    envs_builder.with_parent(&instance.get_envs())
+                } else {
+                    log::warn!(
+                        "Cannot found the instance node of the subflow: id='{}'",
+                        flow_config.id
+                    );
+                    envs_builder.with_parent(&engine.get_envs())
+                }
+            }
+        };
         if let Some(env_json) = flow_config.json.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }

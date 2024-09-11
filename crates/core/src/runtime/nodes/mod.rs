@@ -132,6 +132,10 @@ pub trait FlowNodeBehavior: 'static + Send + Sync {
         &self.get_node().flow
     }
 
+    fn get_envs(&self) -> Arc<EnvStore> {
+        self.get_node().envs.clone()
+    }
+
     fn get_env(&self, key: &str) -> Option<Variant> {
         self.get_node().envs.evalute_env(key)
     }
