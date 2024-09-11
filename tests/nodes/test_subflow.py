@@ -231,31 +231,42 @@ class TestSubflow:
     @pytest.mark.it('should access env var of parent subflow template')
     async def test_0009(self):
         flows = [
-            {"id": "100", "type": "tab", "label": "",
+            {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "t0", "type": "subflow:200", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "998", "z": "999", "type": "console-json", "wires": []},
+            {"id": "1", "z": "999",
+                "type": "subflow:100", "wires": [["998"]]},
             # Subflow1
-            {"id": "200", "type": "subflow", "name": "Subflow1", "info": "",
-             "env": [
-                 {"name": "K", "type": "str", "value": "V"},
-             ],
-             "in": [{"wires": [{"id": "201"}]}],
-             "out": [{"wires": [{"id": "202", "port": 0}]}]},
-            {"id": "201",  "z": "s1",
-                "type": "subflow:300", "wires": [["201"]]},
-            {"id": "202", "z": "s1", "type": "function",
-                "func": "return msg;", "wires": []},
+            {
+                "id": "100",
+                "type": "subflow",
+                "name": "Subflow1",
+                "info": "",
+                "env": [
+                    {"name": "K", "type": "str", "value": "V"}
+                ],
+                "in": [{"wires": [{"id": "101"}]}],
+                "out": [{"wires": [{"id": "102", "port": 0}]}]
+            },
+            {"id": "101", "z": "100",
+                "type": "subflow:200", "wires": [["102"]]},
+            {
+                "id": "102",
+                "z": "100",
+                "type": "function",
+                "func": "return msg;",
+                "wires": []
+            },
             # Subflow2
-            {"id": "300", "type": "subflow", "name": "Subflow2", "info": "",
-             "in": [{
-                 "wires": [{"id": "301"}]
-             }],
-             "out": [{
-                 "wires": [{"id": "301", "port": 0}]
-             }]
-             },
-            {"id": "301", "type": "change", "z": "300",
+            {
+                "id": "200",
+                "type": "subflow",
+                "name": "Subflow2",
+                "info": "",
+                "in": [{"wires": [{"id": "201"}]}],
+                "out": [{"wires": [{"id": "201", "port": 0}]}]
+            },
+            {"id": "201", "type": "change", "z": "200",
                 "rules": [{"t": "set", "p": "V", "pt": "msg", "to": "K", "tot": "env"}],
                 "name": "set-env-node", "wires": []},
         ]
@@ -275,7 +286,7 @@ class TestSubflow:
              "env": [
                  {"name": "K", "type": "str", "value": "V"}
              ],
-             "wires": [["n2"]]},
+             "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "console-json", "wires": []},
             # Subflow1
             {"id": "100", "type": "subflow", "name": "Subflow1", "info": "",

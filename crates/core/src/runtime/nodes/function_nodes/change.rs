@@ -104,7 +104,6 @@ impl ChangeNode {
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let json = handle_legacy_json(config.json.clone())?;
-        log::debug!("REG:\n{}", serde_json::to_string_pretty(&json)?);
         let change_config = ChangeNodeConfig::deserialize(&json)?;
         let node = ChangeNode {
             base: state,
