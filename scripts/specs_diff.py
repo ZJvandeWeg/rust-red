@@ -6,11 +6,11 @@ import ast
 import difflib
 import os
 import json
+import shutil
 
 from colorama import init as colorama_init
 from colorama import Fore
 from colorama import Style
-
 
 
 _SCRIPT_PATH = os.path.abspath(__file__)
@@ -64,6 +64,12 @@ def read_pairs() -> list[list]:
         return json.loads(json_text)
 
 
+def print_sep(text=''):
+    terminal_size = shutil.get_terminal_size()
+    filled_text = text.ljust(terminal_size.columns, '-')
+    print(filled_text)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Scan a .js file, extract lines containing it('arbitrary text') or it(\"arbitrary text\"), and print the text with a four-digit number prefix.")
@@ -75,7 +81,8 @@ if __name__ == "__main__":
 
     pairs = read_pairs()
 
-    total_diff_count = 0
+    total_js_count = 0
+    total_py_count = 0
     for p in pairs:
         js_path = os.path.join(args.NR_PATH, p[1])
         py_path = os.path.join(os.path.normpath(os.path.join(TESTS_DIR, p[0])))
@@ -83,21 +90,33 @@ if __name__ == "__main__":
         py_specs = extract_it_strings_py(py_path)
 
         diff = difflib.Differ().compare(js_specs, py_specs)
-        differences = [line for line in diff if line.startswith('-') or line.startswith('+')]
+        differences = [line for line in diff if line.startswith(
+            '-') or line.startswith('+')]
         # differences = [line for line in diff]
-        total_diff_count += len(differences)
-        if len(differences) > 0:
-            print(f'''{Fore.WHITE}{p[0]}({len(py_specs)}/{len(js_specs)}):{Style.RESET_ALL}''')
-            for s in differences:
-                if s[0] == '-':
-                    print(f'''\t{Fore.RED}{s[0]}{Style.RESET_ALL}{s[1:]}''')
-                elif s[0] == '+':
-                    print(f'''\t{Fore.GREEN}{s[0]}{Style.RESET_ALL}{s[1:]}''')
-                else:
-                    print(f'''\t{Style.DIM}{s}{Style.RESET_ALL}''')
+        total_js_count += len(js_specs)
+        total_py_count += len(py_specs)
+        if len(py_specs) >= len(js_specs):
+            print(
+                f'''{Fore.GREEN}* [✓]{Style.RESET_ALL} "{p[0]}" ({len(py_specs)}/{len(js_specs)})''')
+        else:
+            print(
+                f'''{Fore.RED}* [×]{Style.RESET_ALL} "{p[0]}" {Fore.RED}({len(py_specs)}/{len(js_specs)}){Style.RESET_ALL}''')
+        for s in differences:
+            if s[0] == '-':
+                print(f'''\t{Fore.RED}{s[0]} It: {Style.RESET_ALL}{s[2:]}''')
+            elif s[0] == '+':
+                print(f'''\t{Fore.GREEN}{s[0]} It: {Style.RESET_ALL}{s[2:]}''')
+            else:
+                print(f'''\t{Style.DIM}{s}{Style.RESET_ALL}''')
 
+    print_sep("")
+    print("Total:")
+    print(f"JS specs:\t{str(total_js_count).rjust(8)}")
+    print(f"Python specs:\t{str(total_py_count).rjust(8)}")
+    pc = "{:>{}.1%}".format(total_py_count * 1.0 / total_js_count, 8)
+    print(f"Percent:\t{pc}")
 
-    if total_diff_count > 0:
+    if total_py_count < total_js_count:
         exit(-1)
     else:
         exit(0)
