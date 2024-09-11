@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::group::Group;
 use crate::runtime::engine::FlowEngine;
+use crate::runtime::env::*;
 use crate::runtime::model::json::*;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
@@ -249,7 +250,7 @@ impl Flow {
             .subflow_node_id
             .and_then(|x| engine.find_flow_node_by_id(&x));
 
-        let mut envs_builder = EnvStoreBuilder::new().with_parent(&engine.get_envs());
+        let mut envs_builder = EnvStoreBuilder::default().with_parent(&engine.get_envs());
         if let Some(env_json) = flow_config.json.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }
@@ -799,7 +800,7 @@ impl Flow {
             None => None,
         };
 
-        let mut envs_builder = EnvStoreBuilder::new();
+        let mut envs_builder = EnvStoreBuilder::default();
         if let Some(ref g) = group {
             envs_builder = envs_builder.with_parent(&g.get_envs());
         } else {

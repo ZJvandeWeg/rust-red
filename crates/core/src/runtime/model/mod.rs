@@ -9,9 +9,7 @@ use tokio::sync::mpsc;
 use crate::runtime::nodes::FlowNodeBehavior;
 use crate::EdgelinkError;
 
-mod context;
 mod eid;
-mod env;
 mod error;
 mod msg;
 mod red_types;
@@ -21,9 +19,7 @@ mod variant;
 pub mod json;
 pub mod propex;
 
-pub use context::*;
 pub use eid::*;
-pub use env::*;
 pub use error::*;
 pub use msg::*;
 pub use red_types::*;

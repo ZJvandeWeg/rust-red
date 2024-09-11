@@ -7,6 +7,7 @@ use serde::Deserialize;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use super::env::*;
 use super::model::json::{RedFlowConfig, RedGlobalNodeConfig};
 use super::model::*;
 use super::nodes::FlowNodeBehavior;
@@ -61,7 +62,7 @@ impl FlowEngine {
             e
         })?;
 
-        let envs = EnvStoreBuilder::new().with_process_env().build();
+        let envs = EnvStoreBuilder::default().with_process_env().build();
 
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),

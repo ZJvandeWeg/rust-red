@@ -9,7 +9,7 @@ use nom;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
-use super::{RedPropertyType, Variant};
+use crate::runtime::model::{RedPropertyType, Variant};
 use crate::*;
 
 #[derive(Debug)]
@@ -75,18 +75,14 @@ pub struct EnvStoreBuilder {
 
 impl Default for EnvStoreBuilder {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EnvStoreBuilder {
-    pub fn new() -> Self {
         Self {
             parent: None,
             envs: HashMap::new(),
         }
     }
+}
 
+impl EnvStoreBuilder {
     pub fn with_parent(mut self, parent: &Arc<EnvStore>) -> Self {
         self.parent = Some(Arc::downgrade(parent));
         self
@@ -289,7 +285,7 @@ mod tests {
                 "type": "num"
             },
         ]);
-        let global = EnvStoreBuilder::new()
+        let global = EnvStoreBuilder::default()
             .load_json(&json)
             .extends([("FILE_SIZE".into(), Variant::Integer(123))])
             .build();
@@ -306,7 +302,7 @@ mod tests {
                 "type": "str"
             },
         ]);
-        let flow = EnvStoreBuilder::new()
+        let flow = EnvStoreBuilder::default()
             .with_parent(&global)
             .load_json(&json)
             .build();
@@ -333,7 +329,7 @@ mod tests {
                 "type": "str"
             }
         ]);
-        let node = EnvStoreBuilder::new()
+        let node = EnvStoreBuilder::default()
             .with_parent(&flow)
             .load_json(&json)
             .build();
