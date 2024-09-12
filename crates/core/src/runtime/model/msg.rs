@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::fmt::Write;
 use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 
@@ -96,26 +97,28 @@ impl Msg {
     /// Get the value of a navigation property
     ///
     /// The first level of the property expression for 'msg' must be a string, which means it must be
-    /// `msg['aaa']` or `msg.aaa`, and not `msg[12]`
+    /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
-        let segs = propex::parse(expr).ok()?;
-        match segs.as_slice() {
-            [PropexSegment::Property(first_prop_name)] => self.get_property(first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get_property(first_prop_name)?.get_item_by_propex_segments(rest)
-            }
-            _ => None,
-        }
+        let mut segs = propex::parse(expr).ok()?;
+        self.normalize_segments(&mut segs).ok()?;
+        self.get_property_by_segments_internal(&segs)
     }
 
     pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
-        let segs = propex::parse(expr).ok()?;
-        match segs.as_slice() {
-            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
+        let mut segs = propex::parse(expr).ok()?;
+        if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
+            // Do things
+            self.normalize_segments(&mut segs).ok()?;
+            let mut normalized = String::new();
+            for seg in segs {
+                write!(&mut normalized, "{}", seg).unwrap();
             }
-            _ => None,
+            dbg!(&normalized);
+            let segs = propex::parse(&normalized).ok()?;
+            let segs = segs.clone();
+            self.get_property_by_segments_internal_mut(&segs)
+        } else {
+            self.get_property_by_segments_internal_mut(&segs)
         }
     }
 
@@ -134,6 +137,45 @@ impl Msg {
             self.get_nav_property(stripped_expr)
         } else {
             self.get_nav_property(trimmed_expr)
+        }
+    }
+
+    fn normalize_segments<'a>(&'a self, segs: &mut [PropexSegment<'a>]) -> crate::Result<()> {
+        for seg in segs.iter_mut() {
+            if let PropexSegment::Nested(nested_segs) = seg {
+                if nested_segs.first() != Some(&PropexSegment::Property("msg")) {
+                    return Err(EdgelinkError::BadArguments("The expression must contains `msg.`".into()).into());
+                }
+                *seg = match self.get_property_by_segments_internal(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                    Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
+                    Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
+                    Variant::Rational(f64_index) if *f64_index >= 0.0 => {
+                        PropexSegment::Index(f64_index.round() as usize)
+                    }
+                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                };
+            }
+        }
+        Ok(())
+    }
+
+    fn get_property_by_segments_internal(&self, segs: &[PropexSegment]) -> Option<&Variant> {
+        match segs {
+            [PropexSegment::Property(first_prop_name)] => self.body.get(*first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+                self.body.get(*first_prop_name)?.get_item_by_propex_segments(rest)
+            }
+            _ => None,
+        }
+    }
+
+    fn get_property_by_segments_internal_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
+        match segs {
+            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
+            }
+            _ => None,
         }
     }
 
@@ -429,6 +471,30 @@ mod tests {
     use super::*;
     use serde::Deserialize;
     use serde_json::json;
+
+    #[test]
+    fn test_get_nested_nav_property() {
+        let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
+        let msg = Msg::deserialize(&jv).unwrap();
+        {
+            assert!(msg.contains_property("lookup"));
+            assert!(msg.contains_property("topic"));
+            assert_eq!(*msg.get_nav_property("lookup[msg.topic]").unwrap(), Variant::Integer(2));
+        }
+    }
+
+    #[test]
+    fn test_get_nested_nav_property_mut() {
+        let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
+        let mut msg = Msg::deserialize(&jv).unwrap();
+        {
+            assert!(msg.contains_property("lookup"));
+            assert!(msg.contains_property("topic"));
+            let b = msg.get_nav_property_mut("lookup[msg.topic]").unwrap();
+            *b = Variant::Integer(1701);
+            assert_eq!(*msg.get_nav_property("lookup.b").unwrap(), Variant::Integer(1701));
+        }
+    }
 
     #[test]
     fn test_set_deep_msg_property() {

@@ -7,11 +7,11 @@ use crate::text::nom_parsers;
 use nom::{
     branch::alt,
     bytes::complete::escaped,
-    character::complete::{alphanumeric1, anychar, char, digit1, multispace0, one_of},
-    combinator::{cut, map, map_res},
+    character::complete::{alphanumeric1, char, digit1, multispace0, one_of},
+    combinator::{map, map_res},
     error::{context, ParseError, VerboseError},
     multi::many0,
-    sequence::{delimited, pair, preceded, terminated},
+    sequence::{delimited, preceded, terminated},
     IResult, Parser,
 };
 
@@ -38,7 +38,7 @@ impl<'a> Display for PropexSegment<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PropexSegment::Index(i) => write!(f, "[{}]", i),
-            PropexSegment::Property(s) => write!(f, ".{}", s),
+            PropexSegment::Property(s) => write!(f, "[\"{}\"]", s),
             PropexSegment::Nested(n) => {
                 write!(f, "[")?;
                 for s in n.iter() {
