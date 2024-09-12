@@ -375,11 +375,11 @@ impl Variant {
     }
 
     pub fn get_item_by_propex_segments(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
-        psegs.iter().fold(Some(self), |prev, pseg| prev?.get_item_by_propex_segment(pseg))
+        psegs.iter().try_fold(self, |prev, pseg| prev.get_item_by_propex_segment(pseg))
     }
 
     pub fn get_item_by_propex_segments_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
-        psegs.iter().fold(Some(self), |prev, pseg| prev?.get_item_by_propex_segment_mut(pseg))
+        psegs.iter().try_fold(self, |prev, pseg| prev.get_item_by_propex_segment_mut(pseg))
     }
 
     pub fn get_object_property(&self, prop: &str) -> Option<&Variant> {
