@@ -93,18 +93,16 @@ impl Msg {
         self.body.get_mut(prop)
     }
 
+    /// Get the value of a navigation property
+    ///
+    /// The first level of the property expression for 'msg' must be a string, which means it must be
+    /// `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
         let segs = propex::parse(expr).ok()?;
-        match segs[0] {
-            // The first level of the property expression for 'msg' must be a string, which means it must be
-            // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-            PropexSegment::StringIndex(first_prop_name) => {
-                let first_prop = self.get_property(first_prop_name)?;
-                if segs.len() == 1 {
-                    Some(first_prop)
-                } else {
-                    first_prop.get_item_by_propex_segments(&segs[1..])
-                }
+        match segs.as_slice() {
+            [PropexSegment::StringIndex(first_prop_name)] => self.get_property(first_prop_name),
+            [PropexSegment::StringIndex(first_prop_name), ref rest @ ..] => {
+                self.get_property(first_prop_name)?.get_item_by_propex_segments(rest)
             }
             _ => None,
         }
@@ -112,16 +110,10 @@ impl Msg {
 
     pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
         let segs = propex::parse(expr).ok()?;
-        match segs[0] {
-            // The first level of the property expression for 'msg' must be a string, which means it must be
-            // `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-            PropexSegment::StringIndex(first_prop_name) => {
-                let first_prop = self.get_property_mut(first_prop_name)?;
-                if segs.len() == 1 {
-                    Some(first_prop)
-                } else {
-                    first_prop.get_item_by_propex_segments_mut(&segs[1..])
-                }
+        match segs.as_slice() {
+            [PropexSegment::StringIndex(first_prop_name)] => self.get_property_mut(first_prop_name),
+            [PropexSegment::StringIndex(first_prop_name), ref rest @ ..] => {
+                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
             }
             _ => None,
         }

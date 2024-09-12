@@ -375,39 +375,11 @@ impl Variant {
     }
 
     pub fn get_item_by_propex_segments(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
-        match psegs.len() {
-            0 => None,
-            1 => self.get_item_by_propex_segment(&psegs[0]),
-            _ => {
-                let mut prev = self;
-                for pseg in psegs {
-                    if let Some(cur) = prev.get_item_by_propex_segment(pseg) {
-                        prev = cur;
-                    } else {
-                        return None;
-                    }
-                }
-                Some(prev)
-            }
-        }
+        psegs.iter().fold(Some(self), |prev, pseg| prev?.get_item_by_propex_segment(pseg))
     }
 
     pub fn get_item_by_propex_segments_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
-        match psegs.len() {
-            0 => None,
-            1 => self.get_item_by_propex_segment_mut(&psegs[0]),
-            _ => {
-                let mut prev = self;
-                for pseg in psegs {
-                    if let Some(cur) = prev.get_item_by_propex_segment_mut(pseg) {
-                        prev = cur;
-                    } else {
-                        return None;
-                    }
-                }
-                Some(prev)
-            }
-        }
+        psegs.iter().fold(Some(self), |prev, pseg| prev?.get_item_by_propex_segment_mut(pseg))
     }
 
     pub fn get_object_property(&self, prop: &str) -> Option<&Variant> {
