@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while, take_while1},
+    bytes::complete::{tag, take_while},
     character::complete::{alpha1, alphanumeric1, space0},
     combinator::recognize,
     error::{ParseError, VerboseError},
@@ -25,21 +25,6 @@ pub fn identifier_token(input: &str) -> nom::IResult<&str, &str, VerboseError<&s
     recognize(delimited(space0, identifier, space0)).parse(input)
 }
 
-fn is_identifier_start(c: char) -> bool {
-    c.is_alphabetic() || c == '_'
-}
-
-fn is_identifier_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
-}
-
-pub fn identifier_while(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    recognize(pair(
-        take_while1(is_identifier_start), // 起始字符必须是字母或下划线
-        take_while1(is_identifier_char),  // 后续字符可以是字母、数字或下划线
-    ))(input)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -50,14 +35,15 @@ mod tests {
         assert_eq!(identifier("_underscore"), Ok(("", "_underscore")));
         assert_eq!(identifier("id123"), Ok(("", "id123")));
         assert_eq!(identifier("longer_identifier_with_123"), Ok(("", "longer_identifier_with_123")));
+        assert_eq!(identifier("_"), Ok(("", "_")));
+        assert_eq!(identifier("my_id-"), Ok(("-", "my_id")));
     }
 
     #[test]
     fn test_invalid_identifiers() {
         assert!(identifier("123start").is_err());
         assert!(identifier_token("-leading").is_err());
-        assert!(identifier_while("invalid-").is_err());
-        assert!(identifier_while("invalid -").is_err());
+        assert!(identifier_token("-invalid-").is_err());
         assert!(identifier("").is_err());
     }
 

@@ -100,8 +100,8 @@ impl Msg {
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
         let segs = propex::parse(expr).ok()?;
         match segs.as_slice() {
-            [PropexSegment::StringIndex(first_prop_name)] => self.get_property(first_prop_name),
-            [PropexSegment::StringIndex(first_prop_name), ref rest @ ..] => {
+            [PropexSegment::Property(first_prop_name)] => self.get_property(first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
                 self.get_property(first_prop_name)?.get_item_by_propex_segments(rest)
             }
             _ => None,
@@ -111,8 +111,8 @@ impl Msg {
     pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
         let segs = propex::parse(expr).ok()?;
         match segs.as_slice() {
-            [PropexSegment::StringIndex(first_prop_name)] => self.get_property_mut(first_prop_name),
-            [PropexSegment::StringIndex(first_prop_name), ref rest @ ..] => {
+            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
                 self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
             }
             _ => None,
@@ -149,7 +149,7 @@ impl Msg {
         let segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
 
         let first_prop_name = match segs.first() {
-            Some(PropexSegment::StringIndex(name)) => name,
+            Some(PropexSegment::Property(name)) => name,
             _ => {
                 return Err(crate::EdgelinkError::BadArguments(format!(
                     "The first property to access must be a string, but got '{}'",
@@ -171,8 +171,8 @@ impl Msg {
                 let next_seg = segs.get(1);
                 let var = match next_seg {
                     // the next level property is an object
-                    Some(PropexSegment::StringIndex(_)) => Variant::empty_object(),
-                    Some(PropexSegment::IntegerIndex(_)) => Variant::empty_array(),
+                    Some(PropexSegment::Property(_)) => Variant::empty_object(),
+                    Some(PropexSegment::Index(_)) => Variant::empty_array(),
                     _ => {
                         return Err(crate::EdgelinkError::BadArguments(format!(
                             "Not allowed to set first property: '{}'",

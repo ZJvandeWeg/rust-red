@@ -362,15 +362,15 @@ impl Variant {
 
     pub fn get_item_by_propex_segment(&self, pseg: &PropexSegment) -> Option<&Variant> {
         match pseg {
-            PropexSegment::IntegerIndex(index) => self.get_array_item(*index),
-            PropexSegment::StringIndex(prop) => self.get_object_property(prop),
+            PropexSegment::Index(index) => self.get_array_item(*index),
+            PropexSegment::Property(prop) => self.get_object_property(prop),
         }
     }
 
     pub fn get_item_by_propex_segment_mut(&mut self, pseg: &PropexSegment) -> Option<&mut Variant> {
         match pseg {
-            PropexSegment::IntegerIndex(index) => self.get_array_item_mut(*index),
-            PropexSegment::StringIndex(prop) => self.get_object_property_mut(prop),
+            PropexSegment::Index(index) => self.get_array_item_mut(*index),
+            PropexSegment::Property(prop) => self.get_object_property_mut(prop),
         }
     }
 
@@ -465,8 +465,8 @@ impl Variant {
 
     pub fn set_property_by_propex_segment(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
         match pseg {
-            PropexSegment::IntegerIndex(index) => self.set_array_item(*index, value),
-            PropexSegment::StringIndex(prop) => self.set_object_property(prop.to_string(), value),
+            PropexSegment::Index(index) => self.set_array_item(*index, value),
+            PropexSegment::Property(prop) => self.set_object_property(prop.to_string(), value),
         }
     }
 
@@ -505,12 +505,10 @@ impl Variant {
                             .ok_or(VariantError::OutOfRange)?;
                     }
                     match next_pseg {
-                        PropexSegment::StringIndex(_) => {
+                        PropexSegment::Property(_) => {
                             prev.set_property_by_propex_segment(pseg, Variant::empty_object())?
                         }
-                        PropexSegment::IntegerIndex(_) => {
-                            prev.set_property_by_propex_segment(pseg, Variant::empty_array())?
-                        }
+                        PropexSegment::Index(_) => prev.set_property_by_propex_segment(pseg, Variant::empty_array())?,
                     }
                 } else {
                     return Err(VariantError::OutOfRange);

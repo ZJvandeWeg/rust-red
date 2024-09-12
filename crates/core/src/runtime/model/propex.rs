@@ -3,6 +3,8 @@ use std::fmt::Display;
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use crate::text::nom_parsers;
+
 use nom::{
     branch::alt,
     bytes::complete::escaped,
@@ -28,15 +30,15 @@ pub enum PropexError {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PropexSegment<'a> {
-    IntegerIndex(usize),
-    StringIndex(&'a str), // Use a reference to a string slice
+    Index(usize),
+    Property(&'a str), // Use a reference to a string slice
 }
 
 impl<'a> Display for PropexSegment<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PropexSegment::IntegerIndex(i) => write!(f, "[{}]", i),
-            PropexSegment::StringIndex(s) => write!(f, ".{}", s),
+            PropexSegment::Index(i) => write!(f, "[{}]", i),
+            PropexSegment::Property(s) => write!(f, ".{}", s),
         }
     }
 }
@@ -44,14 +46,14 @@ impl<'a> Display for PropexSegment<'a> {
 impl PropexSegment<'_> {
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            PropexSegment::StringIndex(prop) => Some(*prop),
+            PropexSegment::Property(prop) => Some(*prop),
             _ => None,
         }
     }
 
     pub fn as_index(&self) -> Option<usize> {
         match self {
-            PropexSegment::IntegerIndex(index) => Some(*index),
+            PropexSegment::Index(index) => Some(*index),
             _ => None,
         }
     }
@@ -60,7 +62,7 @@ impl PropexSegment<'_> {
 fn parse_double_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
         context("double_quoted_string", preceded(char('\"'), cut(terminated(parse_str, char('\"'))))),
-        PropexSegment::StringIndex,
+        PropexSegment::Property,
     )
     .parse(i)
 }
@@ -68,7 +70,7 @@ fn parse_double_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseEr
 fn parse_single_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     map(
         context("double_quoted_string", preceded(char('\''), cut(terminated(parse_str, char('\''))))),
-        PropexSegment::StringIndex,
+        PropexSegment::Property,
     )
     .parse(i)
 }
@@ -82,7 +84,7 @@ fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str
 }
 
 fn parse_integer_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map_res(digit1, |digit_str: &str| digit_str.parse::<usize>().map(PropexSegment::IntegerIndex)).parse(i)
+    map_res(digit1, |digit_str: &str| digit_str.parse::<usize>().map(PropexSegment::Index)).parse(i)
 }
 
 fn parse_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
@@ -95,11 +97,8 @@ fn parse_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
 }
 
 fn parse_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map(
-        context("property", delimited(multispace0, crate::text::nom_parsers::identifier, multispace0)),
-        PropexSegment::StringIndex,
-    )
-    .parse(i)
+    map(context("property", delimited(multispace0, nom_parsers::identifier, multispace0)), PropexSegment::Property)
+        .parse(i)
 }
 
 fn parse_subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
@@ -108,10 +107,10 @@ fn parse_subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>
             "subproperty",
             preceded(
                 delimited(multispace0, char('.'), multispace0),
-                delimited(multispace0, crate::text::nom_parsers::identifier, multispace0),
+                delimited(multispace0, nom_parsers::identifier, multispace0),
             ),
         ),
-        PropexSegment::StringIndex,
+        PropexSegment::Property,
     )
     .parse(i)
 }
@@ -150,23 +149,23 @@ mod tests {
     fn parse_primitives_should_be_ok() {
         let expr = "'test1'";
         let (_, parsed) = parse_single_quoted_string(expr).unwrap();
-        assert_eq!(PropexSegment::StringIndex("test1"), parsed);
+        assert_eq!(PropexSegment::Property("test1"), parsed);
 
         let expr = "\"test1\"";
         let (_, parsed) = parse_double_quoted_string(expr).unwrap();
-        assert_eq!(PropexSegment::StringIndex("test1"), parsed);
+        assert_eq!(PropexSegment::Property("test1"), parsed);
 
         let expr = "_test_1";
         let (_, parsed) = parse_property(expr).unwrap();
-        assert_eq!(PropexSegment::StringIndex("_test_1"), parsed);
+        assert_eq!(PropexSegment::Property("_test_1"), parsed);
 
         let expr = " [ 'aaa']";
         let (_, parsed) = parse_index(expr).unwrap();
-        assert_eq!(PropexSegment::StringIndex("aaa"), parsed);
+        assert_eq!(PropexSegment::Property("aaa"), parsed);
 
         let expr = "[ 123 ]";
         let (_, parsed) = parse_index(expr).unwrap();
-        assert_eq!(PropexSegment::IntegerIndex(123), parsed);
+        assert_eq!(PropexSegment::Index(123), parsed);
     }
 
     #[test]
@@ -175,13 +174,13 @@ mod tests {
         let segs = parse(expr1).unwrap();
 
         assert_eq!(7, segs.len());
-        assert_eq!(PropexSegment::StringIndex("test1"), segs[0]);
-        assert_eq!(PropexSegment::StringIndex("hello"), segs[1]);
-        assert_eq!(PropexSegment::StringIndex("world"), segs[2]);
-        assert_eq!(PropexSegment::StringIndex("aaa"), segs[3]);
-        assert_eq!(PropexSegment::IntegerIndex(333), segs[4]);
-        assert_eq!(PropexSegment::StringIndex("bb"), segs[5]);
-        assert_eq!(PropexSegment::StringIndex("name_of"), segs[6]);
+        assert_eq!(PropexSegment::Property("test1"), segs[0]);
+        assert_eq!(PropexSegment::Property("hello"), segs[1]);
+        assert_eq!(PropexSegment::Property("world"), segs[2]);
+        assert_eq!(PropexSegment::Property("aaa"), segs[3]);
+        assert_eq!(PropexSegment::Index(333), segs[4]);
+        assert_eq!(PropexSegment::Property("bb"), segs[5]);
+        assert_eq!(PropexSegment::Property("name_of"), segs[6]);
     }
 
     #[test]
@@ -190,13 +189,13 @@ mod tests {
         let segs = parse(expr1).unwrap();
 
         assert_eq!(8, segs.len());
-        assert_eq!(PropexSegment::StringIndex("test1"), segs[0]);
-        assert_eq!(PropexSegment::StringIndex("hello"), segs[1]);
-        assert_eq!(PropexSegment::StringIndex("world"), segs[2]);
-        assert_eq!(PropexSegment::StringIndex("aaa"), segs[3]);
-        assert_eq!(PropexSegment::StringIndex("see"), segs[4]);
-        assert_eq!(PropexSegment::IntegerIndex(333), segs[5]);
-        assert_eq!(PropexSegment::StringIndex("bb"), segs[6]);
-        assert_eq!(PropexSegment::StringIndex("name_of"), segs[7]);
+        assert_eq!(PropexSegment::Property("test1"), segs[0]);
+        assert_eq!(PropexSegment::Property("hello"), segs[1]);
+        assert_eq!(PropexSegment::Property("world"), segs[2]);
+        assert_eq!(PropexSegment::Property("aaa"), segs[3]);
+        assert_eq!(PropexSegment::Property("see"), segs[4]);
+        assert_eq!(PropexSegment::Index(333), segs[5]);
+        assert_eq!(PropexSegment::Property("bb"), segs[6]);
+        assert_eq!(PropexSegment::Property("name_of"), segs[7]);
     }
 }
