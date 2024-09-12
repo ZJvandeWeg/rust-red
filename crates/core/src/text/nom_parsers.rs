@@ -17,11 +17,11 @@ pub fn spaces<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a st
     take_while(move |c| chars.contains(c))(i)
 }
 
-pub fn identifier<'a>(input: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+pub fn identifier(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     recognize(pair(alt((alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_")))))).parse(input)
 }
 
-pub fn identifier_token<'a>(input: &'a str) -> nom::IResult<&'a str, &'a str, VerboseError<&'a str>> {
+pub fn identifier_token(input: &str) -> nom::IResult<&str, &str, VerboseError<&str>> {
     recognize(delimited(space0, identifier, space0)).parse(input)
 }
 
@@ -33,7 +33,7 @@ fn is_identifier_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-pub fn identifier_while<'a>(input: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+pub fn identifier_while(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     recognize(pair(
         take_while1(is_identifier_start), // 起始字符必须是字母或下划线
         take_while1(is_identifier_char),  // 后续字符可以是字母、数字或下划线

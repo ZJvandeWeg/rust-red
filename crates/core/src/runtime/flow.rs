@@ -112,10 +112,7 @@ impl FlowsElement for Flow {
     }
 
     fn parent_element(&self) -> Option<Arc<dyn FlowsElement>> {
-        self.parent
-            .as_ref()
-            .and_then(|weak_parent| weak_parent.upgrade())
-            .and_then(|arc| Some(arc as Arc<dyn FlowsElement>))
+        self.parent.as_ref().and_then(|weak_parent| weak_parent.upgrade()).map(|arc| arc as Arc<dyn FlowsElement>)
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
