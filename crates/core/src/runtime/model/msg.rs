@@ -146,14 +146,15 @@ impl Msg {
                 if nested_segs.first() != Some(&PropexSegment::Property("msg")) {
                     return Err(EdgelinkError::BadArguments("The expression must contains `msg.`".into()).into());
                 }
-                *seg = match self.get_property_by_segments_internal(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                    Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
-                    Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
-                    Variant::Rational(f64_index) if *f64_index >= 0.0 => {
-                        PropexSegment::Index(f64_index.round() as usize)
-                    }
-                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
-                };
+                *seg =
+                    match self.get_property_by_segments_internal(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                        Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
+                        Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
+                        Variant::Rational(f64_index) if *f64_index >= 0.0 => {
+                            PropexSegment::Index(f64_index.round() as usize)
+                        }
+                        _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                    };
             }
         }
         Ok(())
