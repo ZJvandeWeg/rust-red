@@ -27,12 +27,25 @@ pub enum PropexError {
     InvalidDigit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum PropexSegment<'a> {
     Index(usize),
     Property(&'a str), // Use a reference to a string slice
     Nested(Vec<PropexSegment<'a>>),
 }
+
+impl<'a> PartialEq for PropexSegment<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (PropexSegment::Index(i1), PropexSegment::Index(i2)) => i1 == i2,
+            (PropexSegment::Property(p1), PropexSegment::Property(p2)) => p1 == p2,
+            (PropexSegment::Nested(n1), PropexSegment::Nested(n2)) => n1 == n2,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Eq for PropexSegment<'a> {}
 
 impl<'a> Display for PropexSegment<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -222,5 +235,58 @@ mod tests {
         );
         assert_eq!(PropexSegment::Property("str"), segs[4]);
         assert_eq!(PropexSegment::Index(123), segs[5]);
+    }
+
+    /// from `node-red/test/unit/@node-red/util/lib/util_spec.js`
+    #[test]
+    fn should_pass_red_node_unit_tests() {
+        use PropexSegment::*;
+        assert_eq!(parse("a.b.c").unwrap(), vec![Property("a"), Property("b"), Property("c")], "pass a.b.c");
+
+        assert_eq!(
+            parse(r#"a["b"]["c"]"#).unwrap(),
+            vec![Property("a"), Property("b"), Property("c")],
+            r#"pass a["b"]["c"]"#
+        );
+
+        assert_eq!(
+            parse(r#"a["b"].c"#).unwrap(),
+            vec![Property("a"), Property("b"), Property("c")],
+            r#"pass a["b"].c"#
+        );
+
+        assert_eq!(
+            parse(r#"a['b'].c"#).unwrap(),
+            vec![Property("a"), Property("b"), Property("c")],
+            r#"pass a['b'].c"#
+        );
+
+        assert_eq!(parse(r#"a[0].c"#).unwrap(), vec![Property("a"), Index(0), Property("c")], r#"pass a[0].c"#);
+
+        assert_eq!(parse(r#"a.0.c"#).unwrap(), vec![Property("a"), Index(0), Property("c")], r#"pass a.0.c"#);
+
+        assert_eq!(
+            parse(r#"a['a.b[0]'].c"#).unwrap(),
+            vec![Property("a"), Property("a.b[0]"), Property("c")],
+            r#"pass a['a.b[0]'].c"#
+        );
+
+        assert_eq!(
+            parse(r#"a[0][0][0]"#).unwrap(),
+            vec![Property("a"), Index(0), Index(0), Index(0)],
+            r#"pass a[0][0][0]"#
+        );
+
+        assert_eq!(parse(r#"'1.2.3.4'"#).unwrap(), vec![Property("1.2.3.4"),], r#"pass '1.2.3.4'"#);
+
+        assert_eq!(parse(r#"'a.b'[1]"#).unwrap(), vec![Property("a.b"), Index(1)], r#"pass 'a.b'[1]"#);
+
+        assert_eq!(parse(r#"'a.b'.c"#).unwrap(), vec![Property("a.b"), Property("c")], r#"pass 'a.b'.c"#);
+
+        assert_eq!(
+            parse(r#"a[msg.b]"#).unwrap(),
+            vec![Property("a"), Nested(vec![Property("msg"), Property("b")])],
+            r#"pass a[msg.b]"#
+        );
     }
 }
