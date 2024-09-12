@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use smallvec::SmallVec;
 use thiserror::Error;
 
 use crate::text::nom_parsers;
@@ -8,7 +7,7 @@ use crate::text::nom_parsers;
 use nom::{
     branch::alt,
     bytes::complete::escaped,
-    character::complete::{alphanumeric1, char, digit1, multispace0, one_of},
+    character::complete::{alphanumeric1, anychar, char, digit1, multispace0, one_of},
     combinator::{cut, map, map_res},
     error::{context, ParseError, VerboseError},
     multi::many0,
@@ -28,10 +27,11 @@ pub enum PropexError {
     InvalidDigit,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PropexSegment<'a> {
     Index(usize),
     Property(&'a str), // Use a reference to a string slice
+    Nested(Vec<PropexSegment<'a>>),
 }
 
 impl<'a> Display for PropexSegment<'a> {
@@ -39,6 +39,13 @@ impl<'a> Display for PropexSegment<'a> {
         match self {
             PropexSegment::Index(i) => write!(f, "[{}]", i),
             PropexSegment::Property(s) => write!(f, ".{}", s),
+            PropexSegment::Nested(n) => {
+                write!(f, "[")?;
+                for s in n.iter() {
+                    write!(f, "{}", s)?;
+                }
+                write!(f, "]")
+            }
         }
     }
 }
@@ -59,83 +66,75 @@ impl PropexSegment<'_> {
     }
 }
 
-fn parse_double_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map(
-        context("double_quoted_string", preceded(char('\"'), cut(terminated(parse_str, char('\"'))))),
-        PropexSegment::Property,
-    )
-    .parse(i)
+pub fn token<'a, O, E: ParseError<&'a str>, G>(input: G) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    G: Parser<&'a str, O, E>,
+{
+    delimited(multispace0, input, multispace0)
 }
 
-fn parse_single_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map(
-        context("double_quoted_string", preceded(char('\''), cut(terminated(parse_str, char('\''))))),
-        PropexSegment::Property,
-    )
-    .parse(i)
+fn parse_usize(input: &str) -> IResult<&str, usize, VerboseError<&str>> {
+    context("usize", map_res(digit1, |s: &str| s.parse::<usize>())).parse(input)
 }
 
-fn parse_quoted_string(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    alt((parse_double_quoted_string, parse_single_quoted_string)).parse(i)
-}
-
-fn parse_str<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
+fn string_content<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
     escaped(alphanumeric1, '\\', one_of("\"n\\"))(i)
 }
 
-fn parse_integer_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map_res(digit1, |digit_str: &str| digit_str.parse::<usize>().map(PropexSegment::Index)).parse(i)
+fn parse_string_literal(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
+    let single_quoted =
+        delimited(preceded(multispace0, char('\'')), string_content, terminated(char('\''), multispace0));
+    let double_quoted = delimited(preceded(multispace0, char('"')), string_content, terminated(char('"'), multispace0));
+    context("quoted_string", alt((single_quoted, double_quoted))).parse(input)
 }
 
-fn parse_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    delimited(
-        delimited(multispace0, char('['), multispace0),
-        alt((parse_quoted_string, parse_integer_index)),
-        delimited(multispace0, char(']'), multispace0),
-    )
-    .parse(i)
+fn first_direct_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    token(nom_parsers::identifier).map(PropexSegment::Property).parse(i)
 }
 
-fn parse_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map(context("property", delimited(multispace0, nom_parsers::identifier, multispace0)), PropexSegment::Property)
+fn first_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context("first_property", alt((first_direct_property, quoted_property, index, nested))).parse(i)
+}
+
+fn quoted_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    delimited(token(char('[')), parse_string_literal, token(char(']'))).map(PropexSegment::Property).parse(i)
+}
+
+fn direct_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context("direct_property", preceded(token(char('.')), token(nom_parsers::identifier)))
+        .map(PropexSegment::Property)
         .parse(i)
 }
 
-fn parse_subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    map(
-        context(
-            "subproperty",
-            preceded(
-                delimited(multispace0, char('.'), multispace0),
-                delimited(multispace0, nom_parsers::identifier, multispace0),
-            ),
-        ),
-        PropexSegment::Property,
-    )
-    .parse(i)
+fn subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context("subproperty", alt((direct_property, quoted_property, index, nested))).parse(i)
 }
 
-fn parse_first_fragment(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    alt((parse_property, parse_index)).parse(i)
+fn index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context("index", delimited(token(char('[')), token(parse_usize), token(char(']'))))
+        .map(PropexSegment::Index)
+        .parse(i)
 }
 
-fn parse_sub_fragment(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    alt((parse_subproperty, parse_index)).parse(i)
+fn nested(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    let nested_parser = delimited(token(char('[')), expression, token(char(']')));
+    map(nested_parser, PropexSegment::Nested)(i)
 }
 
-fn parse_nav(i: &str) -> IResult<&str, SmallVec<[PropexSegment; 4]>, VerboseError<&str>> {
-    let (_, (first, rest)) = pair(parse_first_fragment, many0(parse_sub_fragment)).parse(i)?;
-    let mut segs = SmallVec::with_capacity(rest.len() + 1);
-    segs.push(first);
-    segs.extend(rest);
-    Ok((i, segs))
+fn expression(input: &str) -> IResult<&str, Vec<PropexSegment>, VerboseError<&str>> {
+    let (input, first) = first_property.parse(input)?;
+    let (input, rest) = context("propex_expr", many0(subproperty)).parse(input)?;
+    let mut result = Vec::with_capacity(rest.len() + 1);
+    result.push(first);
+    result.extend(rest);
+    Ok((input, result))
 }
 
-pub fn parse(expr: &str) -> Result<SmallVec<[PropexSegment<'_>; 4]>, PropexError> {
+pub fn parse(expr: &str) -> Result<Vec<PropexSegment>, PropexError> {
     if expr.is_empty() {
         return Err(PropexError::BadArguments);
     }
-    match parse_nav(expr) {
+    match expression(expr) {
         Ok((_, segs)) => Ok(segs),
         Err(ve) => Err(PropexError::BadSyntax(ve.to_string())),
     }
@@ -147,30 +146,34 @@ mod tests {
 
     #[test]
     fn parse_primitives_should_be_ok() {
-        let expr = "'test1'";
-        let (_, parsed) = parse_single_quoted_string(expr).unwrap();
+        let expr = "['test1']";
+        let (_, parsed) = quoted_property(expr).unwrap();
         assert_eq!(PropexSegment::Property("test1"), parsed);
 
-        let expr = "\"test1\"";
-        let (_, parsed) = parse_double_quoted_string(expr).unwrap();
+        let expr = r#"["test1"]"#;
+        let (_, parsed) = quoted_property(expr).unwrap();
         assert_eq!(PropexSegment::Property("test1"), parsed);
 
         let expr = "_test_1";
-        let (_, parsed) = parse_property(expr).unwrap();
+        let (_, parsed) = first_direct_property(expr).unwrap();
         assert_eq!(PropexSegment::Property("_test_1"), parsed);
 
+        let expr = ".foobar123";
+        let (_, parsed) = direct_property(expr).unwrap();
+        assert_eq!(PropexSegment::Property("foobar123"), parsed);
+
         let expr = " [ 'aaa']";
-        let (_, parsed) = parse_index(expr).unwrap();
+        let (_, parsed) = quoted_property(expr).unwrap();
         assert_eq!(PropexSegment::Property("aaa"), parsed);
 
         let expr = "[ 123 ]";
-        let (_, parsed) = parse_index(expr).unwrap();
+        let (_, parsed) = index(expr).unwrap();
         assert_eq!(PropexSegment::Index(123), parsed);
     }
 
     #[test]
     fn parse_propex_should_be_ok() {
-        let expr1 = "test1.hello .world['aaa'][333][\"bb\"].name_of";
+        let expr1 = r#"test1. hello .world['aaa'][333]["bb"].name_of"#;
         let segs = parse(expr1).unwrap();
 
         assert_eq!(7, segs.len());
@@ -185,7 +188,7 @@ mod tests {
 
     #[test]
     fn parse_propex_with_first_index_accessing_should_be_ok() {
-        let expr1 = "['test1'].hello .world['aaa'].see[333][\"bb\"].name_of";
+        let expr1 = r#"['test1'].hello .world['aaa'].see[333]["bb"].name_of"#;
         let segs = parse(expr1).unwrap();
 
         assert_eq!(8, segs.len());
@@ -197,5 +200,27 @@ mod tests {
         assert_eq!(PropexSegment::Index(333), segs[5]);
         assert_eq!(PropexSegment::Property("bb"), segs[6]);
         assert_eq!(PropexSegment::Property("name_of"), segs[7]);
+    }
+
+    #[test]
+    fn parse_propex_with_nested_propex() {
+        let expr1 = r#"['test1'].msg .payload[msg["topic"][0]].str[123]"#;
+        let segs = parse(expr1).unwrap();
+        dbg!(&segs);
+
+        assert_eq!(6, segs.len());
+        assert_eq!(PropexSegment::Property("test1"), segs[0]);
+        assert_eq!(PropexSegment::Property("msg"), segs[1]);
+        assert_eq!(PropexSegment::Property("payload"), segs[2]);
+        assert_eq!(
+            PropexSegment::Nested(vec![
+                PropexSegment::Property("msg"),
+                PropexSegment::Property("topic"),
+                PropexSegment::Index(0)
+            ]),
+            segs[3]
+        );
+        assert_eq!(PropexSegment::Property("str"), segs[4]);
+        assert_eq!(PropexSegment::Index(123), segs[5]);
     }
 }

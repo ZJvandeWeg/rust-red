@@ -364,6 +364,7 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item(*index),
             PropexSegment::Property(prop) => self.get_object_property(prop),
+            PropexSegment::Nested(_) => None,
         }
     }
 
@@ -371,6 +372,7 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item_mut(*index),
             PropexSegment::Property(prop) => self.get_object_property_mut(prop),
+            PropexSegment::Nested(_) => None,
         }
     }
 
@@ -467,6 +469,7 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.set_array_item(*index, value),
             PropexSegment::Property(prop) => self.set_object_property(prop.to_string(), value),
+            PropexSegment::Nested(nested) => todo!(),
         }
     }
 
@@ -509,6 +512,7 @@ impl Variant {
                             prev.set_property_by_propex_segment(pseg, Variant::empty_object())?
                         }
                         PropexSegment::Index(_) => prev.set_property_by_propex_segment(pseg, Variant::empty_array())?,
+                        PropexSegment::Nested(nested) => todo!(),
                     }
                 } else {
                     return Err(VariantError::OutOfRange);
