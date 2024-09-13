@@ -74,7 +74,7 @@ jobs:
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo nextest run --workspace --no-fail-fast --profile ci --features full --target ${{ matrix.target }}
+        run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
 
       - name: Run doc tests
         run: cargo test -doc --profile ci --workspace --target ${{ matrix.target }} --features full
