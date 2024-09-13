@@ -7,6 +7,7 @@ use serde::Deserialize;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use super::context::{Context, ContextManager};
 use super::env::*;
 use super::model::json::{RedFlowConfig, RedGlobalNodeConfig};
 use super::model::*;
@@ -49,6 +50,8 @@ pub struct FlowEngine {
     stop_token: CancellationToken,
     _args: FlowEngineArgs,
     envs: Arc<EnvStore>,
+    context_manager: Arc<ContextManager>,
+    context: Arc<Context>,
 }
 
 impl FlowEngine {
@@ -64,6 +67,9 @@ impl FlowEngine {
 
         let envs = EnvStoreBuilder::default().with_process_env().build();
 
+        let context_manager = Arc::new(ContextManager::default());
+        let context = context_manager.new_context(None, "global".into());
+
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
             state: FlowEngineState {
@@ -75,6 +81,8 @@ impl FlowEngine {
             },
             envs,
             _args: FlowEngineArgs::load(elcfg)?,
+            context_manager,
+            context,
         });
 
         engine.clone().load_flows(&json_values.flows, reg.clone(), elcfg)?;
@@ -264,6 +272,14 @@ impl FlowEngine {
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {
         self.envs.evalute_env(key)
+    }
+
+    pub fn get_context_manager(&self) -> Arc<ContextManager> {
+        self.context_manager.clone()
+    }
+
+    pub fn get_context(&self) -> Arc<Context> {
+        self.context.clone()
     }
 }
 

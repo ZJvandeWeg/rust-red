@@ -7,6 +7,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
+use super::context::Context;
 use super::group::Group;
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::env::*;
@@ -92,6 +93,7 @@ pub struct Flow {
     state: FlowState,
     subflow_state: Option<std::sync::RwLock<SubflowState>>,
     envs: Arc<EnvStore>,
+    context: Arc<Context>,
 }
 
 impl FlowsElement for Flow {
@@ -280,6 +282,8 @@ impl Flow {
         };
         let envs = envs_builder.build();
 
+        let context = engine.get_context_manager().new_context(Some(&engine.get_context()), flow_config.id.to_string());
+
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
             parent: None, //TODO FIXME
@@ -311,6 +315,7 @@ impl Flow {
                 FlowKind::GlobalFlow => None,
             },
             envs,
+            context,
             stop_token: CancellationToken::new(),
             // groups: HashMap::new(), //   flow_config.groups.iter().map(|g| Group::new_flow_group(config, flow))
         });
@@ -551,6 +556,10 @@ impl Flow {
         self.envs.evalute_env(key)
     }
 
+    pub fn get_context(&self) -> Arc<Context> {
+        self.context.clone()
+    }
+
     /*
     pub fn eval_envs(
         &self,
@@ -762,6 +771,7 @@ impl Flow {
                 ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.id, node_config.id))),
             ])
             .build();
+        let context = engine.get_context_manager().new_context(Some(&self.context), self.id.to_string());
 
         Ok(FlowNode {
             id: node_config.id,
@@ -775,6 +785,7 @@ impl Flow {
             ports,
             group: group.map(|g| Arc::downgrade(&g)),
             envs,
+            context,
             on_received: MsgEventSender::new(1),
             on_completed: MsgEventSender::new(1),
             on_error: MsgEventSender::new(1),

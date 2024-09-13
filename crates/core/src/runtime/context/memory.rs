@@ -1,0 +1,107 @@
+use std::collections::HashMap;
+
+use async_trait::async_trait;
+// use itertools::Itertools;
+use tokio::sync::RwLock;
+
+use super::{EdgelinkError, ElementId, Variant};
+use crate::runtime::context::*;
+use crate::Result;
+
+#[linkme::distributed_slice(crate::runtime::context::__STORES)]
+static _MEMORY_CONTEXT_STORE_METADATA: StoreMetadata =
+    StoreMetadata { type_: "memory", factory: MemoryContextStore::build };
+
+struct MemoryContextStore {
+    meta: &'static StoreMetadata,
+    items: RwLock<HashMap<String, HashMap<String, Variant>>>,
+}
+
+impl MemoryContextStore {
+    fn build() -> crate::Result<Box<dyn ContextStore>> {
+        let node = MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, items: RwLock::new(HashMap::new()) };
+        Ok(Box::new(node))
+    }
+}
+
+#[async_trait]
+impl ContextStore for MemoryContextStore {
+    fn metadata(&self) -> &'static StoreMetadata {
+        self.meta
+    }
+
+    async fn open(&self) -> Result<()> {
+        // No-op for in-memory store
+        Ok(())
+    }
+
+    async fn close(&self) -> Result<()> {
+        // No-op for in-memory store
+        Ok(())
+    }
+
+    async fn get_one(&self, scope: &str, key: &str) -> Result<Variant> {
+        let items = self.items.read().await;
+        if let Some(scope_map) = items.get(scope) {
+            if let Some(value) = scope_map.get(key) {
+                return Ok(value.clone());
+            }
+        }
+        Err(EdgelinkError::OutOfRange.into()) // Assuming `into` converts to your `Result` error type
+    }
+
+    async fn get_many(&self, scope: &str, keys: &[&str]) -> Result<Vec<Variant>> {
+        let items = self.items.read().await;
+        if let Some(scope_map) = items.get(scope) {
+            let mut result = Vec::new();
+            for key in keys {
+                if let Some(value) = scope_map.get(*key) {
+                    result.push(value.clone());
+                }
+            }
+            return Ok(result);
+        }
+        Err(EdgelinkError::OutOfRange.into()) // Assuming `into` converts to your `Result` error type
+    }
+
+    async fn get_keys(&self, scope: &str) -> Result<Vec<String>> {
+        let items = self.items.read().await;
+        if let Some(scope_map) = items.get(scope) {
+            return Ok(scope_map.keys().cloned().collect::<Vec<_>>());
+        }
+        Err(EdgelinkError::OutOfRange.into()) // Assuming `into` converts to your `Result` error type
+    }
+
+    async fn set_one(&self, scope: &str, key: &str, value: &Variant) -> Result<()> {
+        let mut items = self.items.write().await;
+        let scope_map = items.entry(scope.to_string()).or_insert_with(HashMap::new);
+        scope_map.insert(key.to_string(), value.clone());
+        Ok(())
+    }
+
+    async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()> {
+        let mut items = self.items.write().await;
+        let scope_map = items.entry(scope.to_string()).or_insert_with(HashMap::new);
+        for (key, value) in pairs {
+            scope_map.insert(key.to_string(), (*value).clone());
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, scope: &str) -> Result<()> {
+        let mut items = self.items.write().await;
+        items.remove(scope);
+        Ok(())
+    }
+
+    async fn clean(&self, active_nodes: &[ElementId]) -> Result<()> {
+        /*
+        // Assuming `ElementId` is defined in your crate
+        let mut items = self.items.write().await;
+        let scopes = active_nodes. scope.parse::<ElementId>();
+        items.retain(|scope, _| active_nodes.contains(&scope));
+        Ok(())
+        */
+        todo!()
+    }
+}

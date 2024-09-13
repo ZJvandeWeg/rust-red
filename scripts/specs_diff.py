@@ -73,6 +73,11 @@ def print_sep(text=''):
     filled_text = text.ljust(terminal_size.columns, '-')
     print(filled_text)
 
+def print_subtitle(text=''):
+    terminal_size = shutil.get_terminal_size()
+    filled_text = text.ljust(terminal_size.columns, '.')
+    print(filled_text)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -100,11 +105,11 @@ if __name__ == "__main__":
         total_js_count += len(js_specs)
         total_py_count += len(py_specs)
         if len(py_specs) >= len(js_specs):
-            print(
-                f'''{Fore.GREEN}* [✓]{Style.RESET_ALL} "{p[0]}" ({len(py_specs)}/{len(js_specs)})''')
+            print_subtitle(
+                f'''{Fore.GREEN}* [✓]{Style.RESET_ALL} "{p[0]}" ({len(py_specs)}/{len(js_specs)}) ''')
         else:
-            print(
-                f'''{Fore.RED}* [×]{Style.RESET_ALL} "{p[0]}" {Fore.RED}({len(py_specs)}/{len(js_specs)}){Style.RESET_ALL}''')
+            print_subtitle(
+                f'''{Fore.RED}* [×]{Style.RESET_ALL} "{p[0]}" {Fore.RED}({len(py_specs)}/{len(js_specs)}){Style.RESET_ALL} ''')
         for s in differences:
             if s[0] == '-':
                 print(f'''\t{Fore.RED}{s[0]} It: {Style.RESET_ALL}{s[2:]}''')

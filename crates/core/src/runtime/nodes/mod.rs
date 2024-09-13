@@ -7,6 +7,7 @@ use tokio::select;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use super::context::Context;
 use super::group::Group;
 use super::model::{ElementId, Envelope, Msg, MsgReceiverHolder};
 use crate::runtime::engine::FlowEngine;
@@ -79,6 +80,7 @@ pub struct FlowNode {
     pub ports: Vec<Port>,
     pub group: Option<Weak<Group>>,
     pub envs: Arc<EnvStore>,
+    pub context: Arc<Context>,
 
     pub on_received: MsgEventSender,
     pub on_completed: MsgEventSender,
@@ -117,6 +119,10 @@ pub trait FlowNodeBehavior: 'static + Send + Sync + FlowsElement {
 
     fn get_env(&self, key: &str) -> Option<Variant> {
         self.get_node().envs.evalute_env(key)
+    }
+
+    fn get_context(&self) -> Arc<Context> {
+        self.get_node().context.clone()
     }
 
     fn get_engine(&self) -> Option<Arc<FlowEngine>> {
