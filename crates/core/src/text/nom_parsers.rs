@@ -17,6 +17,10 @@ pub fn spaces<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a st
     take_while(move |c| chars.contains(c))(i)
 }
 
+pub fn js_identifier(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
+    recognize(pair(alt((tag("$"), alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_")))))).parse(input)
+}
+
 pub fn identifier(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     recognize(pair(alt((alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_")))))).parse(input)
 }
