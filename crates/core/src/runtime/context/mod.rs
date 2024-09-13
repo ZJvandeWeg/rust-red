@@ -104,8 +104,8 @@ impl Default for ContextManager {
 impl ContextManager {
     pub fn new_context(self: &Arc<Self>, parent: Option<&Arc<Context>>, scope: String) -> Arc<Context> {
         let c = Arc::new(Context {
-            parent: parent.map(|x| Arc::downgrade(x)),
-            manager: Arc::downgrade(&self),
+            parent: parent.map(Arc::downgrade),
+            manager: Arc::downgrade(self),
             scope: scope.clone(),
         });
         self.contexts.insert(scope, c.clone());

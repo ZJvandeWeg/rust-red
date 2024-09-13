@@ -729,7 +729,7 @@ fn map_normalize_segments<'a>(
 ) -> crate::Result<()> {
     for seg in segs.iter_mut() {
         if let PropexSegment::Nested(nested_segs) = seg {
-            if nested_segs.first() != Some(&PropexSegment::Property(&self_name)) {
+            if nested_segs.first() != Some(&PropexSegment::Property(self_name)) {
                 return Err(
                     EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
                 );
