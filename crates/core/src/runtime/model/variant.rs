@@ -41,6 +41,8 @@ pub trait VariantMapExt {
     fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant>;
     fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant>;
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
+    fn set_property(&mut self, prop: String, value: Variant);
+    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()>;
 }
 
 /// A versatile enum that can represent various types of data.
@@ -783,6 +785,82 @@ impl VariantMapExt for VariantMap {
             get_map_property_by_segments_mut(self, &segs)
         } else {
             get_map_property_by_segments_mut(self, &segs)
+        }
+    }
+
+    fn set_property(&mut self, prop: String, value: Variant) {
+        let _ = self.insert(prop, value);
+    }
+
+    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
+        if expr.is_empty() {
+            return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
+        }
+
+        let segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+
+        let first_prop_name = match segs.first() {
+            Some(PropexSegment::Property(name)) => name,
+            _ => {
+                return Err(crate::EdgelinkError::BadArguments(format!(
+                    "The first property to access must be a string, but got '{}'",
+                    expr
+                ))
+                .into())
+            }
+        };
+
+        // If create_missing is true and first_prop doesn't exist, we should create it here.
+        let first_prop = match (self.get_property_mut(first_prop_name), create_missing, segs.len()) {
+            (Some(prop), _, _) => prop,
+            (None, true, 1) => {
+                // Only one level of the property
+                self.insert(expr.into(), value);
+                return Ok(());
+            }
+            (None, true, _) => {
+                let next_seg = segs.get(1);
+                let var = match next_seg {
+                    // the next level property is an object
+                    Some(PropexSegment::Property(_)) => Variant::empty_object(),
+                    Some(PropexSegment::Index(_)) => Variant::empty_array(),
+                    _ => {
+                        return Err(crate::EdgelinkError::BadArguments(format!(
+                            "Not allowed to set first property: '{}'",
+                            first_prop_name
+                        ))
+                        .into());
+                    }
+                };
+                self.insert(first_prop_name.to_string(), var);
+                self.get_property_mut(first_prop_name).unwrap()
+            }
+            (None, _, _) => {
+                return Err(crate::EdgelinkError::BadArguments(format!(
+                    "Failed to set first property: '{}'",
+                    first_prop_name
+                ))
+                .into());
+            }
+        };
+
+        if segs.len() == 1 {
+            *first_prop = value;
+            return Ok(());
+        }
+
+        match first_prop.get_item_by_propex_segments_mut(&segs[1..]) {
+            Some(pv) => {
+                *pv = value;
+                Ok(())
+            }
+            None if create_missing => {
+                first_prop.set_property_by_propex_segments(&segs[1..], value, true).map_err(Into::into)
+            }
+            None => Err(crate::EdgelinkError::InvalidOperation(
+                "Unable to set property: missing intermediate segments".into(),
+            )
+            .into()),
         }
     }
 }
