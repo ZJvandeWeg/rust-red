@@ -197,9 +197,12 @@ impl ChangeNode {
                                 // only replace if they match exactly
                                 msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
                             }
+                            Variant::Regexp(ref re) =>  {
+                                let from_value_str = from_value.to_string()?;
+                                let replaced = re.replace(from_value_str.as_str(), to_value.to_string()?.as_str());
+                                msg.set_trimmed_nav_property(&rule.p, Variant::String(replaced.into()), false)?;
+                            }
                             _ => {
-                                dbg!(&from_value);
-                                dbg!(&to_value);
                                 let replaced = cs.replace(
                                     from_value.to_string()?.as_str(), //TODO opti
                                     to_value.to_string()?.as_str(),
