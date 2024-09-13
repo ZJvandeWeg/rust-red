@@ -106,24 +106,38 @@ fn first_direct_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&
 }
 
 fn first_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    context("first_property", alt((first_direct_property, quoted_property, index, nested))).parse(i)
+    context("first_property", alt((first_direct_property, quoted_property, bracket_index, nested))).parse(i)
 }
 
 fn quoted_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     delimited(token(char('[')), parse_string_literal, token(char(']'))).map(PropexSegment::Property).parse(i)
 }
 
-fn direct_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+fn direct_identifier_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     context("direct_property", preceded(token(char('.')), token(nom_parsers::identifier)))
         .map(PropexSegment::Property)
         .parse(i)
 }
 
-fn subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    context("subproperty", alt((direct_property, quoted_property, index, nested))).parse(i)
+fn direct_numbers_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context("direct_numbers_index", preceded(token(char('.')), token(parse_usize))).map(PropexSegment::Index).parse(i)
 }
 
-fn index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+fn subproperty(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
+    context(
+        "subproperty",
+        alt((
+            direct_identifier_property, // `a.b`
+            direct_numbers_index,       // `a.123`
+            quoted_property,            // `a["b"]`
+            bracket_index,              // `a[123]`
+            nested,                     // `a[b.c]`
+        )),
+    )
+    .parse(i)
+}
+
+fn bracket_index(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
     context("index", delimited(token(char('[')), token(parse_usize), token(char(']'))))
         .map(PropexSegment::Index)
         .parse(i)
@@ -172,7 +186,7 @@ mod tests {
         assert_eq!(PropexSegment::Property("_test_1"), parsed);
 
         let expr = ".foobar123";
-        let (_, parsed) = direct_property(expr).unwrap();
+        let (_, parsed) = direct_identifier_property(expr).unwrap();
         assert_eq!(PropexSegment::Property("foobar123"), parsed);
 
         let expr = " [ 'aaa']";
@@ -180,7 +194,7 @@ mod tests {
         assert_eq!(PropexSegment::Property("aaa"), parsed);
 
         let expr = "[ 123 ]";
-        let (_, parsed) = index(expr).unwrap();
+        let (_, parsed) = bracket_index(expr).unwrap();
         assert_eq!(PropexSegment::Index(123), parsed);
     }
 
