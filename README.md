@@ -56,6 +56,12 @@ Or:
 
 By default, EdgeLink will read `~/.node-red/flows.json` and execute it.
 
+You can use the `--help` command-line argument to view all the supported options for this program:
+
+```bash
+./target/release/edgelinkd --help
+```
+
 #### Run Unit Tests
 
 ```bash
@@ -99,7 +105,10 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 - [ ] RED.util (WIP)
     - [x] `RED.util.cloneMessage()`
     - [x] `RED.util.generateId()`
-- [x] Plug-in subsystem (Currently only static-linked)
+- [x] Plug-in subsystem[^1]
+- [ ] JSONata
+
+[^1]: Rust's Tokio async functions cannot call into dynamic libraries, so currently, we can only use statically linked plugins. I will evaluate the possibility of adding plugins based on WebAssembly (WASM) or JavaScript (JS) in the future.
 
 ### The Current Status of Nodes:
 
@@ -170,7 +179,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 
 ## Roadmap
 
-Check out our [roadmap](ROADMAP.md) to get a glimpse of the upcoming features and milestones.
+Check out our [roadmap](docs/ROADMAP.md) to get a glimpse of the upcoming features and milestones.
 
 ## Contribution
 
