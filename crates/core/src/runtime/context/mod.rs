@@ -12,6 +12,9 @@ use runtime::model::*;
 mod localfs;
 mod memory;
 
+pub const DEFAULT_STORE_NAME: &str = "default";
+pub const DEFAULT_STORE_NAME_ALIAS: &str = "_";
+
 #[linkme::distributed_slice]
 pub static __STORES: [StoreMetadata];
 

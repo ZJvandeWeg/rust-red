@@ -43,6 +43,10 @@ pub trait VariantMapExt {
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
     fn set_property(&mut self, prop: String, value: Variant);
     fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()>;
+
+    fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
+    fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
+    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()>;
 }
 
 /// A versatile enum that can represent various types of data.
@@ -701,52 +705,6 @@ impl From<&[u8]> for Variant {
     }
 }
 
-fn get_map_property_by_segments<'a>(map: &'a VariantMap, segs: &[PropexSegment<'_>]) -> Option<&'a Variant> {
-    match segs {
-        [PropexSegment::Property(first_prop_name)] => map.get(*first_prop_name),
-        [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-            map.get(*first_prop_name)?.get_item_by_propex_segments(rest)
-        }
-        _ => None,
-    }
-}
-
-fn get_map_property_by_segments_mut<'a>(
-    map: &'a mut VariantMap,
-    segs: &[PropexSegment<'_>],
-) -> Option<&'a mut Variant> {
-    match segs {
-        [PropexSegment::Property(first_prop_name)] => map.get_property_mut(first_prop_name),
-        [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-            map.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
-        }
-        _ => None,
-    }
-}
-
-fn map_normalize_segments<'a>(
-    map: &'a VariantMap,
-    self_name: &str,
-    segs: &mut [PropexSegment<'a>],
-) -> crate::Result<()> {
-    for seg in segs.iter_mut() {
-        if let PropexSegment::Nested(nested_segs) = seg {
-            if nested_segs.first() != Some(&PropexSegment::Property(self_name)) {
-                return Err(
-                    EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
-                );
-            }
-            *seg = match get_map_property_by_segments(map, &nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
-                Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
-                Variant::Rational(f64_index) if *f64_index >= 0.0 => PropexSegment::Index(f64_index.round() as usize),
-                _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
-            };
-        }
-    }
-    Ok(())
-}
-
 impl VariantMapExt for VariantMap {
     fn contains_property(&self, prop: &str) -> bool {
         self.contains_key(prop)
@@ -766,15 +724,15 @@ impl VariantMapExt for VariantMap {
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        map_normalize_segments(self, self_name, &mut segs).ok()?;
-        get_map_property_by_segments(self, &segs)
+        self.normalize_segments(self_name, &mut segs).ok()?;
+        self.get_seg_property(&segs)
     }
 
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
         let mut segs = propex::parse(expr).ok()?;
         if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
             // Do things
-            map_normalize_segments(self, self_name, &mut segs).ok()?;
+            self.normalize_segments(self_name, &mut segs).ok()?;
             let mut normalized = String::new();
             for seg in segs {
                 write!(&mut normalized, "{}", seg).unwrap();
@@ -782,9 +740,9 @@ impl VariantMapExt for VariantMap {
             dbg!(&normalized);
             let segs = propex::parse(&normalized).ok()?;
             let segs = segs.clone();
-            get_map_property_by_segments_mut(self, &segs)
+            self.get_seg_property_mut(&segs)
         } else {
-            get_map_property_by_segments_mut(self, &segs)
+            self.get_seg_property_mut(&segs)
         }
     }
 
@@ -862,6 +820,47 @@ impl VariantMapExt for VariantMap {
             )
             .into()),
         }
+    }
+
+    fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant> {
+        match segs {
+            [PropexSegment::Property(first_prop_name)] => self.get(*first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+                self.get(*first_prop_name)?.get_item_by_propex_segments(rest)
+            }
+            _ => None,
+        }
+    }
+
+    fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
+        match segs {
+            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
+            }
+            _ => None,
+        }
+    }
+
+    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()> {
+        for seg in segs.iter_mut() {
+            if let PropexSegment::Nested(nested_segs) = seg {
+                if nested_segs.first() != Some(&PropexSegment::Property(self_name)) {
+                    return Err(
+                        EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
+                    );
+                }
+                *seg = match self.get_seg_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                    Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
+                    Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
+                    Variant::Rational(f64_index) if *f64_index >= 0.0 => {
+                        PropexSegment::Index(f64_index.round() as usize)
+                    }
+                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                };
+            }
+        }
+        Ok(())
     }
 }
 
