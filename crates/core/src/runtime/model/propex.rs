@@ -250,7 +250,6 @@ mod tests {
     fn parse_propex_with_nested_propex() {
         let expr1 = r#"['test1'].msg.payload[msg["topic"][0]].str[123]"#;
         let segs = parse(expr1).unwrap();
-        dbg!(&segs);
 
         assert_eq!(6, segs.len());
         assert_eq!(PropexSegment::Property("test1"), segs[0]);

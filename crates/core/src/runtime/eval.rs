@@ -62,7 +62,7 @@ pub async fn evaluate_node_property(
             Ok(Variant::deserialize(jv)?)
         }
 
-        RedPropertyType::Re => Ok(Variant::Regexp(Regex::new(value.into())?)),
+        RedPropertyType::Re => Ok(Variant::Regexp(Regex::new(value)?)),
 
         RedPropertyType::Date => match value {
             "object" => Ok(Variant::now()),

@@ -235,8 +235,6 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Hello World!'
 
-
-
         # 15 changes the value to persistable flow context property
 
         @pytest.mark.asyncio
@@ -474,7 +472,6 @@ class TestChangeNode:
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
 
-
     @pytest.mark.describe('#change')
     class TestChange:
 
@@ -595,8 +592,45 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == "Hello World!"
 
-# 0049 changes the value of the message property based on a regex
-# 0050 supports regex groups
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value of the message property based on a regex')
+        async def test_0049(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload.a", "pt": "msg", "from": "\\d+",
+                        "fromt": "re", "to": "NUMBER", "tot": "str"},
+                    {"t": "change", "p": "payload.b", "pt": "msg",
+                        "from": "on", "fromt": "re", "to": "true", "tot": "bool"},
+                    {"t": "change", "p": "payload.c", "pt": "msg",
+                        "from": "off", "fromt": "re", "to": "false", "tot": "bool"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": {
+                    "a": "Replace all numbers 12 and 14", "b": 'on', "c": 'off'}}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"]["a"] == "Replace all numbers NUMBER and NUMBER"
+            assert msgs[0]["payload"]["b"] == True
+            assert msgs[0]["payload"]["c"] == False
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('supports regex groups')
+        async def test_0050(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z":"100", "action": "change", "property": "payload",
+                    "from": "(Hello)", "to": "$1-$1-$1", "reg": True, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "Hello World"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "Hello-Hello-Hello World"
+
 # 0051 reports invalid regex
 # 0052 supports regex groups - new rule format
 # 0053 changes the value using msg property

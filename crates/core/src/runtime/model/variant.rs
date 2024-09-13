@@ -758,7 +758,6 @@ impl VariantMapExt for VariantMap {
             for seg in segs {
                 write!(&mut normalized, "{}", seg).unwrap();
             }
-            dbg!(&normalized);
             let segs = propex::parse(&normalized).ok()?;
             let segs = segs.clone();
             self.get_seg_property_mut(&segs)

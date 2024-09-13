@@ -187,7 +187,6 @@ impl ChangeNode {
                     self.get_from_value(rule, msg).await,
                     eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)).await,
                 ) {
-                    // TODO
                     match current {
                         Variant::String(ref cs) => match from_value {
                             Variant::Integer(_) | Variant::Rational(_) | Variant::Bool(_) | Variant::String(_)
@@ -197,10 +196,14 @@ impl ChangeNode {
                                 // only replace if they match exactly
                                 msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
                             }
-                            Variant::Regexp(ref re) => {
-                                let from_value_str = from_value.to_string()?;
-                                let replaced = re.replace(from_value_str.as_str(), to_value.to_string()?.as_str());
-                                msg.set_trimmed_nav_property(&rule.p, Variant::String(replaced.into()), false)?;
+                            Variant::Regexp(ref from_value_re) => {
+                                let replaced = from_value_re.replace_all(cs, to_value.to_string()?.as_str());
+                                let value_to_set = match (rule.tot, replaced.as_ref()) {
+                                    (Some(RedPropertyType::Bool), "true") => to_value,
+                                    (Some(RedPropertyType::Bool), "false") => to_value,
+                                    _ => Variant::String(replaced.into()),
+                                };
+                                msg.set_trimmed_nav_property(&rule.p, value_to_set, false)?;
                             }
                             _ => {
                                 let replaced = cs.replace(
