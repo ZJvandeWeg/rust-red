@@ -44,6 +44,9 @@ jobs:
           target: ${{ matrix.target }}
           components: llvm-tools-preview,clippy,rustfmt
 
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -71,7 +74,10 @@ jobs:
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo test --profile ci --workspace --target ${{ matrix.target }} --features full
+        run: cargo nextest run --workspace --no-fail-fast --profile ci --features full --target ${{ matrix.target }}
+
+      - name: Run doc tests
+        run: cargo test -doc --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Python tests
         env:
