@@ -5,6 +5,7 @@ use std::fmt;
 use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use regex::Regex;
 use rquickjs::function::Constructor;
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{self, de, Deserializer};
@@ -72,7 +73,7 @@ pub trait VariantMapExt {
 /// assert_eq!(integer_variant.as_integer().unwrap(), 42);
 /// ```
 #[non_exhaustive]
-#[derive(Default, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Default, Clone, Debug)]
 pub enum Variant {
     /// Represents a null value.
     #[default]
@@ -94,7 +95,7 @@ pub enum Variant {
     Date(SystemTime),
 
     /// Represents a regular expression string.
-    Regexp(String),
+    Regexp(Regex),
 
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
@@ -105,6 +106,26 @@ pub enum Variant {
     /// Represents a key-value mapping of strings to `Variant` values.
     Object(VariantMap),
 }
+
+impl PartialEq for Variant {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Variant::Null, Variant::Null) => true,
+            (Variant::Rational(a), Variant::Rational(b)) => a == b,
+            (Variant::Integer(a), Variant::Integer(b)) => a == b,
+            (Variant::String(a), Variant::String(b)) => a == b,
+            (Variant::Bool(a), Variant::Bool(b)) => a == b,
+            (Variant::Date(a), Variant::Date(b)) => a == b,
+            (Variant::Regexp(a), Variant::Regexp(b)) => a.as_str() == b.as_str(),
+            (Variant::Bytes(a), Variant::Bytes(b)) => a == b,
+            (Variant::Array(a), Variant::Array(b)) => a == b,
+            (Variant::Object(a), Variant::Object(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Variant {}
 
 impl Variant {
     pub fn empty_string() -> Variant {
@@ -589,7 +610,7 @@ impl Variant {
             Variant::Regexp(re) => {
                 let global = ctx.globals();
                 let regexp_ctor: Constructor = global.get("RegExp")?;
-                regexp_ctor.construct((re,)).map_err(|e| e.into())
+                regexp_ctor.construct((re.as_str(),)).map_err(|e| e.into())
             }
         }
     }
@@ -876,7 +897,7 @@ impl Serialize for Variant {
             Variant::String(v) => serializer.serialize_str(v),
             Variant::Bool(v) => serializer.serialize_bool(*v),
             Variant::Bytes(v) => serializer.serialize_bytes(v),
-            Variant::Regexp(v) => serializer.serialize_str(v),
+            Variant::Regexp(v) => serializer.serialize_str(v.as_str()),
             Variant::Date(v) => {
                 let ts = v.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;
                 serializer.serialize_u64(ts.as_millis() as u64)
@@ -1084,8 +1105,15 @@ impl<'js> js::FromJs<'js> for Variant {
                         Ok(Variant::Date(st))
                     } else if jo.is_instance_of(regexp_ctor) {
                         let to_string_fn: js::Function = jo.get("toString")?;
-                        let re: String = to_string_fn.call((js::function::This(jv),))?;
-                        Ok(Variant::Regexp(re))
+                        let re_str: String = to_string_fn.call((js::function::This(jv),))?;
+                        match Regex::new(re_str.as_str()) {
+                            Ok(re) => Ok(Variant::Regexp(re)),
+                            Err(_) => Err(js::Error::FromJs {
+                                from: "JS object",
+                                to: "Variant::Regexp",
+                                message: Some(format!("Failed to create Regex from: '{}'", re_str)),
+                            }),
+                        }
                     } else {
                         let mut map = VariantMap::new();
                         for result in jo.props::<String, js::Value>() {

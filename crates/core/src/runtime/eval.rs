@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use regex::Regex;
 use serde::Deserialize;
 
 use crate::runtime::flow::*;
@@ -61,7 +62,7 @@ pub async fn evaluate_node_property(
             Ok(Variant::deserialize(jv)?)
         }
 
-        RedPropertyType::Re => Ok(Variant::Regexp(value.into())),
+        RedPropertyType::Re => Ok(Variant::Regexp(Regex::new(value.into())?)),
 
         RedPropertyType::Date => match value {
             "object" => Ok(Variant::now()),
