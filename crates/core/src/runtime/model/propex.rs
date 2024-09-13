@@ -186,8 +186,6 @@ pub fn parse(expr: &str) -> Result<Vec<PropexSegment>, PropexError> {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::value::Index;
-
     use super::*;
 
     #[test]
