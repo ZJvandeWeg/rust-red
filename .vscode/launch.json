@@ -22,6 +22,7 @@
             "args": [
                 "-v",
                 "4",
+                "c:\\tmp\\debug.json"
             ],
             "env": {
                 "NR_TEST": "foo",

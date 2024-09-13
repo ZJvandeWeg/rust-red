@@ -94,6 +94,8 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 - [x] Group
 - [x] Environment Variables (WIP)
 - [ ] Context
+    - [x] Memory storage
+    - [ ] Local file-system storage
 - [ ] RED.util (WIP)
     - [x] `RED.util.cloneMessage()`
     - [x] `RED.util.generateId()`

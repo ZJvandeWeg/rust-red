@@ -72,10 +72,10 @@ impl ContextStore for MemoryContextStore {
         Err(EdgelinkError::OutOfRange.into()) // Assuming `into` converts to your `Result` error type
     }
 
-    async fn set_one(&self, scope: &str, key: &str, value: &Variant) -> Result<()> {
+    async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()> {
         let mut items = self.items.write().await;
         let scope_map = items.entry(scope.to_string()).or_insert_with(HashMap::new);
-        scope_map.insert(key.to_string(), value.clone());
+        scope_map.insert(key.to_string(), value);
         Ok(())
     }
 
@@ -94,7 +94,7 @@ impl ContextStore for MemoryContextStore {
         Ok(())
     }
 
-    async fn clean(&self, active_nodes: &[ElementId]) -> Result<()> {
+    async fn clean(&self, _active_nodes: &[ElementId]) -> Result<()> {
         /*
         // Assuming `ElementId` is defined in your crate
         let mut items = self.items.write().await;

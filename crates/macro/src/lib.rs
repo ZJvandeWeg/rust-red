@@ -42,6 +42,10 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 self.get_node().flow.upgrade().and_then(|arc| Some(arc as std::sync::Arc<dyn FlowsElement>))
             }
 
+            fn context(&self) -> Arc<Context> {
+                self.get_node().context.clone()
+            }
+
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }

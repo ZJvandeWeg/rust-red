@@ -76,7 +76,7 @@ impl FlowNodeBehavior for ChangeNode {
                 {
                     let mut msg_guard = msg.write().await;
                     // We always relay the message, regardless of whether the rules are followed or not.
-                    if let Err(e) = node.apply_rules(&mut msg_guard) {
+                    if let Err(e) = node.apply_rules(&mut msg_guard).await {
                         // TODO Report Error to flow
                         log::error!("Failed to apply rules: {}", e);
                     }
@@ -96,34 +96,34 @@ impl ChangeNode {
         Ok(Box::new(node))
     }
 
-    fn get_to_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
+    async fn get_to_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
         if let (Some(tot), Some(to)) = (rule.tot, rule.to.as_ref()) {
-            eval::evaluate_node_property(to, tot, Some(self), None, Some(msg))
+            eval::evaluate_node_property(to, tot, Some(self), None, Some(msg)).await
         } else {
             Err(EdgelinkError::BadFlowsJson("The `tot` and `to` in the rule cannot be None".into()).into())
         }
     }
 
-    fn get_from_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
+    async fn get_from_value(&self, rule: &Rule, msg: &Msg) -> crate::Result<Variant> {
         if let (Some(fromt), Some(from)) = (rule.fromt, rule.from.as_ref()) {
-            eval::evaluate_node_property(from, fromt, Some(self), None, Some(msg))
+            eval::evaluate_node_property(from, fromt, Some(self), None, Some(msg)).await
         } else {
             Err(EdgelinkError::BadFlowsJson("The `fromt` and `from` in the rule cannot be None".into()).into())
         }
     }
 
-    fn apply_rules(&self, msg: &mut Msg) -> crate::Result<()> {
+    async fn apply_rules(&self, msg: &mut Msg) -> crate::Result<()> {
         for rule in self.config.rules.iter() {
-            self.apply_rule(rule, msg)?;
+            self.apply_rule(rule, msg).await?;
         }
         Ok(())
     }
 
-    fn apply_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
-        let to_value = self.get_to_value(rule, msg).ok();
+    async fn apply_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+        let to_value = self.get_to_value(rule, msg).await.ok();
         match rule.t {
-            RuleKind::Set => self.apply_rule_set(rule, msg, to_value),
-            RuleKind::Change => self.apply_rule_change(rule, msg, to_value),
+            RuleKind::Set => self.apply_rule_set(rule, msg, to_value).await,
+            RuleKind::Change => self.apply_rule_change(rule, msg, to_value).await,
             RuleKind::Move => Ok(()),
             RuleKind::Delete => {
                 /*
@@ -135,7 +135,7 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_set(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
+    async fn apply_rule_set(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Set);
         match rule.pt {
             RedPropertyType::Msg => {
@@ -150,9 +150,26 @@ impl ChangeNode {
                 }
                 Ok(())
             }
-            RedPropertyType::Flow | RedPropertyType::Global => {
-                //
-                todo!()
+            RedPropertyType::Global => {
+                if let Some(to_value) = to_value {
+                    let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
+                                                                                                            // let csp = context::parse_context_store(&rule.p)?;
+                                                                                                            // engine.get_context().set_one("memory", csp.key, to_value).await
+                    engine.get_context().set_one("memory", &rule.p, to_value).await
+                } else {
+                    Err(EdgelinkError::BadArguments("The target value is None".into()).into())
+                }
+            }
+            RedPropertyType::Flow => {
+                if let Some(to_value) = to_value {
+                    let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
+                                                                   // let csp = context::parse_context_store(&rule.p)?;
+                                                                   // engine.get_context().set_one("memory", csp.key, to_value).await
+                    let fe = flow as Arc<dyn FlowsElement>;
+                    fe.context().set_one("memory", &rule.p, to_value).await
+                } else {
+                    Err(EdgelinkError::BadArguments("The target value is None".into()).into())
+                }
             }
             _ => Err(EdgelinkError::NotSupported(
                 "We only support to set message property and flow/global context variables".into(),
@@ -161,14 +178,14 @@ impl ChangeNode {
         }
     }
 
-    fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
+    async fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Change);
         match rule.pt {
             RedPropertyType::Msg => {
                 if let (Some(to_value), Ok(from_value), Ok(current)) = (
                     to_value,
-                    self.get_from_value(rule, msg),
-                    eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)),
+                    self.get_from_value(rule, msg).await,
+                    eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)).await,
                 ) {
                     // TODO
                     match current {

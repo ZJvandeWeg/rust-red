@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock, Weak},
+    sync::{Arc, Weak},
 };
 
 use async_trait::async_trait;
@@ -41,7 +41,7 @@ pub trait ContextStore: Send + Sync {
     async fn get_many(&self, scope: &str, keys: &[&str]) -> Result<Vec<Variant>>;
     async fn get_keys(&self, scope: &str) -> Result<Vec<String>>;
 
-    async fn set_one(&self, scope: &str, key: &str, value: &Variant) -> Result<()>;
+    async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()>;
     async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()>;
 
     async fn delete(&self, scope: &str) -> Result<()>;
@@ -75,13 +75,25 @@ impl Context {
         // TODO FIXME change it to fixed length stack-allocated string
         store.get_one(&self.scope, key).await.ok()
     }
+
+    pub async fn set_one(&self, storage: &str, key: &str, value: Variant) -> Result<()> {
+        let store = self
+            .manager
+            .upgrade()
+            .expect("The mananger cannot be released!")
+            .get_context(storage)
+            .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?;
+        // TODO FIXME change it to fixed length stack-allocated string
+        store.set_one(&self.scope, key, value).await
+    }
 }
 
 impl Default for ContextManager {
     fn default() -> Self {
         let mut stores = HashMap::with_capacity(__STORES.len());
         for smd in __STORES.iter() {
-            let store = (smd.factory)().unwrap();
+            log::debug!("Initializing context storage provider: '{}'...", smd.type_);
+            let store = (smd.factory)().unwrap(); // TODO FIXME
             stores.insert(store.metadata().type_, Arc::from(store));
         }
 

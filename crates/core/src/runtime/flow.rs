@@ -117,6 +117,10 @@ impl FlowsElement for Flow {
         self.parent.as_ref().and_then(|weak_parent| weak_parent.upgrade()).map(|arc| arc as Arc<dyn FlowsElement>)
     }
 
+    fn context(&self) -> Arc<Context> {
+        self.context.clone()
+    }
+
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
@@ -554,10 +558,6 @@ impl Flow {
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {
         self.envs.evalute_env(key)
-    }
-
-    pub fn get_context(&self) -> Arc<Context> {
-        self.context.clone()
     }
 
     /*

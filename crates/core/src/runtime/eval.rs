@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::Deserialize;
 
 use crate::runtime::flow::*;
@@ -12,7 +14,7 @@ use crate::*;
  * @param {String} name - name of variable
  * @return {String} value of env var
  */
-fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Flow>) -> Option<Variant> {
+fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Arc<Flow>>) -> Option<Variant> {
     if let Some(node) = node {
         if let Some(var) = node.get_env(name) {
             return Some(var);
@@ -44,11 +46,11 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
  * @param  {Function} callback - (optional) called when the property is evaluated
  * @return {any} The evaluted property, if no `callback` is provided
  */
-pub fn evaluate_node_property(
+pub async fn evaluate_node_property(
     value: &str,
     _type: RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Flow>,
+    flow: Option<&Arc<Flow>>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match _type {
@@ -88,7 +90,34 @@ pub fn evaluate_node_property(
             }
         }
 
-        RedPropertyType::Flow | RedPropertyType::Global => todo!(),
+        RedPropertyType::Global => {
+            /*
+            let csp = context::parse_context_store(value)?;
+            // TODO normalize propex
+            let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
+            if let Some(ctx_value) = engine.get_context().get_one(csp.store, csp.key).await {
+                Ok(ctx_value)
+            } else {
+                Err(EdgelinkError::OutOfRange.into())
+            }
+            */
+            let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
+            if let Some(ctx_value) = engine.get_context().get_one("memory", value).await {
+                Ok(ctx_value)
+            } else {
+                Err(EdgelinkError::OutOfRange.into())
+            }
+        }
+
+        RedPropertyType::Flow => {
+            let flow = node.and_then(|n| n.get_flow().upgrade()).unwrap();
+            let fe = flow as Arc<dyn FlowsElement>;
+            if let Some(ctx_value) = fe.context().get_one("memory", value).await {
+                Ok(ctx_value)
+            } else {
+                Err(EdgelinkError::OutOfRange.into())
+            }
+        }
 
         RedPropertyType::Bool => Ok(Variant::Bool(value.trim_ascii().parse::<bool>()?)),
 
@@ -115,7 +144,7 @@ pub fn evaluate_node_property_variant(
     value: &Variant,
     type_: &RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Flow>,
+    flow: Option<&Arc<Flow>>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match (type_, value) {

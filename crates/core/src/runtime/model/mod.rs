@@ -26,15 +26,17 @@ pub use red_types::*;
 pub use settings::*;
 pub use variant::*;
 
+use super::context::Context;
 use super::flow::Flow;
 
-pub trait FlowsElement {
+pub trait FlowsElement: Sync + Send {
     fn id(&self) -> ElementId;
     fn name(&self) -> &str;
     fn type_str(&self) -> &'static str;
     fn ordering(&self) -> usize;
     fn as_any(&self) -> &dyn ::std::any::Any;
     fn parent_element(&self) -> Option<Arc<dyn FlowsElement>>;
+    fn context(&self) -> Arc<Context>;
 }
 
 #[derive(Debug)]

@@ -147,18 +147,14 @@ impl InjectNode {
 
     async fn inject_msg(&self, stop_token: CancellationToken) -> crate::Result<()> {
         // TODO msg.field1 references msg.field2
-        let mut msg_body: BTreeMap<String, Variant> = self
-            .config
-            .props
-            .iter()
-            .map(|i| {
-                (
-                    i.p.to_string(),
-                    eval::evaluate_node_property(&i.v, i.vt, Some(self), self.get_flow().upgrade().as_deref(), None)
-                        .unwrap(),
-                )
-            })
-            .collect();
+        let mut msg_body: BTreeMap<String, Variant> = BTreeMap::new();
+        for prop in self.config.props.iter() {
+            let k = prop.p.to_string();
+            let v =
+                eval::evaluate_node_property(&prop.v, prop.vt, Some(self), self.get_flow().upgrade().as_ref(), None)
+                    .await?;
+            msg_body.insert(k, v);
+        }
         msg_body.insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::String(Msg::generate_id().to_string()));
 
         let envelope = Envelope { port: 0, msg: Msg::new_with_body(msg_body) };
