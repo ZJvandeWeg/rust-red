@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::fmt::Write;
 use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 
@@ -83,15 +82,15 @@ impl Msg {
     }
 
     pub fn contains_property(&self, prop: &str) -> bool {
-        self.body.contains_key(prop)
+        self.body.contains_property(prop)
     }
 
     pub fn get_property(&self, prop: &str) -> Option<&Variant> {
-        self.body.get(prop)
+        self.body.get_property(prop)
     }
 
     pub fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant> {
-        self.body.get_mut(prop)
+        self.body.get_property_mut(prop)
     }
 
     /// Get the value of a navigation property
@@ -99,27 +98,11 @@ impl Msg {
     /// The first level of the property expression for 'msg' must be a string, which means it must be
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
-        let mut segs = propex::parse(expr).ok()?;
-        self.normalize_segments(&mut segs).ok()?;
-        self.get_property_by_segments_internal(&segs)
+        self.body.get_nav_property("msg", expr)
     }
 
     pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
-        let mut segs = propex::parse(expr).ok()?;
-        if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
-            // Do things
-            self.normalize_segments(&mut segs).ok()?;
-            let mut normalized = String::new();
-            for seg in segs {
-                write!(&mut normalized, "{}", seg).unwrap();
-            }
-            dbg!(&normalized);
-            let segs = propex::parse(&normalized).ok()?;
-            let segs = segs.clone();
-            self.get_property_by_segments_internal_mut(&segs)
-        } else {
-            self.get_property_by_segments_internal_mut(&segs)
-        }
+        self.body.get_nav_property_mut("msg", expr)
     }
 
     pub fn get_trimmed_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
@@ -137,46 +120,6 @@ impl Msg {
             self.get_nav_property(stripped_expr)
         } else {
             self.get_nav_property(trimmed_expr)
-        }
-    }
-
-    fn normalize_segments<'a>(&'a self, segs: &mut [PropexSegment<'a>]) -> crate::Result<()> {
-        for seg in segs.iter_mut() {
-            if let PropexSegment::Nested(nested_segs) = seg {
-                if nested_segs.first() != Some(&PropexSegment::Property("msg")) {
-                    return Err(EdgelinkError::BadArguments("The expression must contains `msg.`".into()).into());
-                }
-                *seg =
-                    match self.get_property_by_segments_internal(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                        Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
-                        Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
-                        Variant::Rational(f64_index) if *f64_index >= 0.0 => {
-                            PropexSegment::Index(f64_index.round() as usize)
-                        }
-                        _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
-                    };
-            }
-        }
-        Ok(())
-    }
-
-    fn get_property_by_segments_internal(&self, segs: &[PropexSegment]) -> Option<&Variant> {
-        match segs {
-            [PropexSegment::Property(first_prop_name)] => self.body.get(*first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.body.get(*first_prop_name)?.get_item_by_propex_segments(rest)
-            }
-            _ => None,
-        }
-    }
-
-    fn get_property_by_segments_internal_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
-        match segs {
-            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
-            }
-            _ => None,
         }
     }
 

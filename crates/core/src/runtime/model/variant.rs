@@ -2,6 +2,7 @@ use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fmt;
+use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rquickjs::function::Constructor;
@@ -30,6 +31,16 @@ pub enum VariantError {
 
     #[error("Casting error")]
     BadCast,
+}
+
+pub type VariantMap = BTreeMap<String, Variant>;
+
+pub trait VariantMapExt {
+    fn contains_property(&self, prop: &str) -> bool;
+    fn get_property(&self, prop: &str) -> Option<&Variant>;
+    fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant>;
+    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant>;
+    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
 }
 
 /// A versatile enum that can represent various types of data.
@@ -86,7 +97,7 @@ pub enum Variant {
     Array(Vec<Variant>),
 
     /// Represents a key-value mapping of strings to `Variant` values.
-    Object(BTreeMap<String, Variant>),
+    Object(VariantMap),
 }
 
 impl Variant {
@@ -95,7 +106,7 @@ impl Variant {
     }
 
     pub fn empty_object() -> Variant {
-        Variant::Object(BTreeMap::new())
+        Variant::Object(VariantMap::new())
     }
 
     pub fn empty_array() -> Variant {
@@ -316,21 +327,21 @@ impl Variant {
         matches!(self, Variant::Object(..))
     }
 
-    pub fn as_object(&self) -> Option<&BTreeMap<String, Variant>> {
+    pub fn as_object(&self) -> Option<&VariantMap> {
         match self {
             Variant::Object(ref object) => Some(object),
             _ => None,
         }
     }
 
-    pub fn as_object_mut(&mut self) -> Option<&mut BTreeMap<String, Variant>> {
+    pub fn as_object_mut(&mut self) -> Option<&mut VariantMap> {
         match self {
             Variant::Object(ref mut object) => Some(object),
             _ => None,
         }
     }
 
-    pub fn into_object(self) -> Result<BTreeMap<String, Variant>, Self> {
+    pub fn into_object(self) -> Result<VariantMap, Self> {
         match self {
             Variant::Object(object) => Ok(object),
             other => Err(other),
@@ -654,7 +665,7 @@ implfrom! {
 
     // Object(&[(String, Variant)]),
     // Object(&[(&str, Variant)]),
-    Object(BTreeMap<String, Variant>),
+    Object(VariantMap),
     // Object(&BTreeMap<String, Variant>),
     // Object(BTreeMap<&str, Variant>),
 }
@@ -669,7 +680,7 @@ impl From<char> for Variant {
 impl From<&[(String, Variant)]> for Variant {
     #[inline]
     fn from(value: &[(String, Variant)]) -> Self {
-        let map: BTreeMap<String, Variant> = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
+        let map: VariantMap = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -677,7 +688,7 @@ impl From<&[(String, Variant)]> for Variant {
 impl<const N: usize> From<[(&str, Variant); N]> for Variant {
     #[inline]
     fn from(value: [(&str, Variant); N]) -> Self {
-        let map: BTreeMap<String, Variant> = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
+        let map: VariantMap = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -685,6 +696,94 @@ impl<const N: usize> From<[(&str, Variant); N]> for Variant {
 impl From<&[u8]> for Variant {
     fn from(array: &[u8]) -> Self {
         Variant::Bytes(array.to_vec())
+    }
+}
+
+fn get_map_property_by_segments<'a>(map: &'a VariantMap, segs: &[PropexSegment<'_>]) -> Option<&'a Variant> {
+    match segs {
+        [PropexSegment::Property(first_prop_name)] => map.get(*first_prop_name),
+        [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+            map.get(*first_prop_name)?.get_item_by_propex_segments(rest)
+        }
+        _ => None,
+    }
+}
+
+fn get_map_property_by_segments_mut<'a>(
+    map: &'a mut VariantMap,
+    segs: &[PropexSegment<'_>],
+) -> Option<&'a mut Variant> {
+    match segs {
+        [PropexSegment::Property(first_prop_name)] => map.get_property_mut(first_prop_name),
+        [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+            map.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
+        }
+        _ => None,
+    }
+}
+
+fn map_normalize_segments<'a>(
+    map: &'a VariantMap,
+    self_name: &str,
+    segs: &mut [PropexSegment<'a>],
+) -> crate::Result<()> {
+    for seg in segs.iter_mut() {
+        if let PropexSegment::Nested(nested_segs) = seg {
+            if nested_segs.first() != Some(&PropexSegment::Property(&self_name)) {
+                return Err(
+                    EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
+                );
+            }
+            *seg = match get_map_property_by_segments(map, &nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
+                Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
+                Variant::Rational(f64_index) if *f64_index >= 0.0 => PropexSegment::Index(f64_index.round() as usize),
+                _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+            };
+        }
+    }
+    Ok(())
+}
+
+impl VariantMapExt for VariantMap {
+    fn contains_property(&self, prop: &str) -> bool {
+        self.contains_key(prop)
+    }
+
+    fn get_property(&self, prop: &str) -> Option<&Variant> {
+        self.get(prop)
+    }
+
+    fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant> {
+        self.get_mut(prop)
+    }
+
+    /// Get the value of a navigation property
+    ///
+    /// The first level of the property expression for 'msg' must be a string, which means it must be
+    /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
+    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant> {
+        let mut segs = propex::parse(expr).ok()?;
+        map_normalize_segments(self, self_name, &mut segs).ok()?;
+        get_map_property_by_segments(self, &segs)
+    }
+
+    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
+        let mut segs = propex::parse(expr).ok()?;
+        if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
+            // Do things
+            map_normalize_segments(self, self_name, &mut segs).ok()?;
+            let mut normalized = String::new();
+            for seg in segs {
+                write!(&mut normalized, "{}", seg).unwrap();
+            }
+            dbg!(&normalized);
+            let segs = propex::parse(&normalized).ok()?;
+            let segs = segs.clone();
+            get_map_property_by_segments_mut(self, &segs)
+        } else {
+            get_map_property_by_segments_mut(self, &segs)
+        }
     }
 }
 
@@ -735,8 +834,7 @@ impl From<serde_json::Value> for Variant {
             serde_json::Value::String(string) => Variant::String(string.to_owned()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: BTreeMap<String, Variant> =
-                    object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
+                let new_map: VariantMap = object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -755,8 +853,7 @@ impl From<&serde_json::Value> for Variant {
             serde_json::Value::String(string) => Variant::String(string.clone()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: BTreeMap<String, Variant> =
-                    object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
+                let new_map: VariantMap = object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -849,7 +946,7 @@ impl<'de> Deserialize<'de> for Variant {
             where
                 A: de::MapAccess<'de>,
             {
-                let mut btreemap = BTreeMap::new();
+                let mut btreemap = VariantMap::new();
                 while let Some((key, value)) = map.next_entry()? {
                     btreemap.insert(key, value);
                 }
@@ -913,7 +1010,7 @@ impl<'js> js::FromJs<'js> for Variant {
                         let re: String = to_string_fn.call((js::function::This(jv),))?;
                         Ok(Variant::Regexp(re))
                     } else {
-                        let mut map = BTreeMap::new();
+                        let mut map = VariantMap::new();
                         for result in jo.props::<String, js::Value>() {
                             match result {
                                 Ok((ref k, v)) => {
