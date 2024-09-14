@@ -698,3 +698,46 @@ class TestChangeNode:
 # 22 changes the value using boolean - string payload
 # 23 changes the value using boolean - boolean payload
 # 24 changes the value of the global context
+
+    @pytest.mark.describe('#delete')
+    class TestSet:
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('deletes the value of the message property')
+        async def test_delete_1(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "payload",
+                    "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg":  {'payload': "This won't get through"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert 'payload' not in msgs[0]
+
+# 2. deletes the value of global context property
+# 3. deletes the value of persistable global context property
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('deletes the value of a multi-level message property')
+        async def test_delete_4(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar", "from": "", "to": "", "reg": False, "name": "changeNode",
+                 "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {
+                        "payload": "This won't get through!",
+                        "foo": { "bar": "This will be deleted!" }
+                    }
+                },
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert 'bar' not in msgs[0]["foo"]
+
+# 5. sends unaltered message if the deleted message property does not exist
+# 6. sends unaltered message if a deleted multi-level message property does not exist

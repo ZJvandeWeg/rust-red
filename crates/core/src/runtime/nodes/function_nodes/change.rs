@@ -124,14 +124,11 @@ impl ChangeNode {
         match rule.t {
             RuleKind::Set => self.apply_rule_set(rule, msg, to_value).await,
             RuleKind::Change => self.apply_rule_change(rule, msg, to_value).await,
-            RuleKind::Move => Ok(()),
             RuleKind::Delete => {
-                /*
-                msg.get_property_mut(, value, create_missing)
-                msg.body.remove().with_context(|| format!())?
-                */
+                let _ = self.apply_rule_delete(rule, msg).await?;
                 Ok(())
             }
+            RuleKind::Move => Ok(()),
         }
     }
 
@@ -239,7 +236,17 @@ impl ChangeNode {
             )
             .into()),
         }
-    }
+    } // apply_rule_change
+
+    async fn apply_rule_delete(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<Variant> {
+        assert!(rule.t == RuleKind::Delete);
+        match rule.pt {
+            RedPropertyType::Msg => msg.body.remove_nav_property(&rule.p).ok_or(
+                EdgelinkError::NotSupported(format!("Cannot remove the property '{}' in the msg", rule.p)).into(),
+            ),
+            _ => Err(EdgelinkError::NotSupported("Only support to remove message property".into()).into()),
+        }
+    } // apply_rule_delete
 }
 
 fn handle_legacy_json(n: Value) -> crate::Result<Value> {
