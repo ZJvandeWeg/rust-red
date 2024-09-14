@@ -472,6 +472,7 @@ class TestChangeNode:
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
 
+
     @pytest.mark.describe('#change')
     class TestChange:
 
@@ -732,8 +733,8 @@ class TestChangeNode:
             injections = [
                 {"nid": "1", "msg": {
                         "payload": "This won't get through!",
-                        "foo": { "bar": "This will be deleted!" }
-                    }
+                        "foo": {"bar": "This will be deleted!"}
+                }
                 },
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
