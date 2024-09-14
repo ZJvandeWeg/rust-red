@@ -8,14 +8,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use regex::Regex;
 use rquickjs::function::Constructor;
 use serde::ser::{SerializeMap, SerializeSeq};
+use serde::Deserialize;
 use serde::{self, de, Deserializer};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::runtime::model::propex;
 use crate::EdgelinkError;
 
 use super::propex::PropexSegment;
+
+#[cfg(feature = "js")]
+mod js_support;
+
+mod map;
+mod ser;
+
+pub use self::map::*;
 
 #[cfg(feature = "js")]
 mod js {
@@ -32,22 +40,6 @@ pub enum VariantError {
 
     #[error("Casting error")]
     BadCast,
-}
-
-pub type VariantMap = BTreeMap<String, Variant>;
-
-pub trait VariantMapExt {
-    fn contains_property(&self, prop: &str) -> bool;
-    fn get_property(&self, prop: &str) -> Option<&Variant>;
-    fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant>;
-    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant>;
-    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
-    fn set_property(&mut self, prop: String, value: Variant);
-    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()>;
-
-    fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
-    fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
-    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()>;
 }
 
 /// A versatile enum that can represent various types of data.
@@ -726,418 +718,6 @@ impl From<&[u8]> for Variant {
     }
 }
 
-impl VariantMapExt for VariantMap {
-    fn contains_property(&self, prop: &str) -> bool {
-        self.contains_key(prop)
-    }
-
-    fn get_property(&self, prop: &str) -> Option<&Variant> {
-        self.get(prop)
-    }
-
-    fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant> {
-        self.get_mut(prop)
-    }
-
-    /// Get the value of a navigation property
-    ///
-    /// The first level of the property expression for 'msg' must be a string, which means it must be
-    /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant> {
-        let mut segs = propex::parse(expr).ok()?;
-        self.normalize_segments(self_name, &mut segs).ok()?;
-        self.get_seg_property(&segs)
-    }
-
-    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
-        let mut segs = propex::parse(expr).ok()?;
-        if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
-            // Do things
-            self.normalize_segments(self_name, &mut segs).ok()?;
-            let mut normalized = String::new();
-            for seg in segs {
-                write!(&mut normalized, "{}", seg).unwrap();
-            }
-            let segs = propex::parse(&normalized).ok()?;
-            let segs = segs.clone();
-            self.get_seg_property_mut(&segs)
-        } else {
-            self.get_seg_property_mut(&segs)
-        }
-    }
-
-    fn set_property(&mut self, prop: String, value: Variant) {
-        let _ = self.insert(prop, value);
-    }
-
-    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
-        if expr.is_empty() {
-            return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
-        }
-
-        let segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
-
-        let first_prop_name = match segs.first() {
-            Some(PropexSegment::Property(name)) => name,
-            _ => {
-                return Err(crate::EdgelinkError::BadArguments(format!(
-                    "The first property to access must be a string, but got '{}'",
-                    expr
-                ))
-                .into())
-            }
-        };
-
-        // If create_missing is true and first_prop doesn't exist, we should create it here.
-        let first_prop = match (self.get_property_mut(first_prop_name), create_missing, segs.len()) {
-            (Some(prop), _, _) => prop,
-            (None, true, 1) => {
-                // Only one level of the property
-                self.insert(expr.into(), value);
-                return Ok(());
-            }
-            (None, true, _) => {
-                let next_seg = segs.get(1);
-                let var = match next_seg {
-                    // the next level property is an object
-                    Some(PropexSegment::Property(_)) => Variant::empty_object(),
-                    Some(PropexSegment::Index(_)) => Variant::empty_array(),
-                    _ => {
-                        return Err(crate::EdgelinkError::BadArguments(format!(
-                            "Not allowed to set first property: '{}'",
-                            first_prop_name
-                        ))
-                        .into());
-                    }
-                };
-                self.insert(first_prop_name.to_string(), var);
-                self.get_property_mut(first_prop_name).unwrap()
-            }
-            (None, _, _) => {
-                return Err(crate::EdgelinkError::BadArguments(format!(
-                    "Failed to set first property: '{}'",
-                    first_prop_name
-                ))
-                .into());
-            }
-        };
-
-        if segs.len() == 1 {
-            *first_prop = value;
-            return Ok(());
-        }
-
-        match first_prop.get_item_by_propex_segments_mut(&segs[1..]) {
-            Some(pv) => {
-                *pv = value;
-                Ok(())
-            }
-            None if create_missing => {
-                first_prop.set_property_by_propex_segments(&segs[1..], value, true).map_err(Into::into)
-            }
-            None => Err(crate::EdgelinkError::InvalidOperation(
-                "Unable to set property: missing intermediate segments".into(),
-            )
-            .into()),
-        }
-    }
-
-    fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant> {
-        match segs {
-            [PropexSegment::Property(first_prop_name)] => self.get(*first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get(*first_prop_name)?.get_item_by_propex_segments(rest)
-            }
-            _ => None,
-        }
-    }
-
-    fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
-        match segs {
-            [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
-            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get_property_mut(first_prop_name)?.get_item_by_propex_segments_mut(rest)
-            }
-            _ => None,
-        }
-    }
-
-    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()> {
-        for seg in segs.iter_mut() {
-            if let PropexSegment::Nested(nested_segs) = seg {
-                if nested_segs.first() != Some(&PropexSegment::Property(self_name)) {
-                    return Err(
-                        EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
-                    );
-                }
-                *seg = match self.get_seg_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                    Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
-                    Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
-                    Variant::Rational(f64_index) if *f64_index >= 0.0 => {
-                        PropexSegment::Index(f64_index.round() as usize)
-                    }
-                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
-                };
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Serialize for Variant {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Variant::Null => serializer.serialize_none(),
-            Variant::Rational(v) => serializer.serialize_f64(*v),
-            Variant::Integer(v) => serializer.serialize_i32(*v),
-            Variant::String(v) => serializer.serialize_str(v),
-            Variant::Bool(v) => serializer.serialize_bool(*v),
-            Variant::Bytes(v) => serializer.serialize_bytes(v),
-            Variant::Regexp(v) => serializer.serialize_str(v.as_str()),
-            Variant::Date(v) => {
-                let ts = v.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;
-                serializer.serialize_u64(ts.as_millis() as u64)
-            }
-            Variant::Array(v) => {
-                let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for item in v {
-                    seq.serialize_element(item)?;
-                }
-                seq.end()
-            }
-            Variant::Object(v) => {
-                let mut map = serializer.serialize_map(Some(v.len()))?;
-                for (k, v) in v {
-                    map.serialize_entry(k, v)?;
-                }
-                map.end()
-            }
-        }
-    }
-}
-
-impl From<serde_json::Value> for Variant {
-    fn from(jv: serde_json::Value) -> Self {
-        match jv {
-            serde_json::Value::Null => Variant::Null,
-            serde_json::Value::Bool(boolean) => Variant::from(boolean),
-            serde_json::Value::Number(number) => {
-                //FIXME TODO
-                Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
-            }
-            serde_json::Value::String(string) => Variant::String(string.to_owned()),
-            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
-            serde_json::Value::Object(object) => {
-                let new_map: VariantMap = object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
-                Variant::Object(new_map)
-            }
-        }
-    }
-}
-
-impl From<&serde_json::Value> for Variant {
-    fn from(jv: &serde_json::Value) -> Self {
-        match jv {
-            serde_json::Value::Null => Variant::Null,
-            serde_json::Value::Bool(boolean) => Variant::from(*boolean),
-            serde_json::Value::Number(number) => {
-                // FIXME TODO
-                Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
-            }
-            serde_json::Value::String(string) => Variant::String(string.clone()),
-            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
-            serde_json::Value::Object(object) => {
-                let new_map: VariantMap = object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
-                Variant::Object(new_map)
-            }
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Variant {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct VariantVisitor;
-
-        impl<'de> de::Visitor<'de> for VariantVisitor {
-            type Value = Variant;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a valid Variant value")
-            }
-
-            fn visit_unit<E>(self) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                Ok(Variant::Null)
-            }
-
-            fn visit_bool<E>(self, value: bool) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                Ok(Variant::Bool(value))
-            }
-
-            fn visit_i64<E>(self, value: i64) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                if value > i32::MAX.into() || value < i32::MIN.into() {
-                    Ok(Variant::Rational(value as f64))
-                } else {
-                    Ok(Variant::Integer(value as i32))
-                }
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                if value > (i32::MAX as u64) {
-                    Ok(Variant::Rational(value as f64))
-                } else {
-                    Ok(Variant::Integer(value as i32))
-                }
-            }
-
-            fn visit_f64<E>(self, value: f64) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                Ok(Variant::Rational(value))
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                Ok(Variant::String(value.to_owned()))
-            }
-
-            fn visit_bytes<E>(self, value: &[u8]) -> Result<Variant, E>
-            where
-                E: de::Error,
-            {
-                Ok(Variant::Bytes(value.to_vec()))
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Variant, A::Error>
-            where
-                A: de::SeqAccess<'de>,
-            {
-                let mut vec = Vec::new();
-                while let Some(item) = seq.next_element()? {
-                    vec.push(item);
-                }
-                Ok(Variant::Array(vec))
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Variant, A::Error>
-            where
-                A: de::MapAccess<'de>,
-            {
-                let mut btreemap = VariantMap::new();
-                while let Some((key, value)) = map.next_entry()? {
-                    btreemap.insert(key, value);
-                }
-                Ok(Variant::Object(btreemap))
-            }
-        }
-
-        deserializer.deserialize_any(VariantVisitor)
-    }
-}
-
-#[cfg(feature = "js")]
-impl<'js> js::FromJs<'js> for Variant {
-    fn from_js(_ctx: &js::Ctx<'js>, jv: js::Value<'js>) -> js::Result<Variant> {
-        match jv.type_of() {
-            js::Type::Undefined => Ok(Variant::Null),
-
-            js::Type::Null => Ok(Variant::Null),
-
-            js::Type::Bool => Ok(Variant::Bool(jv.get()?)),
-
-            js::Type::Int => Ok(Variant::Integer(jv.get()?)),
-
-            js::Type::Float => Ok(Variant::Rational(jv.get()?)),
-
-            js::Type::String => Ok(Variant::String(jv.get()?)),
-
-            js::Type::Symbol => Ok(Variant::String(jv.get()?)),
-
-            js::Type::Array => {
-                if let Some(arr) = jv.as_array() {
-                    if let Some(buf) = arr.as_array_buffer() {
-                        Ok(Variant::Bytes(buf.as_slice()?.into()))
-                    } else {
-                        let mut vec: Vec<Variant> = Vec::with_capacity(arr.len());
-                        for item in arr.iter() {
-                            match item {
-                                Ok(v) => vec.push(Variant::from_js(_ctx, v)?),
-                                Err(err) => {
-                                    return Err(err);
-                                }
-                            }
-                        }
-                        Ok(Variant::Array(vec))
-                    }
-                } else {
-                    Ok(Variant::Null)
-                }
-            }
-
-            js::Type::Object => {
-                if let Some(jo) = jv.as_object() {
-                    let global = _ctx.globals();
-                    let date_ctor: Constructor = global.get("Date")?;
-                    let regexp_ctor: Constructor = global.get("RegExp")?;
-                    if jo.is_instance_of(date_ctor) {
-                        let st = jv.get::<SystemTime>()?;
-                        Ok(Variant::Date(st))
-                    } else if jo.is_instance_of(regexp_ctor) {
-                        let to_string_fn: js::Function = jo.get("toString")?;
-                        let re_str: String = to_string_fn.call((js::function::This(jv),))?;
-                        match Regex::new(re_str.as_str()) {
-                            Ok(re) => Ok(Variant::Regexp(re)),
-                            Err(_) => Err(js::Error::FromJs {
-                                from: "JS object",
-                                to: "Variant::Regexp",
-                                message: Some(format!("Failed to create Regex from: '{}'", re_str)),
-                            }),
-                        }
-                    } else {
-                        let mut map = VariantMap::new();
-                        for result in jo.props::<String, js::Value>() {
-                            match result {
-                                Ok((ref k, v)) => {
-                                    map.insert(k.clone(), Variant::from_js(_ctx, v)?);
-                                }
-                                Err(e) => {
-                                    eprintln!("Error occurred: {:?}", e);
-                                    panic!();
-                                }
-                            }
-                        }
-                        Ok(Variant::Object(map))
-                    }
-                } else {
-                    Err(js::Error::FromJs { from: "JS object", to: "Variant::Object", message: None })
-                }
-            }
-
-            _ => Err(js::Error::FromJs { from: "Unknown JS type", to: "", message: None }),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1221,6 +801,17 @@ mod tests {
         assert_eq!(obj_address.get_object_property("zip").unwrap().as_str().unwrap(), "12345");
 
         assert_eq!(obj_address.len(), 2);
+    }
+
+    #[test]
+    fn variant_can_serialize_to_json_value() {
+        let org = Variant::Object(VariantMap::from([
+            ("a".into(), 1.into()), //
+            ("b".into(), "hello".into()),
+        ]));
+        let jv = serde_json::to_value(org).unwrap();
+        assert_eq!(jv.get("a").cloned(), Some(1.into()));
+        assert_eq!(jv.get("b").cloned(), Some("hello".into()));
     }
 
     #[test]
