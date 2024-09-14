@@ -30,6 +30,20 @@
             }
         },
         {
+            "label": "cargo nextest",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "nextest",
+                "run",
+                "--all"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "label": "cargo run",
             "type": "shell",
             "command": "cargo",

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 use thiserror::Error;
 
@@ -30,7 +30,7 @@ pub enum PropexError {
 #[derive(Debug, Clone)]
 pub enum PropexSegment<'a> {
     Index(usize),
-    Property(&'a str), // Use a reference to a string slice
+    Property(Cow<'a, str>), // Use a reference to a string slice
     Nested(Vec<PropexSegment<'a>>),
 }
 
@@ -66,7 +66,7 @@ impl<'a> Display for PropexSegment<'a> {
 impl PropexSegment<'_> {
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            PropexSegment::Property(prop) => Some(*prop),
+            PropexSegment::Property(prop) => Some(prop),
             _ => None,
         }
     }
@@ -98,11 +98,11 @@ fn string_literal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str
 }
 
 fn first_string_literal_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    token(string_literal).map(PropexSegment::Property).parse(i)
+    token(string_literal).map(|x| PropexSegment::Property(Cow::Borrowed(x))).parse(i)
 }
 
 fn first_direct_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    nom_parsers::js_identifier.map(PropexSegment::Property).parse(i)
+    nom_parsers::js_identifier.map(|x| PropexSegment::Property(Cow::Borrowed(x))).parse(i)
 }
 
 fn first_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
@@ -121,12 +121,16 @@ fn first_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
 
 /// `['prop']` or `["prop"]`
 fn quoted_index_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    delimited(token(char('[')), string_literal, token(char(']'))).map(PropexSegment::Property).parse(i)
+    delimited(token(char('[')), string_literal, token(char(']')))
+        .map(|x| PropexSegment::Property(Cow::Borrowed(x)))
+        .parse(i)
 }
 
 /// `.property`
 fn direct_identifier_property(i: &str) -> IResult<&str, PropexSegment, VerboseError<&str>> {
-    context("direct_property", preceded(char('.'), nom_parsers::js_identifier)).map(PropexSegment::Property).parse(i)
+    context("direct_property", preceded(char('.'), nom_parsers::js_identifier))
+        .map(|x: &str| PropexSegment::Property(Cow::Borrowed(x)))
+        .parse(i)
 }
 
 /// `.123`
@@ -187,28 +191,29 @@ pub fn parse(expr: &str) -> Result<Vec<PropexSegment>, PropexError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::borrow::Cow;
 
     #[test]
     fn parse_primitives_should_be_ok() {
         let expr = "['test1']";
         let (_, parsed) = quoted_index_property(expr).unwrap();
-        assert_eq!(PropexSegment::Property("test1"), parsed);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("test1")), parsed);
 
         let expr = r#"["test1"]"#;
         let (_, parsed) = quoted_index_property(expr).unwrap();
-        assert_eq!(PropexSegment::Property("test1"), parsed);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("test1")), parsed);
 
         let expr = "_test_1";
         let (_, parsed) = first_direct_property(expr).unwrap();
-        assert_eq!(PropexSegment::Property("_test_1"), parsed);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("_test_1")), parsed);
 
         let expr = ".foobar123";
         let (_, parsed) = direct_identifier_property(expr).unwrap();
-        assert_eq!(PropexSegment::Property("foobar123"), parsed);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("foobar123")), parsed);
 
         let expr = "[ 'aaa']";
         let (_, parsed) = quoted_index_property(expr).unwrap();
-        assert_eq!(PropexSegment::Property("aaa"), parsed);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("aaa")), parsed);
 
         let expr = "[ 123 ]";
         let (_, parsed) = bracket_index(expr).unwrap();
@@ -221,13 +226,13 @@ mod tests {
         let segs = parse(expr1).unwrap();
 
         assert_eq!(7, segs.len());
-        assert_eq!(PropexSegment::Property("test1"), segs[0]);
-        assert_eq!(PropexSegment::Property("hello"), segs[1]);
-        assert_eq!(PropexSegment::Property("world"), segs[2]);
-        assert_eq!(PropexSegment::Property("aaa"), segs[3]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("test1")), segs[0]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("hello")), segs[1]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("world")), segs[2]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("aaa")), segs[3]);
         assert_eq!(PropexSegment::Index(333), segs[4]);
-        assert_eq!(PropexSegment::Property("bb"), segs[5]);
-        assert_eq!(PropexSegment::Property("name_of"), segs[6]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("bb")), segs[5]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("name_of")), segs[6]);
     }
 
     #[test]
@@ -236,14 +241,14 @@ mod tests {
         let segs = parse(expr1).unwrap();
 
         assert_eq!(8, segs.len());
-        assert_eq!(PropexSegment::Property("test1"), segs[0]);
-        assert_eq!(PropexSegment::Property("hello"), segs[1]);
-        assert_eq!(PropexSegment::Property("world"), segs[2]);
-        assert_eq!(PropexSegment::Property("aaa"), segs[3]);
-        assert_eq!(PropexSegment::Property("see"), segs[4]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("test1")), segs[0]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("hello")), segs[1]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("world")), segs[2]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("aaa")), segs[3]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("see")), segs[4]);
         assert_eq!(PropexSegment::Index(333), segs[5]);
-        assert_eq!(PropexSegment::Property("bb"), segs[6]);
-        assert_eq!(PropexSegment::Property("name_of"), segs[7]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("bb")), segs[6]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("name_of")), segs[7]);
     }
 
     #[test]
@@ -252,18 +257,18 @@ mod tests {
         let segs = parse(expr1).unwrap();
 
         assert_eq!(6, segs.len());
-        assert_eq!(PropexSegment::Property("test1"), segs[0]);
-        assert_eq!(PropexSegment::Property("msg"), segs[1]);
-        assert_eq!(PropexSegment::Property("payload"), segs[2]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("test1")), segs[0]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("msg")), segs[1]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("payload")), segs[2]);
         assert_eq!(
             PropexSegment::Nested(vec![
-                PropexSegment::Property("msg"),
-                PropexSegment::Property("topic"),
+                PropexSegment::Property(Cow::Borrowed("msg")),
+                PropexSegment::Property(Cow::Borrowed("topic")),
                 PropexSegment::Index(0)
             ]),
             segs[3]
         );
-        assert_eq!(PropexSegment::Property("str"), segs[4]);
+        assert_eq!(PropexSegment::Property(Cow::Borrowed("str")), segs[4]);
         assert_eq!(PropexSegment::Index(123), segs[5]);
     }
 
@@ -271,103 +276,151 @@ mod tests {
     #[test]
     fn should_pass_red_node_unit_tests() {
         use PropexSegment::*;
-        assert_eq!(parse("a.b.c").unwrap(), vec![Property("a"), Property("b"), Property("c")], "pass a.b.c");
+        assert_eq!(
+            parse("a.b.c").unwrap(),
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("b")), Property(Cow::Borrowed("c"))],
+            "pass a.b.c"
+        );
 
         assert_eq!(
             parse(r#"a["b"]["c"]"#).unwrap(),
-            vec![Property("a"), Property("b"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("b")), Property(Cow::Borrowed("c"))],
             r#"pass a["b"]["c"]"#
         );
 
         assert_eq!(
             parse(r#"a["b"].c"#).unwrap(),
-            vec![Property("a"), Property("b"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("b")), Property(Cow::Borrowed("c"))],
             r#"pass a["b"].c"#
         );
 
         assert_eq!(
             parse(r#"a['b'].c"#).unwrap(),
-            vec![Property("a"), Property("b"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("b")), Property(Cow::Borrowed("c"))],
             r#"pass a['b'].c"#
         );
 
-        assert_eq!(parse(r#"a[0].c"#).unwrap(), vec![Property("a"), Index(0), Property("c")], r#"pass a[0].c"#);
+        assert_eq!(
+            parse(r#"a[0].c"#).unwrap(),
+            vec![Property(Cow::Borrowed("a")), Index(0), Property(Cow::Borrowed("c"))],
+            r#"pass a[0].c"#
+        );
 
-        assert_eq!(parse(r#"a.0.c"#).unwrap(), vec![Property("a"), Index(0), Property("c")], r#"pass a.0.c"#);
+        assert_eq!(
+            parse(r#"a.0.c"#).unwrap(),
+            vec![Property(Cow::Borrowed("a")), Index(0), Property(Cow::Borrowed("c"))],
+            r#"pass a.0.c"#
+        );
 
         assert_eq!(
             parse(r#"a['a.b[0]'].c"#).unwrap(),
-            vec![Property("a"), Property("a.b[0]"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("a.b[0]")), Property(Cow::Borrowed("c"))],
             r#"pass a['a.b[0]'].c"#
         );
 
         assert_eq!(
             parse(r#"a[0][0][0]"#).unwrap(),
-            vec![Property("a"), Index(0), Index(0), Index(0)],
+            vec![Property(Cow::Borrowed("a")), Index(0), Index(0), Index(0)],
             r#"pass a[0][0][0]"#
         );
 
-        assert_eq!(parse(r#"'1.2.3.4'"#).unwrap(), vec![Property("1.2.3.4"),], r#"pass '1.2.3.4'"#);
+        assert_eq!(parse(r#"'1.2.3.4'"#).unwrap(), vec![Property(Cow::Borrowed("1.2.3.4")),], r#"pass '1.2.3.4'"#);
 
-        assert_eq!(parse(r#"'a.b'[1]"#).unwrap(), vec![Property("a.b"), Index(1)], r#"pass 'a.b'[1]"#);
+        assert_eq!(parse(r#"'a.b'[1]"#).unwrap(), vec![Property(Cow::Borrowed("a.b")), Index(1)], r#"pass 'a.b'[1]"#);
 
-        assert_eq!(parse(r#"'a.b'.c"#).unwrap(), vec![Property("a.b"), Property("c")], r#"pass 'a.b'.c"#);
+        assert_eq!(
+            parse(r#"'a.b'.c"#).unwrap(),
+            vec![Property(Cow::Borrowed("a.b")), Property(Cow::Borrowed("c"))],
+            r#"pass 'a.b'.c"#
+        );
 
         assert_eq!(
             parse(r#"a[msg.b]"#).unwrap(),
-            vec![Property("a"), Nested(vec![Property("msg"), Property("b")])],
+            vec![
+                Property(Cow::Borrowed("a")),
+                Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed("b"))])
+            ],
             r#"pass a[msg.b]"#
         );
 
         assert_eq!(
             parse(r#"a[msg[msg.b]]"#).unwrap(),
-            vec![Property("a"), Nested(vec![Property("msg"), Nested(vec![Property("msg"), Property("b")])])],
+            vec![
+                Property(Cow::Borrowed("a")),
+                Nested(vec![
+                    Property(Cow::Borrowed("msg")),
+                    Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed("b"))])
+                ])
+            ],
             r#"pass a[msg[msg.b]]"#
         );
 
         assert_eq!(
             parse(r#"a[msg['b]"[']]"#).unwrap(),
-            vec![Property("a"), Nested(vec![Property("msg"), Property(r#"b]"["#)])],
+            vec![
+                Property(Cow::Borrowed("a")),
+                Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed(r#"b]"["#))])
+            ],
             r#"pass a[msg['b]"[']]"#
         );
 
         assert_eq!(
             parse(r#"a[msg['b][']]"#).unwrap(),
-            vec![Property("a"), Nested(vec![Property("msg"), Property(r#"b]["#)])],
+            vec![
+                Property(Cow::Borrowed("a")),
+                Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed(r#"b]["#))])
+            ],
             r#"pass a[msg['b][']]"#
         );
 
         assert_eq!(
             parse(r#"b[msg.a][2]"#).unwrap(),
-            vec![Property("b"), Nested(vec![Property("msg"), Property("a")]), Index(2)],
+            vec![
+                Property(Cow::Borrowed("b")),
+                Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed("a"))]),
+                Index(2)
+            ],
             r#"pass b[msg.a][2]"#
         );
 
-        assert_eq!(parse(r#"a.$b.c"#).unwrap(), vec![Property("a"), Property("$b"), Property("c")], r#"pass a.$b.c"#);
+        assert_eq!(
+            parse(r#"a.$b.c"#).unwrap(),
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("$b")), Property(Cow::Borrowed("c"))],
+            r#"pass a.$b.c"#
+        );
 
         assert_eq!(
             parse(r#"a["$b"].c"#).unwrap(),
-            vec![Property("a"), Property("$b"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("$b")), Property(Cow::Borrowed("c"))],
             r#"pass a["$b"].c"#
         );
 
-        assert_eq!(parse(r#"a._b.c"#).unwrap(), vec![Property("a"), Property("_b"), Property("c")], r#"pass a._b.c"#);
+        assert_eq!(
+            parse(r#"a._b.c"#).unwrap(),
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("_b")), Property(Cow::Borrowed("c"))],
+            r#"pass a._b.c"#
+        );
 
         assert_eq!(
             parse(r#"a["_b"].c"#).unwrap(),
-            vec![Property("a"), Property("_b"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("_b")), Property(Cow::Borrowed("c"))],
             r#"pass a["_b"].c"#
         );
 
         assert_eq!(
             parse(r#"a['a.b[0]'].c"#).unwrap(),
-            vec![Property("a"), Property("a.b[0]"), Property("c")],
+            vec![Property(Cow::Borrowed("a")), Property(Cow::Borrowed("a.b[0]")), Property(Cow::Borrowed("c"))],
             r#"pass a['a.b[0]'].c"#
         );
 
         assert_eq!(
             parse(r#"a[msg.c][0]["fred"]"#).unwrap(),
-            vec![Property("a"), Nested(vec![Property("msg"), Property("c"),]), Index(0), Property("fred")],
+            vec![
+                Property(Cow::Borrowed("a")),
+                Nested(vec![Property(Cow::Borrowed("msg")), Property(Cow::Borrowed("c")),]),
+                Index(0),
+                Property(Cow::Borrowed("fred"))
+            ],
             r#"pass a[msg.c][0]["fred"]"#
         );
 

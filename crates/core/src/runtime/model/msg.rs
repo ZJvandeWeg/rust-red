@@ -127,7 +127,7 @@ impl Msg {
     }
 
     pub fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
-        self.body.set_nav_property(expr, value, create_missing)
+        self.body.set_nav_property("msg", expr, value, create_missing)
     }
 
     pub fn set_trimmed_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {

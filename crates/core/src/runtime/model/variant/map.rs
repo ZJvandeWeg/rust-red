@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::*;
 
 pub type VariantMap = BTreeMap<String, Variant>;
@@ -9,11 +11,17 @@ pub trait VariantMapExt {
     fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant>;
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
     fn set_property(&mut self, prop: String, value: Variant);
-    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()>;
+    fn set_nav_property(
+        &mut self,
+        self_name: &str,
+        expr: &str,
+        value: Variant,
+        create_missing: bool,
+    ) -> crate::Result<()>;
 
     fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
     fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
-    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()>;
+    fn normalize_segments(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()>;
 
     fn remove_property(&mut self, prop: &str) -> Option<Variant>;
     fn remove_nav_property(&mut self, expr: &str) -> Option<Variant>;
@@ -45,19 +53,8 @@ impl VariantMapExt for VariantMap {
 
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        if segs.iter().any(|x| matches!(x, PropexSegment::Nested(_))) {
-            // Do things
-            self.normalize_segments(self_name, &mut segs).ok()?;
-            let mut normalized = String::new();
-            for seg in segs {
-                write!(&mut normalized, "{}", seg).unwrap();
-            }
-            let segs = propex::parse(&normalized).ok()?;
-            let segs = segs.clone();
-            self.get_seg_property_mut(&segs)
-        } else {
-            self.get_seg_property_mut(&segs)
-        }
+        self.normalize_segments(self_name, &mut segs).ok()?;
+        self.get_seg_property_mut(&segs)
     }
 
     /// Set the value of a direct property.
@@ -66,12 +63,19 @@ impl VariantMapExt for VariantMap {
     }
 
     /// Set the value of a navigation property.
-    fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
+    fn set_nav_property(
+        &mut self,
+        self_name: &str,
+        expr: &str,
+        value: Variant,
+        create_missing: bool,
+    ) -> crate::Result<()> {
         if expr.is_empty() {
             return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
         }
 
-        let segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+        let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+        self.normalize_segments(self_name, &mut segs)?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
@@ -140,9 +144,9 @@ impl VariantMapExt for VariantMap {
 
     fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant> {
         match segs {
-            [PropexSegment::Property(first_prop_name)] => self.get(*first_prop_name),
+            [PropexSegment::Property(first_prop_name)] => self.get(first_prop_name.as_ref()),
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
-                self.get(*first_prop_name)?.get_item_by_propex_segments(rest)
+                self.get(first_prop_name.as_ref())?.get_item_by_propex_segments(rest)
             }
             _ => None,
         }
@@ -158,16 +162,16 @@ impl VariantMapExt for VariantMap {
         }
     }
 
-    fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()> {
+    fn normalize_segments(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()> {
         for seg in segs.iter_mut() {
             if let PropexSegment::Nested(nested_segs) = seg {
-                if nested_segs.first() != Some(&PropexSegment::Property(self_name)) {
+                if nested_segs.first() != Some(&PropexSegment::Property(Cow::Borrowed(self_name))) {
                     return Err(
                         EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
                     );
                 }
                 *seg = match self.get_seg_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                    Variant::String(str_index) => PropexSegment::Property(str_index.as_str()),
+                    Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
                     Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
                     Variant::Rational(f64_index) if *f64_index >= 0.0 => {
                         PropexSegment::Index(f64_index.round() as usize)
@@ -205,17 +209,19 @@ impl VariantMapExt for VariantMap {
         // Handle the parsed segments.
         match segs {
             // If there's only one segment, remove the property directly.
-            [PropexSegment::Property(first_prop_name)] => self.remove(*first_prop_name),
+            [PropexSegment::Property(first_prop_name)] => self.remove(first_prop_name.as_ref()),
 
             // If there are multiple segments, navigate through the nested structure.
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
                 // Get the mutable reference to the navigation property.
                 let prop_tail =
-                    self.get_mut(*first_prop_name)?.get_item_by_propex_segments_mut(&rest[..rest.len() - 1])?;
+                    self.get_mut(first_prop_name.as_ref())?.get_item_by_propex_segments_mut(&rest[..rest.len() - 1])?;
 
                 // Remove the value based on the type of the last segment.
                 match (prop_tail, segs.last()?) {
-                    (Variant::Object(tail_map), PropexSegment::Property(tail_seg)) => tail_map.remove(*tail_seg),
+                    (Variant::Object(tail_map), PropexSegment::Property(tail_seg)) => {
+                        tail_map.remove(tail_seg.as_ref())
+                    }
                     (Variant::Array(tail_arr), PropexSegment::Index(tail_index)) => Some(tail_arr.remove(*tail_index)),
                     _ => None,
                 }

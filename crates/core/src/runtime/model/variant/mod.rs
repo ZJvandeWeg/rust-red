@@ -2,7 +2,6 @@ use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
