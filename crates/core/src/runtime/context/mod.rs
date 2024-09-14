@@ -47,6 +47,8 @@ pub trait ContextStore: Send + Sync {
     async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()>;
     async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()>;
 
+    async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant>;
+
     async fn delete(&self, scope: &str) -> Result<()>;
     async fn clean(&self, active_nodes: &[ElementId]) -> Result<()>;
 }
@@ -79,7 +81,7 @@ impl Context {
         store.get_one(&self.scope, key).await.ok()
     }
 
-    pub async fn set_one(&self, storage: &str, key: &str, value: Variant) -> Result<()> {
+    pub async fn set_one(&self, storage: &str, key: &str, value: Option<Variant>) -> Result<()> {
         let store = self
             .manager
             .upgrade()
@@ -87,7 +89,12 @@ impl Context {
             .get_context(storage)
             .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?;
         // TODO FIXME change it to fixed length stack-allocated string
-        store.set_one(&self.scope, key, value).await
+        if let Some(value) = value {
+            store.set_one(&self.scope, key, value).await
+        } else {
+            let _ = store.remove_one(&self.scope, key).await?;
+            Ok(())
+        }
     }
 }
 

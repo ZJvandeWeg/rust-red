@@ -718,7 +718,35 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert 'payload' not in msgs[0]
 
-# 2. deletes the value of global context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('deletes the value of global context property')
+        async def test_delete_2(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                # first, we set the global value
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "globalValue", "pt": "global",
+                        "to": "Hello World", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                # then, we delete the global value
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "delete", "p": "globalValue", "pt": "global"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                # finally, we retrieve the global value
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "newGlobalValue", "pt": "msg",
+                        "to": "globalValue", "tot": "global"}
+                ], "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg":  {'payload': ''}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert 'newGlobalValue' not in msgs[0]
+
+
 # 3. deletes the value of persistable global context property
 
         @pytest.mark.asyncio

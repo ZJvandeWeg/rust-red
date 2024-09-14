@@ -147,27 +147,30 @@ impl ChangeNode {
                 }
                 Ok(())
             }
+
             RedPropertyType::Global => {
                 if let Some(to_value) = to_value {
                     let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
                                                                                                             // let csp = context::parse_context_store(&rule.p)?;
                                                                                                             // engine.get_context().set_one("memory", csp.key, to_value).await
-                    engine.get_context().set_one("memory", &rule.p, to_value).await
+                    engine.get_context().set_one("memory", &rule.p, Some(to_value)).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
             }
+
             RedPropertyType::Flow => {
                 if let Some(to_value) = to_value {
                     let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
                                                                    // let csp = context::parse_context_store(&rule.p)?;
                                                                    // engine.get_context().set_one("memory", csp.key, to_value).await
                     let fe = flow as Arc<dyn FlowsElement>;
-                    fe.context().set_one("memory", &rule.p, to_value).await
+                    fe.context().set_one("memory", &rule.p, Some(to_value)).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
             }
+
             _ => Err(EdgelinkError::NotSupported(
                 "We only support to set message property and flow/global context variables".into(),
             )
@@ -232,19 +235,44 @@ impl ChangeNode {
                 todo!()
             }
             _ => Err(EdgelinkError::NotSupported(
-                "We only support to set message property and flow/global context variables".into(),
+                "The 'change' node only allows modifying the 'msg' and global/flow context propertie".into(),
             )
             .into()),
         }
     } // apply_rule_change
 
-    async fn apply_rule_delete(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<Variant> {
+    async fn apply_rule_delete(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Delete);
         match rule.pt {
-            RedPropertyType::Msg => msg.body.remove_nav_property(&rule.p).ok_or(
-                EdgelinkError::NotSupported(format!("Cannot remove the property '{}' in the msg", rule.p)).into(),
-            ),
-            _ => Err(EdgelinkError::NotSupported("Only support to remove message property".into()).into()),
+            RedPropertyType::Msg => {
+                let _ = msg.body.remove_nav_property(&rule.p).ok_or(EdgelinkError::NotSupported(format!(
+                    "Cannot remove the property '{}' in the msg",
+                    rule.p
+                )))?;
+                Ok(())
+            }
+
+            RedPropertyType::Global => {
+                // FIXME TODO
+                // let csp = context::parse_context_store(&rule.p)?;
+                // engine.get_context().set_one("memory", csp.key, to_value).await
+                let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap();
+                engine.get_context().set_one("memory", &rule.p, None).await // Setting it to "None" means to delete.
+            }
+
+            RedPropertyType::Flow => {
+                // FIXME TODO
+                // let csp = context::parse_context_store(&rule.p)?;
+                // engine.get_context().set_one("memory", csp.key, to_value).await
+                let flow = self.get_flow().upgrade().unwrap();
+                let fe = flow as Arc<dyn FlowsElement>;
+                fe.context().set_one("memory", &rule.p, None).await // Setting it to "None" means to delete.
+            }
+
+            _ => Err(EdgelinkError::NotSupported(
+                "The 'change' node only allows deleting the 'msg' and global/flow context propertie".into(),
+            )
+            .into()),
         }
     } // apply_rule_delete
 }
