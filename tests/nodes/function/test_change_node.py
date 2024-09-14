@@ -737,6 +737,8 @@ class TestChangeNode:
                 },
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert 'foo' in msgs[0]
+            assert msgs[0]["foo"] == {}
             assert 'bar' not in msgs[0]["foo"]
 
 # 5. sends unaltered message if the deleted message property does not exist
