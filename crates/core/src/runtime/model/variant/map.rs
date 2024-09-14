@@ -14,6 +14,10 @@ pub trait VariantMapExt {
     fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
     fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
     fn normalize_segments<'a>(&'a self, self_name: &str, segs: &mut [PropexSegment<'a>]) -> crate::Result<()>;
+
+    fn remove_property(&mut self, prop: &str) -> Option<Variant>;
+    fn remove_nav_property(&mut self, expr: &str) -> Option<Variant>;
+    fn remove_seg_property(&mut self, segs: &[PropexSegment]) -> Option<Variant>;
 }
 
 impl VariantMapExt for VariantMap {
@@ -56,10 +60,12 @@ impl VariantMapExt for VariantMap {
         }
     }
 
+    /// Set the value of a direct property.
     fn set_property(&mut self, prop: String, value: Variant) {
         let _ = self.insert(prop, value);
     }
 
+    /// Set the value of a navigation property.
     fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         if expr.is_empty() {
             return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
@@ -171,5 +177,88 @@ impl VariantMapExt for VariantMap {
             }
         }
         Ok(())
+    }
+
+    fn remove_property(&mut self, prop: &str) -> Option<Variant> {
+        self.remove(prop)
+    }
+
+    /// Remove the value of a navigation property.
+    fn remove_nav_property(&mut self, expr: &str) -> Option<Variant> {
+        // Return None if the expression is empty.
+        if expr.is_empty() {
+            return None;
+        }
+
+        // Parse the expression into segments.
+        // TODO nested
+        let segs = propex::parse(expr).ok()?;
+
+        self.remove_seg_property(&segs)
+    }
+
+    fn remove_seg_property(&mut self, segs: &[PropexSegment]) -> Option<Variant> {
+        // Return None if the expression is empty.
+        if segs.is_empty() {
+            return None;
+        }
+        // Handle the parsed segments.
+        match segs {
+            // If there's only one segment, remove the property directly.
+            [PropexSegment::Property(first_prop_name)] => self.remove(*first_prop_name),
+
+            // If there are multiple segments, navigate through the nested structure.
+            [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
+                // Get the mutable reference to the navigation property.
+                let prop_tail =
+                    self.get_mut(*first_prop_name)?.get_item_by_propex_segments_mut(&rest[..rest.len() - 1])?;
+
+                // Remove the value based on the type of the last segment.
+                match (prop_tail, segs.last()?) {
+                    (Variant::Object(tail_map), PropexSegment::Property(tail_seg)) => tail_map.remove(*tail_seg),
+                    (Variant::Array(tail_arr), PropexSegment::Index(tail_index)) => Some(tail_arr.remove(*tail_index)),
+                    _ => None,
+                }
+            }
+
+            // If the segments don't match the expected pattern, return None.
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_remove_nav_property() {
+        let mut obj1 = Variant::from([
+            ("value1", Variant::Integer(123)),
+            ("value2", Variant::Rational(123.0)),
+            (
+                "value3",
+                Variant::from([
+                    ("aaa", Variant::Integer(333)),
+                    ("bbb", Variant::Integer(444)),
+                    ("ccc", Variant::Integer(555)),
+                    ("ddd", Variant::Integer(999)),
+                ]),
+            ),
+            ("value4", Variant::Array(vec!["foo".into(), "foobar".into(), "bar".into()])),
+        ])
+        .as_object()
+        .cloned()
+        .unwrap();
+
+        assert!(obj1.get("value3").unwrap().as_object().unwrap().contains_key("aaa"));
+        let _ = obj1.remove_nav_property("value3.aaa").unwrap();
+        assert!(!obj1.get("value3").unwrap().as_object().unwrap().contains_key("aaa"));
+
+        assert!(obj1.get("value4").unwrap().as_array().unwrap().contains(&Variant::String("foobar".into())));
+        assert_eq!(obj1.get("value4").unwrap().as_array().unwrap().len(), 3);
+        let _ = obj1.remove_nav_property("value4[1]").unwrap();
+        assert!(!obj1.get("value4").unwrap().as_array().unwrap().contains(&Variant::String("foobar".into())));
+        assert_eq!(obj1.get("value4").unwrap().as_array().unwrap().len(), 2);
     }
 }
