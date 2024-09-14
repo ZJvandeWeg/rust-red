@@ -768,7 +768,7 @@ class TestChangeNode:
     class TestSet:
 
         @pytest.mark.asyncio
-        @pytest.mark.it('deletes the value of the message property')
+        @pytest.mark.it('handles multiple rules')
         async def test_multiple_rules_1(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
