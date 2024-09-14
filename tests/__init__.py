@@ -6,6 +6,13 @@ import subprocess
 import signal
 import copy
 
+class EdgelinkError(Exception):
+    def __init__(self, message: str, output: bytes):
+        self.message = message
+        self.output = output
+
+    def __str__(self):
+        return f'EdgeLink Error: {self.message}, output: \n{self.output}'
 
 async def start_edgelink_process(el_args: list[str]):
     # Determine the operating system and choose the appropriate executable name
@@ -36,73 +43,67 @@ async def start_edgelink_process(el_args: list[str]):
     )
     return process
 
-
-async def read_json_from_process(process, nexpected: int, timeout=5):
+async def read_json_from_process(process, nexpected: int):
     # Read from the process's stdout
+    all_output = bytearray()
     buffer = ''
     counter = 0
-    try:
-        while True:
-            line = await asyncio.wait_for(process.stdout.readline(), timeout)
-            if not line:
-                break
-            buffer += line.decode('utf-8')
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        print(f"Received> {line}")
+        all_output.extend(line)
+        buffer += line.decode('utf-8')
 
-            # Look for delimiters \x1E and \n
-            while '\x1E' in buffer:
-                start, rest = buffer.split('\x1E', 1)
-                if '\n' in rest:
-                    json_str, buffer = rest.split('\n', 1)
-                    try:
-                        json_obj = json.loads(json_str)
-                        counter += 1
-                        yield json_obj
-                        if counter >= nexpected:
-                            if platform.system() == 'Windows':
-                                # Send CTRL+C signal
-                                process.send_signal(signal.CTRL_BREAK_EVENT)
-                            else:
-                                process.send_signal(signal.SIGINT)
-                            # Wait for the process to respond and exit
-                            await process.wait()  # Wait for the process to finish
-                            return
-                    except json.JSONDecodeError as e:
-                        print(f"JSON decode error: {e}")
-                        raise e
-                else:
-                    break
-    except asyncio.TimeoutError as e:
-        print("Timeout: No more output in 8 seconds")
-        raise e
-        # await asyncio.sleep(2)  # Wait for the process to respond and exit
+        # Look for delimiters \x1E and \n
+        while '\x1E' in buffer:
+            start, rest = buffer.split('\x1E', 1)
+            if '\n' in rest:
+                json_str, buffer = rest.split('\n', 1)
+                try:
+                    json_obj = json.loads(json_str)
+                    counter += 1
+                    yield json_obj
+                    if counter >= nexpected:
+                        if platform.system() == 'Windows':
+                            # Send CTRL+C signal
+                            process.send_signal(signal.CTRL_BREAK_EVENT)
+                        else:
+                            process.send_signal(signal.SIGINT)
+                        # Wait for the process to respond and exit
+                        await process.wait()  # Wait for the process to finish
+                        return
+                except json.JSONDecodeError as e:
+                    raise EdgelinkError(f"JSON decode error: {e}", bytes(all_output))
+            else:
+                break
     # Ensure the process exits completely
     await process.wait()
 
 
-async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout: float = 5) -> list[dict]:
+async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> tuple[bytes, list[dict]]:
     el_args = ['-v', '0', '--stdin']
     msgs = []
+    all_output = bytearray()
     process = await start_edgelink_process(el_args)
     try:
-        async with asyncio.timeout(timeout):
-            process.stdin.write(input_data)
-            process.stdin.close()
-            async for i in read_json_from_process(process, nexpected, timeout):
-                msgs.append(i)
-            return msgs
-    except asyncio.TimeoutError:
-        print("Timeout occurred, killing the process.")
-        process.kill()
-        await process.wait()
-        raise
-    except BaseException as e:
-        print(f"An error occurred: {e}")
+        process.stdin.write(input_data)
+        process.stdin.close()
+        async for msg in read_json_from_process(process, nexpected):
+            msgs.append(msg)
+        return (bytes(all_output), msgs)
+    except Exception as e:
+        print(f"An error occurred: {e}, killing processing...")
         process.kill()
         await process.wait()
         raise e
 
+async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout=3) -> list[dict]:
+    result = await asyncio.wait_for(_run_edgelink_with_stdin(input_data, nexpected), timeout)
+    return result[1]
 
-async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 5) -> list[dict]:
+async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 3) -> list[dict]:
     el_args = ['-v', '0', flows_path]
     msgs = []
     process = await start_edgelink_process(el_args)
