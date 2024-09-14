@@ -26,7 +26,7 @@ class TestChangeNode:
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {'payload': 'changeMe'}},
+                {"nid": "1", "msg": {'payload': 'changeMe'}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'changed'
@@ -37,19 +37,15 @@ class TestChangeNode:
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "globalValue", "pt": "global",
-                        "to": "changed", "tot": "str"}
-                ],
-                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                    {"t": "set", "p": "globalValue", "pt": "global", "to": "changed", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "payload", "pt": "msg",
-                        "to": "globalValue", "tot": "global"}
-                ],
-                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "globalValue", "tot": "global"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {'payload': 'changeMe'}},
+                {"nid": "1", "msg": {'payload': 'changeMe'}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'changed'
@@ -69,7 +65,7 @@ class TestChangeNode:
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {'payload': 'changeMe'}},
+                {"nid": "1", "msg": {'payload': 'changeMe'}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             payload = msgs[0]['payload']
@@ -86,7 +82,7 @@ class TestChangeNode:
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {"foo": {"bar": "foo"}}},
+                {"nid": "1", "msg": {"foo": {"bar": "foo"}}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]['foo']['bar'] == "bar"
@@ -101,7 +97,7 @@ class TestChangeNode:
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {}},
+                {"nid": "1", "msg": {}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]['foo']['bar'] == "bar"
@@ -223,15 +219,12 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "payload", "pt": "msg",
-                        "to": "flowValue", "tot": "flow"}
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "flowValue", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "z": "100", "type": "console-json"}
             ]
-            injections = [
-                {"nid": "1", "msg":  {'payload': ''}},
-            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Hello World!'
 
@@ -254,9 +247,7 @@ class TestChangeNode:
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "z": "100", "type": "console-json"}
             ]
-            injections = [
-                {"nid": "1", "msg":  {'payload': ''}},
-            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Hello World!'
 
@@ -472,7 +463,6 @@ class TestChangeNode:
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
 
-
     @pytest.mark.describe('#change')
     class TestChange:
 
@@ -676,8 +666,7 @@ class TestChangeNode:
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
-                    {"t": "change", "p": "payload", "from": "topic",
-                        "to": "123", "fromt": "msg", "tot": "str"}
+                    {"t": "change", "p": "payload", "from": "topic", "to": "123", "fromt": "msg", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
                 {"id": "2", "z": "100", "type": "console-json"}
@@ -713,7 +702,7 @@ class TestChangeNode:
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {'payload': "This won't get through"}},
+                {"nid": "1", "msg": {'payload': "This won't get through"}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert 'payload' not in msgs[0]
@@ -741,7 +730,7 @@ class TestChangeNode:
                 {"id": "4", "z": "100", "type": "console-json"}
             ]
             injections = [
-                {"nid": "1", "msg":  {'payload': ''}},
+                {"nid": "1", "msg": {'payload': ''}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert 'newGlobalValue' not in msgs[0]
@@ -749,19 +738,21 @@ class TestChangeNode:
 
 # 3. deletes the value of persistable global context property
 
+
         @pytest.mark.asyncio
         @pytest.mark.it('deletes the value of a multi-level message property')
         async def test_delete_4(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
-                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar", "from": "", "to": "", "reg": False, "name": "changeNode",
+                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar", "from": "", "to": "", "reg": False,
+                 "name": "changeNode",
                  "wires": [["2"]]},
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
             injections = [
                 {"nid": "1", "msg": {
-                        "payload": "This won't get through!",
-                        "foo": {"bar": "This will be deleted!"}
+                    "payload": "This won't get through!",
+                    "foo": {"bar": "This will be deleted!"}
                 }
                 },
             ]
@@ -772,3 +763,50 @@ class TestChangeNode:
 
 # 5. sends unaltered message if the deleted message property does not exist
 # 6. sends unaltered message if a deleted multi-level message property does not exist
+
+    @pytest.mark.describe('- multiple rules')
+    class TestSet:
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('deletes the value of the message property')
+        async def test_multiple_rules_1(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "to": "newValue"},
+                    {"t": "change", "p": "changeProperty", "from": "this", "to": "that"},
+                    {"t": "delete", "p": "deleteProperty"},
+                ], "name": "changeNode",
+                    "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {
+                    "payload": "changeMe",
+                    "changeProperty": "change this value",
+                    "deleteProperty": "delete this value"
+                }},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "newValue"
+            assert msgs[0]["changeProperty"] == "change that value"
+            assert "deleteProperty" not in msgs[0]
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('applies multiple rules in order')
+        async def test_multiple_rules_2(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "to": "a this (hi)"},
+                    {"t": "change", "p": "payload", "from": "this", "to": "that"},
+                    {"t": "change", "p": "payload", "from": "\\(.*\\)", "to": "[new]", "re": True},
+                ], "name": "changeNode",
+                    "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "changeMe"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "a that [new]"

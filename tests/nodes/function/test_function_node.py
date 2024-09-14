@@ -5,7 +5,7 @@ from tests import *
 
 # 0001 should do something with the catch node
 
-@pytest.mark.describe('rbe Node')
+@pytest.mark.describe('function Node')
 class TestFunctionNode:
 
     @pytest.mark.asyncio
@@ -18,9 +18,6 @@ class TestFunctionNode:
         msgs = await run_with_single_node_ntimes('str', 'foo', node, 1, once=True, topic='bar')
         assert msgs[0]['topic'] == 'bar'
         assert msgs[0]['payload'] == 'foo'
-
-
-
 
     # 0004 should send returned message using send()
     # 0005 should allow accessing node.id and node.name and node.outputCount
@@ -35,6 +32,7 @@ class TestFunctionNode:
     # 0012 should pass through _topic
 
     # TODO FIXME
+
     @pytest.mark.asyncio
     @pytest.mark.it('''should send to multiple outputs''')
     async def test_00013(self):
