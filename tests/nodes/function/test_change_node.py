@@ -477,7 +477,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('changes the value of the message property')
-        async def test_0042(self):
+        async def test_change_1(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "payload", "from": "Hello",
@@ -492,7 +492,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''changes the value and doesnt change type of the message property for partial match''')
-        async def test_0043(self):
+        async def test_change_2(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
@@ -508,7 +508,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''changes the value and type of the message property if a complete match - number''')
-        async def test_0044(self):
+        async def test_change_3(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
@@ -525,7 +525,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''changes the value and type of the message property if a complete match - boolean''')
-        async def test_0045(self):
+        async def test_change_4(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
@@ -547,7 +547,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''changes the value of a multi-level message property''')
-        async def test_0046(self):
+        async def test_change_5(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "action": "change", "z": "100",
@@ -563,7 +563,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''sends unaltered message if the changed message property does not exist''')
-        async def test_0047(self):
+        async def test_change_6(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "foo", "from": "Hello",
@@ -578,7 +578,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('''sends unaltered message if a changed multi-level message property does not exist''')
-        async def test_0048(self):
+        async def test_change_7(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "foo.bar", "from": "Hello",
@@ -594,7 +594,7 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('changes the value of the message property based on a regex')
-        async def test_0049(self):
+        async def test_change_8(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
@@ -618,10 +618,10 @@ class TestChangeNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('supports regex groups')
-        async def test_0050(self):
+        async def test_change_9(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
-                {"id": "1", "type": "change", "z":"100", "action": "change", "property": "payload",
+                {"id": "1", "type": "change", "z": "100", "action": "change", "property": "payload",
                     "from": "(Hello)", "to": "$1-$1-$1", "reg": True, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "z": "100", "type": "console-json"}
             ]
@@ -631,17 +631,70 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == "Hello-Hello-Hello World"
 
-# 0051 reports invalid regex
-# 0052 supports regex groups - new rule format
-# 0053 changes the value using msg property
-# 0054 changes the value using flow context property
-# 0055 changes the value using persistable flow context property
-# 0056 changes the value using global context property
-# 0057 changes the value using persistable global context property
-# 0058 changes the number using global context property
-# 0059 changes the number using persistable global context property
-# 0060 changes the value using number - string payload
-# 0061 changes the value using number - number payload
-# 0062 changes the value using boolean - string payload
-# 0063 changes the value using boolean - boolean payload
-# 0064 changes the value of the global context
+# 10 reports invalid regex
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('supports regex groups - new rule format')
+        async def test_change_11(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload",
+                        "from": "(Hello)", "to": "$1-$1-$1", "fromt": "re", "tot": "str"}
+                ], "name": "changeNode",
+                    "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "Hello World"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "Hello-Hello-Hello World"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value - new rule format')
+        async def test_change_12(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "from": "ABC",
+                        "to": "123", "fromt": "str", "tot": "str"}
+                ], "name": "changeNode",
+                    "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "abcABCabc"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc123abc"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using msg property')
+        async def test_change_13(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "from": "topic",
+                        "to": "123", "fromt": "msg", "tot": "str"}
+                ], "name": "changeNode",
+                    "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "abcABCabc", "topic": "ABC"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc123abc"
+
+# 14 changes the value using flow context property
+# 15 changes the value using persistable flow context property
+# 16 changes the value using global context property
+# 17 changes the value using persistable global context property
+# 18 changes the number using global context property
+# 19 changes the number using persistable global context property
+# 20 changes the value using number - string payload
+# 21 changes the value using number - number payload
+# 22 changes the value using boolean - string payload
+# 23 changes the value using boolean - boolean payload
+# 24 changes the value of the global context
