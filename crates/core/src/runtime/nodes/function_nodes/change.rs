@@ -237,9 +237,7 @@ impl ChangeNode {
                 msg.set_nav_stripped(&rule.p, replaced.into(), false)?;
             }
 
-            (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num)
-                if from_value == current =>
-            {
+            (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
                 msg.set_nav_stripped(&rule.p, to_value, false)?;
             }
 

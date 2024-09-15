@@ -1,0 +1,5 @@
+
+
+[runtime.context.storages]
+memory0 = { provider = "memory" }
+memory1 = { provider = "memory" }

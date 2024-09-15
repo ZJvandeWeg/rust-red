@@ -30,7 +30,7 @@ impl FlowArgs {
     pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
         match cfg {
             Some(cfg) => {
-                let res = cfg.get::<Self>("flow")?;
+                let res = cfg.get::<Self>("runtime.flow")?;
                 Ok(res)
             }
             _ => Ok(FlowArgs::default()),

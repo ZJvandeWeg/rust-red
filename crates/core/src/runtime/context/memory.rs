@@ -8,25 +8,34 @@ use super::{EdgelinkError, ElementId, Variant};
 use crate::runtime::context::*;
 use crate::Result;
 
-#[linkme::distributed_slice(crate::runtime::context::__STORES)]
-static _MEMORY_CONTEXT_STORE_METADATA: StoreMetadata =
-    StoreMetadata { type_: "memory", factory: MemoryContextStore::build };
+#[linkme::distributed_slice(crate::runtime::context::__PROVIDERS)]
+static _MEMORY_CONTEXT_STORE_METADATA: ProviderMetadata =
+    ProviderMetadata { type_: "memory", factory: MemoryContextStoreProvider::build };
 
-struct MemoryContextStore {
-    meta: &'static StoreMetadata,
+struct MemoryContextStoreProvider {
+    meta: &'static ProviderMetadata,
+    name: String,
     items: RwLock<HashMap<String, VariantObjectMap>>,
 }
 
-impl MemoryContextStore {
-    fn build() -> crate::Result<Box<dyn ContextStore>> {
-        let node = MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, items: RwLock::new(HashMap::new()) };
+impl MemoryContextStoreProvider {
+    fn build(name: String, _options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>> {
+        let node = MemoryContextStoreProvider {
+            meta: &_MEMORY_CONTEXT_STORE_METADATA,
+            name,
+            items: RwLock::new(HashMap::new()),
+        };
         Ok(Box::new(node))
     }
 }
 
 #[async_trait]
-impl ContextStore for MemoryContextStore {
-    fn metadata(&self) -> &'static StoreMetadata {
+impl ContextStore for MemoryContextStoreProvider {
+    async fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn metadata(&self) -> &'static ProviderMetadata {
         self.meta
     }
 

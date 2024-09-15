@@ -7,7 +7,7 @@ use serde::Deserialize;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
-use super::context::{Context, ContextManager};
+use super::context::{Context, ContextManager, ContextManagerBuilder};
 use super::env::*;
 use super::model::json::{RedFlowConfig, RedGlobalNodeConfig};
 use super::model::*;
@@ -27,7 +27,7 @@ impl FlowEngineArgs {
     pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
         match cfg {
             Some(cfg) => {
-                let res = cfg.get::<Self>("engine")?;
+                let res = cfg.get::<Self>("runtime.engine")?;
                 Ok(res)
             }
             _ => Ok(FlowEngineArgs::default()),
@@ -67,7 +67,15 @@ impl FlowEngine {
 
         let envs = EnvStoreBuilder::default().with_process_env().build();
 
-        let context_manager = Arc::new(ContextManager::default());
+        let mut ctx_builder = ContextManagerBuilder::new();
+        if let Some(cfg) = elcfg {
+            let _ = ctx_builder.with_config(cfg)?; // Load the section in the configuration
+        } else {
+            let _ = ctx_builder.load_default();
+        }
+        let context_manager = ctx_builder.build()?;
+
+        // let context_manager = Arc::new(ContextManager::default());
         let context = context_manager.new_context(None, "global".into());
 
         let engine = Arc::new(FlowEngine {

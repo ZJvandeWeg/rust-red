@@ -1,5 +1,13 @@
+[runtime]
 
-[engine]
+[runtime.engine]
 
-[flow]
+[runtime.context]
+default = "memory"
+
+[runtime.context.storages]
+memory = { provider = "memory" }
+
+
+[runtime.flow]
 node_msg_queue_capacity = 16

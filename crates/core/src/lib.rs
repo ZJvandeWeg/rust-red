@@ -50,6 +50,9 @@ pub enum EdgelinkError {
     #[error("Out of range")]
     OutOfRange,
 
+    #[error("Invalid configuration")]
+    Configuration,
+
     #[error("IO error")]
     Io(#[from] std::io::Error),
 

@@ -103,7 +103,7 @@ pub async fn evaluate_node_property(
             }
             */
             let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
-            if let Some(ctx_value) = engine.get_context().get_one("memory", value).await {
+            if let Some(ctx_value) = engine.get_context().get_one(value, None).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::OutOfRange.into())
@@ -113,7 +113,7 @@ pub async fn evaluate_node_property(
         RedPropertyType::Flow => {
             let flow = node.and_then(|n| n.get_flow().upgrade()).unwrap();
             let fe = flow as Arc<dyn FlowsElement>;
-            if let Some(ctx_value) = fe.context().get_one("memory", value).await {
+            if let Some(ctx_value) = fe.context().get_one(value, None).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::OutOfRange.into())

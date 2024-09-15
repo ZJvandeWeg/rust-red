@@ -5,6 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use serde;
 
 use crate::*;
 use runtime::model::*;
@@ -16,17 +17,32 @@ pub const DEFAULT_STORE_NAME: &str = "default";
 pub const DEFAULT_STORE_NAME_ALIAS: &str = "_";
 
 #[linkme::distributed_slice]
-pub static __STORES: [StoreMetadata];
+pub static __PROVIDERS: [ProviderMetadata];
 
-type StoreFactoryFn = fn() -> crate::Result<Box<dyn ContextStore>>;
+type StoreFactoryFn =
+    fn(name: String, options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>>;
 
 #[derive(Debug)]
-pub struct StoreMetadata {
+pub struct ProviderMetadata {
     pub type_: &'static str,
     pub factory: StoreFactoryFn,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, serde:: Deserialize)]
+pub struct ContextStorageSettings {
+    pub default: String,
+    pub storages: HashMap<String, ContextStoreOptions>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ContextStoreOptions {
+    pub provider: String,
+
+    #[serde(flatten)]
+    pub options: HashMap<String, config::Value>,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct ContextStoreProperty<'a> {
     pub store: &'a str,
     pub key: &'a str,
@@ -35,7 +51,9 @@ pub struct ContextStoreProperty<'a> {
 /// The API trait for a context storage plug-in
 #[async_trait]
 pub trait ContextStore: Send + Sync {
-    fn metadata(&self) -> &'static StoreMetadata;
+    fn metadata(&self) -> &'static ProviderMetadata;
+
+    async fn name(&self) -> &str;
 
     async fn open(&self) -> Result<()>;
     async fn close(&self) -> Result<()>;
@@ -70,13 +88,25 @@ pub struct Context {
 
 #[derive(Debug)]
 pub struct ContextManager {
-    stores: HashMap<&'static str, Arc<dyn ContextStore>>,
+    default_store: Arc<dyn ContextStore>,
+    stores: HashMap<String, Arc<dyn ContextStore>>,
     contexts: DashMap<String, Arc<Context>>,
 }
 
+#[derive(Debug)]
+pub struct ContextManagerBuilder {
+    stores: HashMap<String, Arc<dyn ContextStore>>,
+    default_store: String,
+    settings: Option<ContextStorageSettings>,
+}
+
 impl Context {
-    pub async fn get_one(&self, storage: &str, key: &str) -> Option<Variant> {
-        let store = self.manager.upgrade()?.get_context(storage)?;
+    pub async fn get_one(&self, key: &str, storage: Option<&str>) -> Option<Variant> {
+        let store = if let Some(storage) = storage {
+            self.manager.upgrade()?.get_context(storage)?
+        } else {
+            self.manager.upgrade()?.get_default()
+        };
         // TODO FIXME change it to fixed length stack-allocated string
         store.get_one(&self.scope, key).await.ok()
     }
@@ -100,14 +130,65 @@ impl Context {
 
 impl Default for ContextManager {
     fn default() -> Self {
-        let mut stores = HashMap::with_capacity(__STORES.len());
-        for smd in __STORES.iter() {
-            log::debug!("Initializing context storage provider: '{}'...", smd.type_);
-            let store = (smd.factory)().unwrap(); // TODO FIXME
-            stores.insert(store.metadata().type_, Arc::from(store));
+        let memory_metadata = __PROVIDERS.iter().find(|x| x.type_ == "memory").unwrap();
+        let memory_store =
+            (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
+        let mut stores: HashMap<std::string::String, Arc<dyn ContextStore>> = HashMap::with_capacity(1);
+        stores.insert("memory".to_string(), Arc::from(memory_store));
+        Self { default_store: stores["memory"].clone(), contexts: DashMap::new(), stores }
+    }
+}
+
+impl ContextManagerBuilder {
+    pub fn new() -> Self {
+        let stores = HashMap::with_capacity(__PROVIDERS.len());
+        Self { stores, default_store: "memory".into(), settings: None }
+    }
+
+    pub fn load_default(&mut self) -> &mut Self {
+        let memory_metadata = __PROVIDERS.iter().find(|x| x.type_ == "memory").unwrap();
+        let memory_store =
+            (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
+        self.stores.insert("memory".to_string(), Arc::from(memory_store));
+        self
+    }
+
+    pub fn with_config(&mut self, config: &config::Config) -> crate::Result<&mut Self> {
+        let settings: ContextStorageSettings = config.get("runtime.context")?;
+        self.stores.clear();
+        for (store_name, store_options) in settings.storages.iter() {
+            log::debug!("Initializing context store: name='{}', provider='{}' ...", store_name, store_options.provider);
+            let meta =
+                __PROVIDERS.iter().find(|x| x.type_ == store_options.provider).ok_or(EdgelinkError::Configuration)?;
+            let store = (meta.factory)(store_name.into(), Some(store_options))?;
+            self.stores.insert(store_options.provider.clone(), Arc::from(store));
         }
 
-        Self { contexts: DashMap::new(), stores }
+        if !settings.storages.contains_key(&settings.default) {
+            use anyhow::Context;
+            return Err(EdgelinkError::Configuration).with_context(|| {
+                format!(
+                    "Cannot found the default context storage '{}', check your configuration file.",
+                    settings.default
+                )
+            });
+        }
+        self.settings = Some(settings);
+        Ok(self)
+    }
+
+    pub fn default_store(&mut self, default: String) -> &mut Self {
+        self.default_store = default;
+        self
+    }
+
+    pub fn build(&self) -> crate::Result<Arc<ContextManager>> {
+        let cm = ContextManager {
+            default_store: self.stores[&self.default_store].clone(),
+            stores: self.stores.clone(),
+            contexts: DashMap::new(),
+        };
+        Ok(Arc::new(cm))
     }
 }
 
@@ -122,8 +203,12 @@ impl ContextManager {
         c
     }
 
-    pub fn get_context(&self, storage: &str) -> Option<Arc<dyn ContextStore>> {
-        self.stores.get(storage).cloned()
+    pub fn get_default(&self) -> Arc<dyn ContextStore> {
+        self.default_store.clone()
+    }
+
+    pub fn get_context(&self, store_name: &str) -> Option<Arc<dyn ContextStore>> {
+        self.stores.get(store_name).cloned()
     }
 }
 
