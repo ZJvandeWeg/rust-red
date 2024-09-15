@@ -81,7 +81,7 @@ pub async fn evaluate_node_property(
 
         RedPropertyType::Msg => {
             if let Some(msg) = msg {
-                if let Some(pv) = msg.get_nav_trimmed(value) {
+                if let Some(pv) = msg.get_nav_stripped(value) {
                     Ok(pv.clone())
                 } else {
                     Err(EdgelinkError::BadArguments(format!("Cannot get the property(s) from `msg`: {}", value)).into())
@@ -178,7 +178,7 @@ pub fn evaluate_node_property_variant(
 
         (RedPropertyType::Msg, Variant::String(prop)) => {
             if let Some(msg) = msg {
-                if let Some(pv) = msg.get_nav_trimmed(prop.as_str()) {
+                if let Some(pv) = msg.get_nav_stripped(prop.as_str()) {
                     Ok(pv.clone())
                 } else {
                     Err(EdgelinkError::BadArguments(format!(

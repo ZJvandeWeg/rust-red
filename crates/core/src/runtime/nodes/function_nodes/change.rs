@@ -137,7 +137,7 @@ impl ChangeNode {
         match rule.pt {
             RedPropertyType::Msg => {
                 if let Some(to_value) = to_value {
-                    msg.set_nav_trimmed(&rule.p, to_value, true)?;
+                    msg.set_nav_stripped(&rule.p, to_value, true)?;
                 } else {
                     // Equals the `undefined` in JS
                     if msg.contains(&rule.p) {
@@ -177,69 +177,83 @@ impl ChangeNode {
             .into()),
         }
     }
-
     async fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Change);
-        match rule.pt {
-            RedPropertyType::Msg => {
-                if let (Some(to_value), Ok(from_value), Ok(current)) = (
-                    to_value,
-                    self.get_from_value(rule, msg).await,
-                    eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)).await,
-                ) {
-                    match current {
-                        Variant::String(ref cs) => match from_value {
-                            Variant::Integer(_) | Variant::Rational(_) | Variant::Bool(_) | Variant::String(_)
-                                if current == from_value =>
-                            {
-                                // str representation of exact from number/boolean
-                                // only replace if they match exactly
-                                msg.set_nav_trimmed(&rule.p, to_value, false)?;
-                            }
-                            Variant::Regexp(ref from_value_re) => {
-                                let replaced = from_value_re.replace_all(cs, to_value.to_string()?.as_str());
-                                let value_to_set = match (rule.tot, replaced.as_ref()) {
-                                    (Some(RedPropertyType::Bool), "true") => to_value,
-                                    (Some(RedPropertyType::Bool), "false") => to_value,
-                                    _ => Variant::String(replaced.into()),
-                                };
-                                msg.set_nav_trimmed(&rule.p, value_to_set, false)?;
-                            }
-                            _ => {
-                                let replaced = cs.replace(
-                                    from_value.to_string()?.as_str(), //TODO opti
-                                    to_value.to_string()?.as_str(),
-                                );
-                                if rule.tot == Some(RedPropertyType::Bool) && current == to_value {
-                                    // If the target type is boolean, and the replace call has resulted in "true"/"false",
-                                    // convert to boolean type (which 'value' already is)
-                                    msg.set_nav_trimmed(&rule.p, to_value, false)?;
-                                } else {
-                                    msg.set_nav_trimmed(&rule.p, Variant::String(replaced), false)?;
-                                }
-                            }
-                        },
-                        _ => todo!(),
-                    }
-                } else {
-                    // Equals the `undefined` in JS
-                    if msg.contains(&rule.p) {
-                        // TODO remove by propex
-                        msg.remove(&rule.p);
-                    }
-                }
-                Ok(())
+
+        let to_value = match to_value {
+            None => return Ok(()),
+            Some(v) => v,
+        };
+
+        let from_value = match self.get_from_value(rule, msg).await {
+            Ok(v) => v,
+            Err(_) => return Ok(()),
+        };
+
+        let current = match eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)).await {
+            Ok(v) => v,
+            Err(_) => return Ok(()),
+        };
+
+        /*
+        let mut target_object = match rule.pt {
+            RedPropertyType::Msg => msg.as_variant_object_mut(),
+            RedPropertyType::Flow | RedPropertyType::Global => todo!(),
+            _ => {
+                return Err(EdgelinkError::NotSupported(
+                    "The 'change' node only allows modifying the 'msg' and global/flow context properties".into(),
+                )
+                .into())
             }
-            RedPropertyType::Flow | RedPropertyType::Global => {
-                //
-                todo!()
+        };
+        */
+
+        match (&current, rule.fromt.unwrap()) {
+            //FIXME unwrap
+            (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
+                if current == from_value =>
+            {
+                // str representation of exact from number/boolean
+                // only replace if they match exactly
+                msg.set_nav_stripped(&rule.p, to_value, false)?;
             }
-            _ => Err(EdgelinkError::NotSupported(
-                "The 'change' node only allows modifying the 'msg' and global/flow context propertie".into(),
-            )
-            .into()),
+
+            (Variant::String(ref cs), RedPropertyType::Re) => {
+                let replaced = from_value.as_regexp().unwrap().replace_all(cs, to_value.to_string()?.as_str());
+                let value_to_set = match (rule.tot, replaced.as_ref()) {
+                    (Some(RedPropertyType::Bool), "true") => to_value,
+                    (Some(RedPropertyType::Bool), "false") => to_value,
+                    _ => Variant::String(replaced.into()),
+                };
+                msg.set_nav_stripped(&rule.p, value_to_set, false)?;
+            }
+
+            (Variant::String(ref cs), _) => {
+                // Otherwise we search and replace
+                let replaced = cs.replace(
+                    from_value.to_string()?.as_str(), //TODO opti
+                    to_value.to_string()?.as_str(),
+                );
+                msg.set_nav_stripped(&rule.p, replaced.into(), false)?;
+            }
+
+            (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num)
+                if from_value == current =>
+            {
+                msg.set_nav_stripped(&rule.p, to_value, false)?;
+            }
+
+            (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
+                msg.set_nav_stripped(&rule.p, to_value, false)?;
+            }
+
+            _ => {
+                // no rule matched
+            }
         }
-    } // apply_rule_change
+
+        Ok(())
+    }
 
     async fn apply_rule_delete(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Delete);

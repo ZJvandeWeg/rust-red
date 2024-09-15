@@ -361,6 +361,17 @@ impl Variant {
         }
     }
 
+    pub fn is_regexp(&self) -> bool {
+        matches!(self, Variant::Regexp(..))
+    }
+
+    pub fn as_regexp(&self) -> Option<&Regex> {
+        match self {
+            Variant::Regexp(re) => Some(re),
+            _ => None,
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             Variant::Null => 0,

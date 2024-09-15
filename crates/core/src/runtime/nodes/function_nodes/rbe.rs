@@ -167,8 +167,8 @@ impl RbeNode {
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-        let topic = msg.get_nav_trimmed(&self.config.topic);
-        let value = msg.get_nav_trimmed(&self.config.property);
+        let topic = msg.get_nav_stripped(&self.config.topic);
+        let value = msg.get_nav_stripped(&self.config.property);
 
         // Handle reset logic
         match (msg.get("reset"), self.config.sep_topics, topic) {

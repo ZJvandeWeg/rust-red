@@ -80,6 +80,14 @@ impl Msg {
         Variant::String(ElementId::new().to_string())
     }
 
+    pub fn as_variant_object(&self) -> &VariantObjectMap {
+        &self.body
+    }
+
+    pub fn as_variant_object_mut(&mut self) -> &mut VariantObjectMap {
+        &mut self.body
+    }
+
     pub fn contains(&self, prop: &str) -> bool {
         self.body.contains_property(prop)
     }
@@ -104,7 +112,7 @@ impl Msg {
         self.body.get_nav_property_mut("msg", expr)
     }
 
-    pub fn get_nav_trimmed_mut(&mut self, expr: &str) -> Option<&mut Variant> {
+    pub fn get_nav_stripped_mut(&mut self, expr: &str) -> Option<&mut Variant> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.get_nav_mut(stripped_expr)
@@ -113,7 +121,7 @@ impl Msg {
         }
     }
 
-    pub fn get_nav_trimmed(&self, expr: &str) -> Option<&Variant> {
+    pub fn get_nav_stripped(&self, expr: &str) -> Option<&Variant> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.get_nav(stripped_expr)
@@ -130,7 +138,7 @@ impl Msg {
         self.body.set_nav_property("msg", expr, value, create_missing)
     }
 
-    pub fn set_nav_trimmed(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
+    pub fn set_nav_stripped(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
             self.set_nav(stripped_expr, value, create_missing)
