@@ -72,13 +72,6 @@ pub trait ContextStore: Send + Sync {
     async fn clean(&self, active_nodes: &[ElementId]) -> Result<()>;
 }
 
-impl std::fmt::Debug for dyn ContextStore {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("TODO")?;
-        Ok(())
-    }
-}
-
 /// A context instance, allowed to bind to a flows element
 #[derive(Debug)]
 pub struct Context {
@@ -87,14 +80,12 @@ pub struct Context {
     pub scope: String,
 }
 
-#[derive(Debug)]
 pub struct ContextManager {
     default_store: Arc<dyn ContextStore>,
     stores: HashMap<String, Arc<dyn ContextStore>>,
     contexts: DashMap<String, Arc<Context>>,
 }
 
-#[derive(Debug)]
 pub struct ContextManagerBuilder {
     stores: HashMap<String, Arc<dyn ContextStore>>,
     default_store: String,
@@ -172,7 +163,7 @@ impl ContextManagerBuilder {
             let meta =
                 __PROVIDERS.iter().find(|x| x.type_ == store_options.provider).ok_or(EdgelinkError::Configuration)?;
             let store = (meta.factory)(store_name.into(), Some(store_options))?;
-            self.stores.insert(store_options.provider.clone(), Arc::from(store));
+            self.stores.insert(store_name.clone(), Arc::from(store));
         }
 
         if !settings.stores.contains_key(&settings.default) {
@@ -260,7 +251,7 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty,
 /// # Examples
 /// For example, `#:(file)::foo.bar` results in ` ParsedContextStoreProperty{ store: Some("file"), key: "foo.bar" }`.
 /// ```
-/// use edgelink_core::runtime::context::parse_context_store;
+/// use edgelink_core::runtime::context::parse_store;
 ///
 /// let res = parse_store("#:(file)::foo.bar").unwrap();
 /// assert_eq!(Some("file"), res.store);

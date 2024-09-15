@@ -85,7 +85,9 @@ async def read_json_from_process(process, nexpected: int, timeout=3):
 
 
 async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> tuple[bytes, list[dict]]:
-    el_args = ['-v', '0', '--stdin']
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    el_home_dir = os.path.join(script_dir, 'home')
+    el_args = ['-v', '0', '--stdin', '--home', el_home_dir]
     msgs = []
     all_output = bytearray()
     try:
@@ -109,7 +111,9 @@ async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout=3) 
 
 
 async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 3) -> list[dict]:
-    el_args = ['-v', '0', flows_path]
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    el_home_dir = os.path.join(script_dir, 'home')
+    el_args = ['-v', '0', flows_path, '--home', el_home_dir]
     msgs = []
     try:
         process = await start_edgelink_process(el_args)
