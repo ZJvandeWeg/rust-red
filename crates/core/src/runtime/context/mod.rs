@@ -5,6 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use nom::Parser;
 use serde;
 
 use crate::*;
@@ -13,14 +14,14 @@ use runtime::model::*;
 mod localfs;
 mod memory;
 
+pub const GLOBAL_STORE_NAME: &str = "global";
 pub const DEFAULT_STORE_NAME: &str = "default";
 pub const DEFAULT_STORE_NAME_ALIAS: &str = "_";
 
 #[linkme::distributed_slice]
 pub static __PROVIDERS: [ProviderMetadata];
 
-type StoreFactoryFn =
-    fn(name: String, options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>>;
+type StoreFactoryFn = fn(name: String, options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>>;
 
 #[derive(Debug)]
 pub struct ProviderMetadata {
@@ -44,7 +45,7 @@ pub struct ContextStoreOptions {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ContextStoreProperty<'a> {
-    pub store: &'a str,
+    pub store: Option<&'a str>,
     pub key: &'a str,
 }
 
@@ -203,6 +204,12 @@ impl ContextManager {
         c
     }
 
+    pub fn new_global_context(self: &Arc<Self>) -> Arc<Context> {
+        let c = Arc::new(Context { parent: None, manager: Arc::downgrade(self), scope: GLOBAL_STORE_NAME.to_string() });
+        self.contexts.insert(GLOBAL_STORE_NAME.to_string(), c.clone());
+        c
+    }
+
     pub fn get_default(&self) -> Arc<dyn ContextStore> {
         self.default_store.clone()
     }
@@ -212,20 +219,26 @@ impl ContextManager {
     }
 }
 
-fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty<'_>, nom::error::VerboseError<&str>> {
+fn parse_store_expr(input: &str) -> nom::IResult<&str, &str, nom::error::VerboseError<&str>> {
     use crate::text::nom_parsers::*;
     use nom::{
         bytes::complete::tag,
         character::complete::{char, multispace0},
-        combinator::rest,
         sequence::delimited,
     };
 
-    let (input, _) = tag("#:")(input)?;
+    let (input, _) = tag("#:").parse(input)?;
+    let (input, store) =
+        delimited(char('('), delimited(multispace0, identifier, multispace0), char(')')).parse(input)?;
+    let (input, _) = tag("::").parse(input)?;
+    Ok((input, store))
+}
 
-    let (input, store) = delimited(char('('), delimited(multispace0, identifier, multispace0), char(')'))(input)?;
+fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty, nom::error::VerboseError<&str>> {
+    // use crate::text::nom_parsers::*;
+    use nom::combinator::{opt, rest};
 
-    let (input, _) = tag("::")(input)?;
+    let (input, store) = opt(parse_store_expr).parse(input)?;
     let (input, key) = rest(input)?;
 
     Ok((input, ContextStoreProperty { store, key }))
@@ -235,20 +248,36 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty<
 /// the store name if present.
 ///
 /// # Examples
-/// For example, `#:(file)::foo.bar` results in ` ParsedContextStoreProperty{ store: "file", key: "foo.bar" }`.
+/// For example, `#:(file)::foo.bar` results in ` ParsedContextStoreProperty{ store: Some("file"), key: "foo.bar" }`.
 /// ```
 /// use edgelink_core::runtime::context::parse_context_store;
 ///
 /// let res = parse_context_store("#:(file)::foo.bar").unwrap();
-/// assert_eq!("file", res.store);
+/// assert_eq!(Some("file"), res.store);
 /// assert_eq!("foo.bar", res.key);
 /// ```
 /// @param  {String} key - the context property string to parse
 /// @return {Object} The parsed property
 /// @memberof @node-red/util_util
-pub fn parse_context_store(key: &str) -> crate::Result<ContextStoreProperty<'_>> {
+pub fn parse_context_store(key: &str) -> crate::Result<ContextStoreProperty> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
         Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_context_store() {
+        let res = parse_context_store("#:(file)::foo.bar").unwrap();
+        assert_eq!(Some("file"), res.store);
+        assert_eq!("foo.bar", res.key);
+
+        let res = parse_context_store("foo.bar").unwrap();
+        assert_eq!(None, res.store);
+        assert_eq!("foo.bar", res.key);
     }
 }

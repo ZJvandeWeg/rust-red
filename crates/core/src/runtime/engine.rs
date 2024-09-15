@@ -76,7 +76,7 @@ impl FlowEngine {
         let context_manager = ctx_builder.build()?;
 
         // let context_manager = Arc::new(ContextManager::default());
-        let context = context_manager.new_context(None, "global".into());
+        let context = context_manager.new_global_context();
 
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),

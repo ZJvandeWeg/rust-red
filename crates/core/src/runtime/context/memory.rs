@@ -10,27 +10,24 @@ use crate::Result;
 
 #[linkme::distributed_slice(crate::runtime::context::__PROVIDERS)]
 static _MEMORY_CONTEXT_STORE_METADATA: ProviderMetadata =
-    ProviderMetadata { type_: "memory", factory: MemoryContextStoreProvider::build };
+    ProviderMetadata { type_: "memory", factory: MemoryContextStore::build };
 
-struct MemoryContextStoreProvider {
+struct MemoryContextStore {
     meta: &'static ProviderMetadata,
     name: String,
     items: RwLock<HashMap<String, VariantObjectMap>>,
 }
 
-impl MemoryContextStoreProvider {
+impl MemoryContextStore {
     fn build(name: String, _options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>> {
-        let node = MemoryContextStoreProvider {
-            meta: &_MEMORY_CONTEXT_STORE_METADATA,
-            name,
-            items: RwLock::new(HashMap::new()),
-        };
-        Ok(Box::new(node))
+        let this =
+            MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, name, items: RwLock::new(HashMap::new()) };
+        Ok(Box::new(this))
     }
 }
 
 #[async_trait]
-impl ContextStore for MemoryContextStoreProvider {
+impl ContextStore for MemoryContextStore {
     async fn name(&self) -> &str {
         &self.name
     }
