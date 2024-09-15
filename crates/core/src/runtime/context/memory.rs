@@ -14,7 +14,7 @@ static _MEMORY_CONTEXT_STORE_METADATA: StoreMetadata =
 
 struct MemoryContextStore {
     meta: &'static StoreMetadata,
-    items: RwLock<HashMap<String, VariantMap>>,
+    items: RwLock<HashMap<String, VariantObjectMap>>,
 }
 
 impl MemoryContextStore {
@@ -74,14 +74,14 @@ impl ContextStore for MemoryContextStore {
 
     async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()> {
         let mut items = self.items.write().await;
-        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantMap::new);
+        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
         let _ = scope_map.insert(key.to_string(), value);
         Ok(())
     }
 
     async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()> {
         let mut items = self.items.write().await;
-        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantMap::new);
+        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
         for (key, value) in pairs {
             let _ = scope_map.insert(key.to_string(), (*value).clone());
         }

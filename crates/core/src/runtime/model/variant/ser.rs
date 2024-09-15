@@ -49,7 +49,7 @@ impl From<serde_json::Value> for Variant {
             serde_json::Value::String(string) => Variant::String(string.to_owned()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: VariantMap = object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
+                let new_map: VariantObjectMap = object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -68,7 +68,7 @@ impl From<&serde_json::Value> for Variant {
             serde_json::Value::String(string) => Variant::String(string.clone()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
-                let new_map: VariantMap = object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
+                let new_map: VariantObjectMap = object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
                 Variant::Object(new_map)
             }
         }
@@ -161,7 +161,7 @@ impl<'de> Deserialize<'de> for Variant {
             where
                 A: de::MapAccess<'de>,
             {
-                let mut btreemap = VariantMap::new();
+                let mut btreemap = VariantObjectMap::new();
                 while let Some((key, value)) = map.next_entry()? {
                     btreemap.insert(key, value);
                 }

@@ -64,7 +64,7 @@ impl<'js> js::FromJs<'js> for Variant {
                             }),
                         }
                     } else {
-                        let mut map = VariantMap::new();
+                        let mut map = VariantObjectMap::new();
                         for result in jo.props::<String, js::Value>() {
                             match result {
                                 Ok((ref k, v)) => {

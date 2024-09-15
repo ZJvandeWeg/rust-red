@@ -95,7 +95,7 @@ pub enum Variant {
     Array(Vec<Variant>),
 
     /// Represents a key-value mapping of strings to `Variant` values.
-    Object(VariantMap),
+    Object(VariantObjectMap),
 }
 
 impl PartialEq for Variant {
@@ -124,7 +124,7 @@ impl Variant {
     }
 
     pub fn empty_object() -> Variant {
-        Variant::Object(VariantMap::new())
+        Variant::Object(VariantObjectMap::new())
     }
 
     pub fn empty_array() -> Variant {
@@ -345,21 +345,21 @@ impl Variant {
         matches!(self, Variant::Object(..))
     }
 
-    pub fn as_object(&self) -> Option<&VariantMap> {
+    pub fn as_object(&self) -> Option<&VariantObjectMap> {
         match self {
             Variant::Object(ref object) => Some(object),
             _ => None,
         }
     }
 
-    pub fn as_object_mut(&mut self) -> Option<&mut VariantMap> {
+    pub fn as_object_mut(&mut self) -> Option<&mut VariantObjectMap> {
         match self {
             Variant::Object(ref mut object) => Some(object),
             _ => None,
         }
     }
 
-    pub fn into_object(self) -> Result<VariantMap, Self> {
+    pub fn into_object(self) -> Result<VariantObjectMap, Self> {
         match self {
             Variant::Object(object) => Ok(object),
             other => Err(other),
@@ -683,7 +683,7 @@ implfrom! {
 
     // Object(&[(String, Variant)]),
     // Object(&[(&str, Variant)]),
-    Object(VariantMap),
+    Object(VariantObjectMap),
     // Object(&BTreeMap<String, Variant>),
     // Object(BTreeMap<&str, Variant>),
 }
@@ -698,7 +698,7 @@ impl From<char> for Variant {
 impl From<&[(String, Variant)]> for Variant {
     #[inline]
     fn from(value: &[(String, Variant)]) -> Self {
-        let map: VariantMap = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
+        let map: VariantObjectMap = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -706,7 +706,7 @@ impl From<&[(String, Variant)]> for Variant {
 impl<const N: usize> From<[(&str, Variant); N]> for Variant {
     #[inline]
     fn from(value: [(&str, Variant); N]) -> Self {
-        let map: VariantMap = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
+        let map: VariantObjectMap = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
         Variant::Object(map)
     }
 }
@@ -804,7 +804,7 @@ mod tests {
 
     #[test]
     fn variant_can_serialize_to_json_value() {
-        let org = Variant::Object(VariantMap::from([
+        let org = Variant::Object(VariantObjectMap::from([
             ("a".into(), 1.into()), //
             ("b".into(), "hello".into()),
         ]));

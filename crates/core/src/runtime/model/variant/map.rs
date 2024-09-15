@@ -2,9 +2,9 @@ use std::borrow::Cow;
 
 use super::*;
 
-pub type VariantMap = BTreeMap<String, Variant>;
+pub type VariantObjectMap = BTreeMap<String, Variant>;
 
-pub trait VariantMapExt {
+pub trait VariantObject {
     fn contains_property(&self, prop: &str) -> bool;
     fn get_property(&self, prop: &str) -> Option<&Variant>;
     fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant>;
@@ -21,14 +21,14 @@ pub trait VariantMapExt {
 
     fn get_seg_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
     fn get_seg_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
-    fn normalize_segments(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()>;
+    fn evaluate_seg_property(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()>;
 
     fn remove_property(&mut self, prop: &str) -> Option<Variant>;
     fn remove_nav_property(&mut self, expr: &str) -> Option<Variant>;
     fn remove_seg_property(&mut self, segs: &[PropexSegment]) -> Option<Variant>;
 }
 
-impl VariantMapExt for VariantMap {
+impl VariantObject for VariantObjectMap {
     fn contains_property(&self, prop: &str) -> bool {
         self.contains_key(prop)
     }
@@ -47,13 +47,13 @@ impl VariantMapExt for VariantMap {
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        self.normalize_segments(self_name, &mut segs).ok()?;
+        self.evaluate_seg_property(self_name, &mut segs).ok()?;
         self.get_seg_property(&segs)
     }
 
     fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        self.normalize_segments(self_name, &mut segs).ok()?;
+        self.evaluate_seg_property(self_name, &mut segs).ok()?;
         self.get_seg_property_mut(&segs)
     }
 
@@ -75,7 +75,7 @@ impl VariantMapExt for VariantMap {
         }
 
         let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
-        self.normalize_segments(self_name, &mut segs)?;
+        self.evaluate_seg_property(self_name, &mut segs)?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
@@ -162,7 +162,7 @@ impl VariantMapExt for VariantMap {
         }
     }
 
-    fn normalize_segments(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()> {
+    fn evaluate_seg_property(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()> {
         for seg in segs.iter_mut() {
             if let PropexSegment::Nested(nested_segs) = seg {
                 if nested_segs.first() != Some(&PropexSegment::Property(Cow::Borrowed(self_name))) {
