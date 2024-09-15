@@ -389,7 +389,7 @@ impl Variant {
         }
     }
 
-    pub fn get_item_by_propex_segment(&self, pseg: &PropexSegment) -> Option<&Variant> {
+    pub fn get_seg(&self, pseg: &PropexSegment) -> Option<&Variant> {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item(*index),
             PropexSegment::Property(prop) => self.get_object_property(prop),
@@ -397,7 +397,7 @@ impl Variant {
         }
     }
 
-    pub fn get_item_by_propex_segment_mut(&mut self, pseg: &PropexSegment) -> Option<&mut Variant> {
+    pub fn get_seg_mut(&mut self, pseg: &PropexSegment) -> Option<&mut Variant> {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item_mut(*index),
             PropexSegment::Property(prop) => self.get_object_property_mut(prop),
@@ -405,12 +405,12 @@ impl Variant {
         }
     }
 
-    pub fn get_item_by_propex_segments(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
-        psegs.iter().try_fold(self, |prev, pseg| prev.get_item_by_propex_segment(pseg))
+    pub fn get_segs(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
+        psegs.iter().try_fold(self, |prev, pseg| prev.get_seg(pseg))
     }
 
-    pub fn get_item_by_propex_segments_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
-        psegs.iter().try_fold(self, |prev, pseg| prev.get_item_by_propex_segment_mut(pseg))
+    pub fn get_segs_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
+        psegs.iter().try_fold(self, |prev, pseg| prev.get_seg_mut(pseg))
     }
 
     pub fn get_object_property(&self, prop: &str) -> Option<&Variant> {
@@ -441,15 +441,15 @@ impl Variant {
         }
     }
 
-    pub fn get_object_nav_property(&self, expr: &str) -> Option<&Variant> {
+    pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
         let prop_segs = propex::parse(expr).ok()?;
-        self.get_item_by_propex_segments(&prop_segs)
+        self.get_segs(&prop_segs)
     }
 
     pub fn set_object_property(&mut self, prop: String, value: Variant) -> Result<(), VariantError> {
         match self {
             Variant::Object(ref mut this_obj) => {
-                this_obj.insert(prop, value);
+                this_obj.set_property(prop, value);
                 Ok(())
             }
             _ => {
@@ -494,7 +494,7 @@ impl Variant {
         }
     }
 
-    pub fn set_property_by_propex_segment(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
+    pub fn set_seg_property(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
         match pseg {
             PropexSegment::Index(index) => self.set_array_item(*index, value),
             PropexSegment::Property(prop) => self.set_object_property(prop.to_string(), value),
@@ -502,7 +502,7 @@ impl Variant {
         }
     }
 
-    pub fn set_property_by_propex_segments(
+    pub fn set_segs_property(
         &mut self,
         psegs: &[PropexSegment],
         value: Variant,
@@ -513,7 +513,7 @@ impl Variant {
         }
 
         if psegs.len() == 1 {
-            self.set_property_by_propex_segment(&psegs[0], value)?;
+            self.set_seg_property(&psegs[0], value)?;
             return Ok(());
         }
 
@@ -522,7 +522,7 @@ impl Variant {
             let pseg = &psegs[nlevel];
 
             {
-                let cur = self.get_item_by_propex_segments(psegs_slice);
+                let cur = self.get_segs(psegs_slice);
                 if cur.is_some() {
                     continue;
                 }
@@ -532,15 +532,13 @@ impl Variant {
                 if let Some(next_pseg) = psegs.get(nlevel + 1) {
                     let mut prev = self.borrow_mut();
                     if nlevel > 0 {
-                        prev = self
-                            .get_item_by_propex_segments_mut(&psegs[0..=nlevel - 1])
-                            .ok_or(VariantError::OutOfRange)?;
+                        prev = self.get_segs_mut(&psegs[0..=nlevel - 1]).ok_or(VariantError::OutOfRange)?;
                     }
                     match next_pseg {
                         PropexSegment::Property(_) => {
-                            prev.set_property_by_propex_segment(pseg, Variant::empty_object())?
+                            prev.set_seg_property(pseg, Variant::empty_object())?
                         }
-                        PropexSegment::Index(_) => prev.set_property_by_propex_segment(pseg, Variant::empty_array())?,
+                        PropexSegment::Index(_) => prev.set_seg_property(pseg, Variant::empty_array())?,
                         PropexSegment::Nested(_nested) => todo!(),
                     }
                 } else {
@@ -551,25 +549,25 @@ impl Variant {
             }
         }
 
-        if let Some(terminal_obj) = self.get_item_by_propex_segments_mut(psegs) {
+        if let Some(terminal_obj) = self.get_segs_mut(psegs) {
             *terminal_obj = value;
             Ok(())
-        } else if let Some(parent_obj) = self.get_item_by_propex_segments_mut(&psegs[0..=psegs.len() - 2]) {
-            parent_obj.set_property_by_propex_segment(psegs.last().expect("We're so over"), value)?;
+        } else if let Some(parent_obj) = self.get_segs_mut(&psegs[0..=psegs.len() - 2]) {
+            parent_obj.set_seg_property(psegs.last().expect("We're so over"), value)?;
             Ok(())
         } else {
             Err(VariantError::OutOfRange)
         }
     }
 
-    pub fn set_object_nav_property(
+    pub fn set_nav_property(
         &mut self,
         expr: &str,
         value: Variant,
         create_missing: bool,
     ) -> Result<(), VariantError> {
         if let Ok(prop_segs) = propex::parse(expr) {
-            self.set_property_by_propex_segments(&prop_segs, value, create_missing)
+            self.set_segs_property(&prop_segs, value, create_missing)
         } else {
             Err(VariantError::OutOfRange)
         }
@@ -767,19 +765,19 @@ mod tests {
             ),
         ]);
 
-        let value1 = obj1.get_object_nav_property("value1").unwrap().as_integer().unwrap();
+        let value1 = obj1.get_nav_property("value1").unwrap().as_integer().unwrap();
         assert_eq!(value1, 123);
 
-        let ccc_1 = obj1.get_object_nav_property("value3.ccc").unwrap().as_integer().unwrap();
+        let ccc_1 = obj1.get_nav_property("value3.ccc").unwrap().as_integer().unwrap();
         assert_eq!(ccc_1, 555);
 
-        let ccc_2 = obj1.get_object_nav_property("['value3'].ccc").unwrap().as_integer().unwrap();
+        let ccc_2 = obj1.get_nav_property("['value3'].ccc").unwrap().as_integer().unwrap();
         assert_eq!(ccc_2, 555);
 
-        let ccc_3 = obj1.get_object_nav_property("['value3'][\"ccc\"]").unwrap().as_integer().unwrap();
+        let ccc_3 = obj1.get_nav_property("['value3'][\"ccc\"]").unwrap().as_integer().unwrap();
         assert_eq!(ccc_3, 555);
 
-        let ddd_1 = obj1.get_object_nav_property("value3.ddd").unwrap().as_integer().unwrap();
+        let ddd_1 = obj1.get_nav_property("value3.ddd").unwrap().as_integer().unwrap();
         assert_eq!(ddd_1, 999);
     }
 
@@ -787,11 +785,11 @@ mod tests {
     fn variant_propex_set_nav_property_with_empty_object_should_be_ok() {
         let mut obj1 = Variant::empty_object();
 
-        obj1.set_object_nav_property("address.country", Variant::String("US".to_string()), true).unwrap();
-        obj1.set_object_nav_property("address.zip", Variant::String("12345".to_string()), true).unwrap();
+        obj1.set_nav_property("address.country", Variant::String("US".to_string()), true).unwrap();
+        obj1.set_nav_property("address.zip", Variant::String("12345".to_string()), true).unwrap();
 
-        obj1.set_object_nav_property("array_field[0]", Variant::String("11111".to_string()), true).unwrap();
-        obj1.set_object_nav_property("array_field[1]", Variant::String("22222".to_string()), true).unwrap();
+        obj1.set_nav_property("array_field[0]", Variant::String("11111".to_string()), true).unwrap();
+        obj1.set_nav_property("array_field[1]", Variant::String("22222".to_string()), true).unwrap();
 
         let obj_address = obj1.get_object_property("address").unwrap();
 
