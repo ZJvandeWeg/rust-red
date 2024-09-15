@@ -36,7 +36,7 @@ pub struct LinkCallStackEntry {
 
 #[derive(Debug)]
 pub struct Msg {
-    pub body: BTreeMap<String, Variant>,
+    body: BTreeMap<String, Variant>,
     pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
 }
 
@@ -80,15 +80,15 @@ impl Msg {
         Variant::String(ElementId::new().to_string())
     }
 
-    pub fn contains_property(&self, prop: &str) -> bool {
+    pub fn contains(&self, prop: &str) -> bool {
         self.body.contains_property(prop)
     }
 
-    pub fn get_property(&self, prop: &str) -> Option<&Variant> {
+    pub fn get(&self, prop: &str) -> Option<&Variant> {
         self.body.get_property(prop)
     }
 
-    pub fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant> {
+    pub fn get_mut(&mut self, prop: &str) -> Option<&mut Variant> {
         self.body.get_property_mut(prop)
     }
 
@@ -96,47 +96,55 @@ impl Msg {
     ///
     /// The first level of the property expression for 'msg' must be a string, which means it must be
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-    pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
+    pub fn get_nav(&self, expr: &str) -> Option<&Variant> {
         self.body.get_nav_property("msg", expr)
     }
 
-    pub fn get_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
+    pub fn get_nav_mut(&mut self, expr: &str) -> Option<&mut Variant> {
         self.body.get_nav_property_mut("msg", expr)
     }
 
-    pub fn get_trimmed_nav_property_mut(&mut self, expr: &str) -> Option<&mut Variant> {
+    pub fn get_nav_trimmed_mut(&mut self, expr: &str) -> Option<&mut Variant> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
-            self.get_nav_property_mut(stripped_expr)
+            self.get_nav_mut(stripped_expr)
         } else {
-            self.get_nav_property_mut(trimmed_expr)
+            self.get_nav_mut(trimmed_expr)
         }
     }
 
-    pub fn get_trimmed_nav_property(&self, expr: &str) -> Option<&Variant> {
+    pub fn get_nav_trimmed(&self, expr: &str) -> Option<&Variant> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
-            self.get_nav_property(stripped_expr)
+            self.get_nav(stripped_expr)
         } else {
-            self.get_nav_property(trimmed_expr)
+            self.get_nav(trimmed_expr)
         }
     }
 
-    pub fn set_property(&mut self, prop: String, value: Variant) {
+    pub fn set(&mut self, prop: String, value: Variant) {
         self.body.set_property(prop, value)
     }
 
-    pub fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
+    pub fn set_nav(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         self.body.set_nav_property("msg", expr, value, create_missing)
     }
 
-    pub fn set_trimmed_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
+    pub fn set_nav_trimmed(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
         let trimmed_expr = expr.trim_ascii();
         if let Some(stripped_expr) = trimmed_expr.strip_prefix("msg.") {
-            self.set_nav_property(stripped_expr, value, create_missing)
+            self.set_nav(stripped_expr, value, create_missing)
         } else {
-            self.set_nav_property(trimmed_expr, value, create_missing)
+            self.set_nav(trimmed_expr, value, create_missing)
         }
+    }
+
+    pub fn remove(&mut self, prop: &str) -> Option<Variant> {
+        self.body.remove_property(prop)
+    }
+
+    pub fn remove_nav(&mut self, prop: &str) -> Option<Variant> {
+        self.body.remove_nav_property(prop)
     }
 }
 
@@ -317,9 +325,9 @@ mod tests {
         let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
         let msg = Msg::deserialize(&jv).unwrap();
         {
-            assert!(msg.contains_property("lookup"));
-            assert!(msg.contains_property("topic"));
-            assert_eq!(*msg.get_nav_property("lookup[msg.topic]").unwrap(), Variant::Integer(2));
+            assert!(msg.contains("lookup"));
+            assert!(msg.contains("topic"));
+            assert_eq!(*msg.get_nav("lookup[msg.topic]").unwrap(), Variant::Integer(2));
         }
     }
 
@@ -328,11 +336,11 @@ mod tests {
         let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
         let mut msg = Msg::deserialize(&jv).unwrap();
         {
-            assert!(msg.contains_property("lookup"));
-            assert!(msg.contains_property("topic"));
-            let b = msg.get_nav_property_mut("lookup[msg.topic]").unwrap();
+            assert!(msg.contains("lookup"));
+            assert!(msg.contains("topic"));
+            let b = msg.get_nav_mut("lookup[msg.topic]").unwrap();
             *b = Variant::Integer(1701);
-            assert_eq!(*msg.get_nav_property("lookup.b").unwrap(), Variant::Integer(1701));
+            assert_eq!(*msg.get_nav("lookup.b").unwrap(), Variant::Integer(1701));
         }
     }
 
@@ -341,25 +349,22 @@ mod tests {
         let jv = json!( {"foo": {"bar": "foo"}, "name": "hello"});
         let mut msg = Msg::deserialize(&jv).unwrap();
         {
-            let old_foo = msg.get_property("foo").unwrap();
+            let old_foo = msg.get("foo").unwrap();
             assert!(old_foo.is_object());
             assert_eq!(old_foo.as_object().unwrap()["bar"].as_str().unwrap(), "foo");
         }
-        msg.set_property("name".into(), "world".into());
-        assert_eq!(msg.get_property("name").unwrap().as_str().unwrap(), "world");
+        msg.set("name".into(), "world".into());
+        assert_eq!(msg.get("name").unwrap().as_str().unwrap(), "world");
 
-        msg.set_nav_property("foo.bar", "changed2".into(), false).unwrap();
-        assert_eq!(
-            msg.get_property("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(),
-            "changed2"
-        );
+        msg.set_nav("foo.bar", "changed2".into(), false).unwrap();
+        assert_eq!(msg.get("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(), "changed2");
 
-        assert!(msg.set_nav_property("foo.new_field", "new_value".into(), false).is_err());
+        assert!(msg.set_nav("foo.new_field", "new_value".into(), false).is_err());
 
-        assert!(msg.set_nav_property("foo.new_new_field", "new_new_value".into(), true).is_ok());
+        assert!(msg.set_nav("foo.new_new_field", "new_new_value".into(), true).is_ok());
 
         assert_eq!(
-            msg.get_property("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
+            msg.get("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
             "new_new_value"
         );
     }
@@ -369,19 +374,16 @@ mod tests {
         let jv = json!({});
         let mut msg = Msg::deserialize(&jv).unwrap();
 
-        msg.set_nav_property("foo.bar", "changed2".into(), true).unwrap();
-        assert!(msg.contains_property("foo"));
-        assert_eq!(
-            msg.get_property("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(),
-            "changed2"
-        );
+        msg.set_nav("foo.bar", "changed2".into(), true).unwrap();
+        assert!(msg.contains("foo"));
+        assert_eq!(msg.get("foo").unwrap().as_object().unwrap().get("bar").unwrap().as_str().unwrap(), "changed2");
 
-        assert!(msg.set_nav_property("foo.new_field", "new_value".into(), false).is_err());
+        assert!(msg.set_nav("foo.new_field", "new_value".into(), false).is_err());
 
-        assert!(msg.set_nav_property("foo.new_new_field", "new_new_value".into(), true).is_ok());
+        assert!(msg.set_nav("foo.new_new_field", "new_new_value".into(), true).is_ok());
 
         assert_eq!(
-            msg.get_property("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
+            msg.get("foo").unwrap().as_object().unwrap().get("new_new_field").unwrap().as_str().unwrap(),
             "new_new_value"
         );
     }

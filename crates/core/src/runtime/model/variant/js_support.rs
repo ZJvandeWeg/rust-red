@@ -123,7 +123,7 @@ impl<'js> js::IntoJs<'js> for Variant {
 
 #[cfg(test)]
 mod tests {
-    pub use rquickjs::{Context, IntoJs, Runtime};
+    use js::IntoJs;
     use serde_json::*;
 
     use super::*;

@@ -71,7 +71,7 @@ impl RangeNode {
     }
 
     fn do_range(&self, msg: &mut Msg) -> bool {
-        if let Some(value) = msg.get_trimmed_nav_property_mut(&self.config.property) {
+        if let Some(value) = msg.get_nav_trimmed_mut(&self.config.property) {
             let mut n: f64 = match value {
                 Variant::Rational(num_value) => *num_value,
                 Variant::Integer(num_value) => *num_value as f64,

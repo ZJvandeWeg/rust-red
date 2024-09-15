@@ -155,7 +155,6 @@ impl LinkCallNode {
 
     fn get_dynamic_target_node(&self, msg: &Msg) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
         let target_field = msg
-            .body
             .get("target")
             .ok_or(EdgelinkError::InvalidData("There are no `target` field in the msg!".to_string()))?;
 

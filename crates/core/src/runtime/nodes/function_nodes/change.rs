@@ -137,12 +137,12 @@ impl ChangeNode {
         match rule.pt {
             RedPropertyType::Msg => {
                 if let Some(to_value) = to_value {
-                    msg.set_trimmed_nav_property(&rule.p, to_value, true)?;
+                    msg.set_nav_trimmed(&rule.p, to_value, true)?;
                 } else {
                     // Equals the `undefined` in JS
-                    if msg.body.contains_key(&rule.p) {
+                    if msg.contains(&rule.p) {
                         // TODO remove by propex
-                        msg.body.remove(&rule.p);
+                        msg.remove(&rule.p);
                     }
                 }
                 Ok(())
@@ -194,7 +194,7 @@ impl ChangeNode {
                             {
                                 // str representation of exact from number/boolean
                                 // only replace if they match exactly
-                                msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
+                                msg.set_nav_trimmed(&rule.p, to_value, false)?;
                             }
                             Variant::Regexp(ref from_value_re) => {
                                 let replaced = from_value_re.replace_all(cs, to_value.to_string()?.as_str());
@@ -203,7 +203,7 @@ impl ChangeNode {
                                     (Some(RedPropertyType::Bool), "false") => to_value,
                                     _ => Variant::String(replaced.into()),
                                 };
-                                msg.set_trimmed_nav_property(&rule.p, value_to_set, false)?;
+                                msg.set_nav_trimmed(&rule.p, value_to_set, false)?;
                             }
                             _ => {
                                 let replaced = cs.replace(
@@ -213,9 +213,9 @@ impl ChangeNode {
                                 if rule.tot == Some(RedPropertyType::Bool) && current == to_value {
                                     // If the target type is boolean, and the replace call has resulted in "true"/"false",
                                     // convert to boolean type (which 'value' already is)
-                                    msg.set_trimmed_nav_property(&rule.p, to_value, false)?;
+                                    msg.set_nav_trimmed(&rule.p, to_value, false)?;
                                 } else {
-                                    msg.set_trimmed_nav_property(&rule.p, Variant::String(replaced), false)?;
+                                    msg.set_nav_trimmed(&rule.p, Variant::String(replaced), false)?;
                                 }
                             }
                         },
@@ -223,9 +223,9 @@ impl ChangeNode {
                     }
                 } else {
                     // Equals the `undefined` in JS
-                    if msg.body.contains_key(&rule.p) {
+                    if msg.contains(&rule.p) {
                         // TODO remove by propex
-                        msg.body.remove(&rule.p);
+                        msg.remove(&rule.p);
                     }
                 }
                 Ok(())
@@ -245,7 +245,7 @@ impl ChangeNode {
         assert!(rule.t == RuleKind::Delete);
         match rule.pt {
             RedPropertyType::Msg => {
-                let _ = msg.body.remove_nav_property(&rule.p).ok_or(EdgelinkError::NotSupported(format!(
+                let _ = msg.remove_nav(&rule.p).ok_or(EdgelinkError::NotSupported(format!(
                     "Cannot remove the property '{}' in the msg",
                     rule.p
                 )))?;

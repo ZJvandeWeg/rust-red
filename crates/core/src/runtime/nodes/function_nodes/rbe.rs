@@ -167,11 +167,11 @@ impl RbeNode {
     }
 
     fn do_filter(&self, msg: &mut Msg, state: &mut RbeNodeState) -> bool {
-        let topic = msg.get_trimmed_nav_property(&self.config.topic);
-        let value = msg.get_trimmed_nav_property(&self.config.property);
+        let topic = msg.get_nav_trimmed(&self.config.topic);
+        let value = msg.get_nav_trimmed(&self.config.property);
 
         // Handle reset logic
-        match (msg.get_property("reset"), self.config.sep_topics, topic) {
+        match (msg.get("reset"), self.config.sep_topics, topic) {
             (Some(_), true, Some(Variant::String(topic))) if !topic.is_empty() => {
                 state.prev.remove(topic);
             }
