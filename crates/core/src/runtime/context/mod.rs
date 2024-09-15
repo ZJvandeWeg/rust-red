@@ -102,28 +102,31 @@ pub struct ContextManagerBuilder {
 }
 
 impl Context {
-    pub async fn get_one(&self, key: &str, storage: Option<&str>) -> Option<Variant> {
-        let store = if let Some(storage) = storage {
+    pub async fn get_one(&self, prop: &ContextStoreProperty<'_>) -> Option<Variant> {
+        let store = if let Some(storage) = prop.store {
             self.manager.upgrade()?.get_context(storage)?
         } else {
             self.manager.upgrade()?.get_default()
         };
         // TODO FIXME change it to fixed length stack-allocated string
-        store.get_one(&self.scope, key).await.ok()
+        store.get_one(&self.scope, prop.key).await.ok()
     }
 
-    pub async fn set_one(&self, storage: &str, key: &str, value: Option<Variant>) -> Result<()> {
-        let store = self
-            .manager
-            .upgrade()
-            .expect("The mananger cannot be released!")
-            .get_context(storage)
-            .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?;
+    pub async fn set_one(&self, prop: &ContextStoreProperty<'_>, value: Option<Variant>) -> Result<()> {
+        let store = if let Some(storage) = prop.store {
+            self.manager
+                .upgrade()
+                .expect("The mananger cannot be released!")
+                .get_context(storage)
+                .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?
+        } else {
+            self.manager.upgrade().expect("The manager cannot be released!").get_default()
+        };
         // TODO FIXME change it to fixed length stack-allocated string
         if let Some(value) = value {
-            store.set_one(&self.scope, key, value).await
+            store.set_one(&self.scope, prop.key, value).await
         } else {
-            let _ = store.remove_one(&self.scope, key).await?;
+            let _ = store.remove_one(&self.scope, prop.key).await?;
             Ok(())
         }
     }
@@ -259,14 +262,14 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextStoreProperty,
 /// ```
 /// use edgelink_core::runtime::context::parse_context_store;
 ///
-/// let res = parse_context_store("#:(file)::foo.bar").unwrap();
+/// let res = parse_store("#:(file)::foo.bar").unwrap();
 /// assert_eq!(Some("file"), res.store);
 /// assert_eq!("foo.bar", res.key);
 /// ```
 /// @param  {String} key - the context property string to parse
 /// @return {Object} The parsed property
 /// @memberof @node-red/util_util
-pub fn parse_context_store(key: &str) -> crate::Result<ContextStoreProperty> {
+pub fn parse_store(key: &str) -> crate::Result<ContextStoreProperty> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
         Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),
@@ -279,11 +282,11 @@ mod tests {
 
     #[test]
     fn test_parse_context_store() {
-        let res = parse_context_store("#:(file)::foo.bar").unwrap();
+        let res = parse_store("#:(file)::foo.bar").unwrap();
         assert_eq!(Some("file"), res.store);
         assert_eq!("foo.bar", res.key);
 
-        let res = parse_context_store("foo.bar").unwrap();
+        let res = parse_store("foo.bar").unwrap();
         assert_eq!(None, res.store);
         assert_eq!("foo.bar", res.key);
     }

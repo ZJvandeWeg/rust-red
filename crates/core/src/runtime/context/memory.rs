@@ -15,13 +15,13 @@ static _MEMORY_CONTEXT_STORE_METADATA: ProviderMetadata =
 struct MemoryContextStore {
     meta: &'static ProviderMetadata,
     name: String,
-    items: RwLock<HashMap<String, VariantObjectMap>>,
+    scopes: RwLock<HashMap<String, VariantObjectMap>>,
 }
 
 impl MemoryContextStore {
     fn build(name: String, _options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>> {
         let this =
-            MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, name, items: RwLock::new(HashMap::new()) };
+            MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, name, scopes: RwLock::new(HashMap::new()) };
         Ok(Box::new(this))
     }
 }
@@ -47,8 +47,8 @@ impl ContextStore for MemoryContextStore {
     }
 
     async fn get_one(&self, scope: &str, key: &str) -> Result<Variant> {
-        let items = self.items.read().await;
-        if let Some(scope_map) = items.get(scope) {
+        let scopes = self.scopes.read().await;
+        if let Some(scope_map) = scopes.get(scope) {
             if let Some(value) = scope_map.get(key) {
                 return Ok(value.clone());
             }
@@ -57,8 +57,8 @@ impl ContextStore for MemoryContextStore {
     }
 
     async fn get_many(&self, scope: &str, keys: &[&str]) -> Result<Vec<Variant>> {
-        let items = self.items.read().await;
-        if let Some(scope_map) = items.get(scope) {
+        let scopes = self.scopes.read().await;
+        if let Some(scope_map) = scopes.get(scope) {
             let mut result = Vec::new();
             for key in keys {
                 if let Some(value) = scope_map.get(*key) {
@@ -71,23 +71,23 @@ impl ContextStore for MemoryContextStore {
     }
 
     async fn get_keys(&self, scope: &str) -> Result<Vec<String>> {
-        let items = self.items.read().await;
-        if let Some(scope_map) = items.get(scope) {
+        let scopes = self.scopes.read().await;
+        if let Some(scope_map) = scopes.get(scope) {
             return Ok(scope_map.keys().cloned().collect::<Vec<_>>());
         }
         Err(EdgelinkError::OutOfRange.into())
     }
 
     async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()> {
-        let mut items = self.items.write().await;
-        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
+        let mut scopes = self.scopes.write().await;
+        let scope_map = scopes.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
         let _ = scope_map.insert(key.to_string(), value);
         Ok(())
     }
 
     async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()> {
-        let mut items = self.items.write().await;
-        let scope_map = items.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
+        let mut scopes = self.scopes.write().await;
+        let scope_map = scopes.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
         for (key, value) in pairs {
             let _ = scope_map.insert(key.to_string(), (*value).clone());
         }
@@ -95,8 +95,8 @@ impl ContextStore for MemoryContextStore {
     }
 
     async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant> {
-        let mut items = self.items.write().await;
-        if let Some(scope_map) = items.get_mut(scope) {
+        let mut scopes = self.scopes.write().await;
+        if let Some(scope_map) = scopes.get_mut(scope) {
             if let Some(value) = scope_map.remove(key) {
                 return Ok(value);
             } else {
@@ -107,8 +107,8 @@ impl ContextStore for MemoryContextStore {
     }
 
     async fn delete(&self, scope: &str) -> Result<()> {
-        let mut items = self.items.write().await;
-        items.remove(scope);
+        let mut scopes = self.scopes.write().await;
+        scopes.remove(scope);
         Ok(())
     }
 

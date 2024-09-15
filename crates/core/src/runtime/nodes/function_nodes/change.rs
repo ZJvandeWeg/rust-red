@@ -153,7 +153,9 @@ impl ChangeNode {
                     let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
                                                                                                             // let csp = context::parse_context_store(&rule.p)?;
                                                                                                             // engine.get_context().set_one("memory", csp.key, to_value).await
-                    engine.get_context().set_one("memory", &rule.p, Some(to_value)).await
+
+                    let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                    engine.get_context().set_one(&ctx_prop, Some(to_value)).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -165,7 +167,8 @@ impl ChangeNode {
                                                                    // let csp = context::parse_context_store(&rule.p)?;
                                                                    // engine.get_context().set_one("memory", csp.key, to_value).await
                     let fe = flow as Arc<dyn FlowsElement>;
-                    fe.context().set_one("memory", &rule.p, Some(to_value)).await
+                    let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                    fe.context().set_one(&ctx_prop, Some(to_value)).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -269,7 +272,9 @@ impl ChangeNode {
                 // let csp = context::parse_context_store(&rule.p)?;
                 // engine.get_context().set_one("memory", csp.key, to_value).await
                 let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap();
-                engine.get_context().set_one("memory", &rule.p, None).await // Setting it to "None" means to delete.
+                let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                engine.get_context().set_one(&ctx_prop, None).await
+                // Setting it to "None" means to delete.
             }
 
             RedPropertyType::Flow => {
@@ -278,7 +283,9 @@ impl ChangeNode {
                 // engine.get_context().set_one("memory", csp.key, to_value).await
                 let flow = self.get_flow().upgrade().unwrap();
                 let fe = flow as Arc<dyn FlowsElement>;
-                fe.context().set_one("memory", &rule.p, None).await // Setting it to "None" means to delete.
+                let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                fe.context().set_one(&ctx_prop, None).await
+                // Setting it to "None" means to delete.
             }
 
             _ => Err(EdgelinkError::NotSupported(
