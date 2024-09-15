@@ -125,7 +125,7 @@ impl ChangeNode {
             RuleKind::Set => self.apply_rule_set(rule, msg, to_value).await,
             RuleKind::Change => self.apply_rule_change(rule, msg, to_value).await,
             RuleKind::Delete => {
-                let _ = self.apply_rule_delete(rule, msg).await?;
+                self.apply_rule_delete(rule, msg).await?;
                 Ok(())
             }
             RuleKind::Move => Ok(()),

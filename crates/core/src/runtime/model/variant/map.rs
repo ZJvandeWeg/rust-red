@@ -132,9 +132,7 @@ impl VariantObject for VariantObjectMap {
                 *pv = value;
                 Ok(())
             }
-            None if create_missing => {
-                first_prop.set_segs_property(&segs[1..], value, true).map_err(Into::into)
-            }
+            None if create_missing => first_prop.set_segs_property(&segs[1..], value, true).map_err(Into::into),
             None => Err(crate::EdgelinkError::InvalidOperation(
                 "Unable to set property: missing intermediate segments".into(),
             )
@@ -214,8 +212,7 @@ impl VariantObject for VariantObjectMap {
             // If there are multiple segments, navigate through the nested structure.
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
                 // Get the mutable reference to the navigation property.
-                let prop_tail =
-                    self.get_mut(first_prop_name.as_ref())?.get_segs_mut(&rest[..rest.len() - 1])?;
+                let prop_tail = self.get_mut(first_prop_name.as_ref())?.get_segs_mut(&rest[..rest.len() - 1])?;
 
                 // Remove the value based on the type of the last segment.
                 match (prop_tail, segs.last()?) {

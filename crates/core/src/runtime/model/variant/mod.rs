@@ -535,9 +535,7 @@ impl Variant {
                         prev = self.get_segs_mut(&psegs[0..=nlevel - 1]).ok_or(VariantError::OutOfRange)?;
                     }
                     match next_pseg {
-                        PropexSegment::Property(_) => {
-                            prev.set_seg_property(pseg, Variant::empty_object())?
-                        }
+                        PropexSegment::Property(_) => prev.set_seg_property(pseg, Variant::empty_object())?,
                         PropexSegment::Index(_) => prev.set_seg_property(pseg, Variant::empty_array())?,
                         PropexSegment::Nested(_nested) => todo!(),
                     }
@@ -560,12 +558,7 @@ impl Variant {
         }
     }
 
-    pub fn set_nav_property(
-        &mut self,
-        expr: &str,
-        value: Variant,
-        create_missing: bool,
-    ) -> Result<(), VariantError> {
+    pub fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> Result<(), VariantError> {
         if let Ok(prop_segs) = propex::parse(expr) {
             self.set_segs_property(&prop_segs, value, create_missing)
         } else {

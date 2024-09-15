@@ -87,3 +87,73 @@ impl<'js> js::FromJs<'js> for Variant {
         }
     }
 }
+
+#[cfg(feature = "js")]
+impl<'js> js::IntoJs<'js> for Variant {
+    fn into_js(self, ctx: &js::Ctx<'js>) -> js::Result<js::Value<'js>> {
+        use js::function::Constructor;
+
+        match self {
+            Variant::Array(arr) => arr.into_js(ctx),
+
+            Variant::Bool(b) => b.into_js(ctx),
+
+            Variant::Bytes(bytes) => Ok(js::ArrayBuffer::new(ctx.clone(), bytes)?.into_value()),
+
+            Variant::Integer(i) => i.into_js(ctx),
+
+            Variant::Null => Ok(js::Value::new_null(ctx.clone())),
+
+            Variant::Object(map) => map.into_js(ctx),
+
+            Variant::String(s) => s.into_js(ctx),
+
+            Variant::Rational(f) => f.into_js(ctx),
+
+            Variant::Date(t) => t.into_js(ctx),
+
+            Variant::Regexp(re) => {
+                let global = ctx.globals();
+                let regexp_ctor: Constructor = global.get("RegExp")?;
+                regexp_ctor.construct((re.as_str(),))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    pub use rquickjs::{Context, IntoJs, Runtime};
+    use serde_json::*;
+
+    use super::*;
+
+    #[test]
+    fn variant_into_js() {
+        let js_rt = js::Runtime::new().unwrap();
+        let ctx = js::Context::full(&js_rt).unwrap();
+
+        let foo = Variant::from(json!({
+            "intValue": 123,
+            "strValue": "hello",
+            "arrayValue": [1, 2, 3],
+        }));
+
+        ctx.with(|ctx| {
+            let globs = ctx.globals();
+            globs.set("foo", foo.into_js(&ctx).unwrap()).unwrap();
+
+            let v: i64 = ctx.eval("foo.intValue").unwrap();
+            assert_eq!(v, 123);
+
+            let v: std::string::String = ctx.eval("foo.strValue").unwrap();
+            assert_eq!(v, "hello".to_string());
+
+            let v: Vec<i32> = ctx.eval("foo.arrayValue").unwrap();
+            assert_eq!(v, vec![1, 2, 3]);
+
+            let v: Vec<Variant> = ctx.eval("foo.arrayValue").unwrap();
+            assert_eq!(v, vec![Variant::Integer(1), Variant::Integer(2), Variant::Integer(3)]);
+        });
+    }
+}
