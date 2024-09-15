@@ -761,8 +761,45 @@ class TestChangeNode:
             assert msgs[0]["foo"] == {}
             assert 'bar' not in msgs[0]["foo"]
 
-# 5. sends unaltered message if the deleted message property does not exist
-# 6. sends unaltered message if a deleted multi-level message property does not exist
+        @pytest.mark.asyncio
+        @pytest.mark.it('sends unaltered message if the deleted message property does not exist')
+        async def test_delete_5(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo",
+                    "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "payload", }},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "payload"
+            assert 'foo' not in msgs[0]
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('sends unaltered message if a deleted multi-level message property does not exist')
+        async def test_delete_6(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar",
+                    "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {
+                    "payload": "This won't get through!",
+                    "foo": {"bar": "This will be deleted!"}
+                }
+                },
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "payload", }},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "payload"
+            assert 'foo' not in msgs[0]
+            assert 'foo.bar' not in msgs[0]
 
     @pytest.mark.describe('- multiple rules')
     class TestSet:
