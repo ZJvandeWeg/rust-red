@@ -24,11 +24,6 @@ mod ser;
 
 pub use self::map::*;
 
-#[cfg(feature = "js")]
-mod js {
-    pub use rquickjs::*;
-}
-
 #[derive(Error, Clone, Debug, PartialEq, PartialOrd)]
 pub enum VariantError {
     #[error("Wrong type")]
@@ -563,66 +558,6 @@ impl Variant {
             self.set_segs_property(&prop_segs, value, create_missing)
         } else {
             Err(VariantError::OutOfRange)
-        }
-    }
-
-    #[cfg(feature = "js")]
-    pub fn as_js_value<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Value<'js>> {
-        use js::function::Constructor;
-        use js::IntoJs;
-        match self {
-            Variant::Array(_) => Ok(js::Value::from_array(self.as_js_array(ctx)?)),
-
-            Variant::Bool(b) => Ok(js::Value::new_bool(ctx.clone(), *b)),
-
-            Variant::Bytes(bytes) => Ok(js::ArrayBuffer::new_copy(ctx.clone(), bytes)?.into_value()),
-
-            Variant::Integer(i) => Ok(js::Value::new_int(ctx.clone(), *i)),
-
-            Variant::Null => Ok(js::Value::new_null(ctx.clone())),
-
-            Variant::Object(_) => Ok(js::Value::from_object(self.as_js_object(ctx)?)),
-
-            Variant::String(s) => s.into_js(ctx).map_err(|e| e.into()),
-
-            Variant::Rational(f) => f.into_js(ctx).map_err(|e| e.into()),
-
-            Variant::Date(t) => t.into_js(ctx).map_err(|e| e.into()),
-
-            Variant::Regexp(re) => {
-                let global = ctx.globals();
-                let regexp_ctor: Constructor = global.get("RegExp")?;
-                regexp_ctor.construct((re.as_str(),)).map_err(|e| e.into())
-            }
-        }
-    }
-
-    #[cfg(feature = "js")]
-    pub fn as_js_array<'js>(&self, ctx: &js::Ctx<'js>) -> crate::Result<js::Array<'js>> {
-        use js::FromIteratorJs;
-        if let Variant::Array(items) = self {
-            let iter = items.iter().map(|e| e.as_js_value(ctx).unwrap()); // TODO FIXME
-            js::Array::from_iter_js(ctx, iter).map_err(|e| EdgelinkError::InvalidData(e.to_string()).into())
-        } else {
-            Err(crate::EdgelinkError::InvalidOperation("Bad variant type".to_string()).into())
-        }
-    }
-
-    #[cfg(feature = "js")]
-    pub fn as_js_object<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Object<'js>> {
-        use js::IntoAtom;
-        if let Variant::Object(map) = self {
-            let obj = js::Object::new(ctx.clone())?;
-            for (k, v) in map {
-                let prop_name = k.into_atom(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-
-                let prop_value = v.as_js_value(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-
-                obj.set(prop_name, prop_value).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            }
-            Ok(obj)
-        } else {
-            Err(crate::EdgelinkError::InvalidOperation("Bad variant type".to_string()).into())
         }
     }
 } // struct Variant

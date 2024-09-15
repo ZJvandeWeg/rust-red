@@ -138,61 +138,6 @@ impl Msg {
             self.set_nav_property(trimmed_expr, value, create_missing)
         }
     }
-
-    #[cfg(feature = "js")]
-    pub fn as_js_object<'js>(&self, ctx: &js::context::Ctx<'js>) -> crate::Result<js::Object<'js>> {
-        use js::IntoAtom;
-        use rquickjs::IntoJs;
-        let obj = js::Object::new(ctx.clone())?;
-        for (k, v) in self.body.iter() {
-            let prop_name = k.into_atom(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-
-            let prop_value = v.as_js_value(ctx).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-
-            obj.set(prop_name, prop_value).map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-        }
-
-        {
-            let link_source_atom = wellknown::LINK_SOURCE_PROPERTY.into_js(ctx)?;
-            let link_source_buffer = js::ArrayBuffer::new(ctx.clone(), bincode::serialize(&self.link_call_stack)?)?;
-            let link_source_value = link_source_buffer.into_js(ctx)?;
-
-            //.map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            obj.set(link_source_atom, link_source_value)?
-
-            /*
-            let msg_id_atom = "_msgid"
-                .into_atom(ctx)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            let msg_id_value = self
-                .id
-                .to_string()
-                .into_js(ctx)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            obj.set(msg_id_atom, msg_id_value)
-                .map_err(|e| EdgelinkError::InvalidData(e.to_string()))?;
-            */
-
-            /*
-            let link_source_atom = "_linkSource"
-                .into_atom(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-            let link_source_atom = self
-                .id
-                .to_string()
-                .into_js(ctx)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-            obj.set(msg_id_atom, msg_id_value)
-                .map_err(|e| EdgeLinkError::InvalidData(e.to_string()))?;
-            */
-        }
-        Ok(obj)
-    }
-
-    #[cfg(feature = "js")]
-    pub fn as_js_value<'js>(&self, ctx: &js::Ctx<'js>) -> crate::Result<js::Value<'js>> {
-        Ok(js::Value::from_object(self.as_js_object(ctx)?))
-    }
 }
 
 impl Msg {
@@ -338,6 +283,26 @@ impl<'js> js::FromJs<'js> for Msg {
             }
             _ => Err(js::Error::FromJs { from: "Unsupported JS type", to: "", message: None }),
         }
+    }
+}
+
+#[cfg(feature = "js")]
+impl<'js> js::IntoJs<'js> for Msg {
+    fn into_js(self, ctx: &js::Ctx<'js>) -> js::Result<js::Value<'js>> {
+        let jsv = self.body.into_js(ctx)?;
+        let obj = jsv.as_object().unwrap();
+        {
+            let link_source_atom = wellknown::LINK_SOURCE_PROPERTY.into_js(ctx)?;
+            let link_source_bytes = bincode::serialize(&self.link_call_stack).map_err(|e| js::Error::IntoJs {
+                from: "Msg._linkSource",
+                to: "js._linkSource",
+                message: Some(e.to_string()),
+            })?;
+            let link_source_buffer = js::ArrayBuffer::new(ctx.clone(), link_source_bytes)?;
+            let link_source_value = link_source_buffer.into_js(ctx)?;
+            obj.set(link_source_atom, link_source_value)?
+        }
+        Ok(jsv)
     }
 }
 

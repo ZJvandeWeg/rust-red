@@ -1,12 +1,14 @@
-use rquickjs::FromJs;
+use std::sync::Arc;
+
 use serde::Deserialize;
 use smallvec::SmallVec;
-use std::sync::Arc;
 
 mod js {
     pub use rquickjs::*;
 }
 use js::CatchResultExt;
+use js::FromJs;
+use js::IntoJs;
 
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
@@ -58,11 +60,12 @@ impl FlowNodeBehavior for FunctionNode {
             let cancel = stop_token.child_token();
             with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
                 let res = {
-                    let mut msg_guard = msg.write().await;
-                    node.filter_msg(&mut msg_guard, sub_ctx).await
+                    let msg_guard = msg.write().await;
+                    node.filter_msg(msg_guard.clone(), sub_ctx).await // This gonna eat the msg and produce a new one
                 };
                 match res {
                     Ok(changed_msgs) => {
+                        // Pack the new messages
                         let envelopes = changed_msgs
                             .into_iter()
                             .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
@@ -101,11 +104,10 @@ impl FunctionNode {
         Ok(Box::new(node))
     }
 
-    async fn filter_msg(&self, msg: &mut Msg, js_ctx: &js::AsyncContext) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
-        let origin_msg = &msg;
+    async fn filter_msg(&self, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
         let eval_result: js::Result<SmallVec<[(usize, Msg); 4]>> = js::async_with!(js_ctx => |ctx| {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-            let js_msg = origin_msg.as_js_object(&ctx).unwrap(); // FIXME
+            let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
             let args =(js::Value::new_null(ctx.clone()), js_msg);
             let js_res_value: js::Result<js::Value> = user_func.call(args);
             match js_res_value.catch(&ctx) {
