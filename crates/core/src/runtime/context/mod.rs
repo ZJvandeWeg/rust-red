@@ -140,6 +140,12 @@ impl Default for ContextManager {
     }
 }
 
+impl Default for ContextManagerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContextManagerBuilder {
     pub fn new() -> Self {
         let stores = HashMap::with_capacity(__PROVIDERS.len());
@@ -150,6 +156,7 @@ impl ContextManagerBuilder {
         let memory_metadata = __PROVIDERS.iter().find(|x| x.type_ == "memory").unwrap();
         let memory_store =
             (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
+        self.stores.clear();
         self.stores.insert("memory".to_string(), Arc::from(memory_store));
         self
     }
