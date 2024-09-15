@@ -32,7 +32,7 @@ pub struct ProviderMetadata {
 #[derive(Debug, Clone, serde:: Deserialize)]
 pub struct ContextStorageSettings {
     pub default: String,
-    pub storages: HashMap<String, ContextStoreOptions>,
+    pub stores: HashMap<String, ContextStoreOptions>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -164,7 +164,7 @@ impl ContextManagerBuilder {
     pub fn with_config(&mut self, config: &config::Config) -> crate::Result<&mut Self> {
         let settings: ContextStorageSettings = config.get("runtime.context")?;
         self.stores.clear();
-        for (store_name, store_options) in settings.storages.iter() {
+        for (store_name, store_options) in settings.stores.iter() {
             log::debug!("Initializing context store: name='{}', provider='{}' ...", store_name, store_options.provider);
             let meta =
                 __PROVIDERS.iter().find(|x| x.type_ == store_options.provider).ok_or(EdgelinkError::Configuration)?;
@@ -172,7 +172,7 @@ impl ContextManagerBuilder {
             self.stores.insert(store_options.provider.clone(), Arc::from(store));
         }
 
-        if !settings.storages.contains_key(&settings.default) {
+        if !settings.stores.contains_key(&settings.default) {
             use anyhow::Context;
             return Err(EdgelinkError::Configuration).with_context(|| {
                 format!(
