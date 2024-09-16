@@ -974,14 +974,191 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Goodbye World!'
 
-# 26 changes the value and doesnt change type of the flow context for partial match
-# 27 changes the value and doesnt change type of the persistable flow context for partial match
-# 28 changes the value and type of the flow context if a complete match
-# 29 changes the value and type of the persistable flow context if a complete match
-# 30 changes the value using number - number flow context
-# 31 changes the value using number - number persistable flow context
-# 32 changes the value using boolean - boolean flow context
-# 33 changes the value using boolean - boolean persistable flow context
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value and doesnt change type of the flow context for partial match')
+        async def test_change_26(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "flow", "to": "Change123Me", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "pt": "flow", "from": "123", "fromt": "str", "to": "456", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'Change456Me'
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value and doesnt change type of the persistable flow context for partial match')
+        async def test_change_27(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::payload", "pt": "flow", "to": "Change123Me", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123",
+                     "fromt": "str", "to": "456", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'Change456Me'
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value and type of the flow context if a complete match')
+        async def test_change_28(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "flow", "to": "123", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "pt": "flow", "from": "123", "fromt": "str", "to": "456", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 456
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value and type of the persistable flow context if a complete match')
+        async def test_change_29(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::payload", "pt": "flow", "to": "123", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123", "fromt": "str", "to": "456", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 456
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using number - number flow context')
+        async def test_change_30(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "flow", "to": "123", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    { "t": "change", "p": "payload", "pt": "flow", "from": "123", "fromt": "num", "to": "abc", "tot": "str" }
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using number - number persistable flow context')
+        async def test_change_31(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::payload", "pt": "flow", "to": "123", "tot": "num"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    { "t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123", "fromt": "num", "to": "abc", "tot": "str" }
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using boolean - boolean flow context')
+        async def test_change_32(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "flow", "to": "true", "tot": "bool"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    { "t": "change", "p": "payload", "pt": "flow", "from": "true", "fromt": "bool", "to": "abc", "tot": "str" }
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using boolean - boolean persistable flow context')
+        async def test_change_33(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::payload", "pt": "flow", "to": "true", "tot": "bool"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    { "t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "true", "fromt": "bool", "to": "abc", "tot": "str" }
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc"
+
 # 34 reports invalid fromValue
 
         @pytest.mark.describe('env var')
