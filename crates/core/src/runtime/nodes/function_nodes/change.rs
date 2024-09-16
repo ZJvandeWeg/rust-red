@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -50,6 +51,9 @@ struct Rule {
 
     #[serde(default)]
     pub fromt: Option<RedPropertyType>,
+
+    #[serde(default, rename = "fromRE", with = "crate::text::regex::serde_optional_regex")]
+    pub from_regex: Option<Regex>,
     /*
     #[serde(default, rename = "dc")]
     pub deep_clone: bool,
@@ -216,7 +220,7 @@ impl ChangeNode {
             }
 
             (Variant::String(ref cs), RedPropertyType::Re) => {
-                let replaced = from_value.as_regexp().unwrap().replace_all(cs, to_value.to_string()?.as_str());
+                let replaced = rule.from_regex.as_ref().unwrap().replace_all(cs, to_value.to_string()?.as_str());
                 let value_to_set = match (rule.tot, replaced.as_ref()) {
                     (Some(RedPropertyType::Bool), "true") => to_value,
                     (Some(RedPropertyType::Bool), "false") => to_value,
@@ -316,6 +320,7 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
         vec![rule]
     };
 
+    let old_from_re_pattern = regex::Regex::new(r"[-\[\]{}()*+?.,\\^$|#\s]")?;
     for rule in rules.iter_mut() {
         // Migrate to type-aware rules
         if rule.get("pt").is_none() {
@@ -346,72 +351,75 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
             rule["fromt"] = "str".into();
         }
 
-        /*
-        if let Some("change") = rule.get("t").and_then(|t| t.as_str()) {
-            let fromt = rule.get("fromt").and_then(|f| f.as_str());
-            if fromt != Some("msg") && fromt != Some("flow") && fromt != Some("global") {
-                {
-                    // Simple copy as there's no regex
-                    if let Some(from) = rule.get("from").cloned() {
-                        rule["fromRE"] = from;
-                    }
+        if let (Some(t), Some(fromt), Some(from)) = (rule.get("t"), rule.get("fromt"), rule.get("from")) {
+            if t == "change" && fromt != "msg" && fromt != "flow" && fromt != "global" {
+                let from_str = from.as_str().unwrap_or("");
+                let mut from_re = from_str.to_string();
+
+                if fromt != "re" {
+                    from_re = old_from_re_pattern.replace_all(&from_re, r"\$&").to_string();
                 }
-                {
-                    if fromt != Some("re") {
-                        // Escaping meta characters
-                        if let Some(from_value) = rule.get("from").and_then(|f| f.as_str()) {
-                            let mut from = from_value.to_string(); // Copy the string
 
-                            // Escape meta characters
-                            for ch in &[
-                                '-', '[', ']', '{', '}', '(', ')', '*', '+', '?', '.', '\\', '^',
-                                '$', '|', '#', ' ',
-                            ] {
-                                from = from.replace(*ch, "\\");
-                            }
-
-                            rule["fromRE"] = from.into(); // Insert after all borrowing is done
-                        }
+                match regex::Regex::new(&from_re) {
+                    Ok(re) => {
+                        rule["fromRE"] = Value::String(re.as_str().to_string());
+                    }
+                    Err(e) => {
+                        log::error!("Invalid regexp: {}", e);
+                        return Err(e.into());
                     }
                 }
             }
         }
-        */
 
-        // `tot` handling
         /*
-        match rule.get("tot").and_then(|t| t.as_str()) {
-            Some("num") => {
-                if let Some(to) = rule.get("to").and_then(|t| t.as_str()) {
-                    rule["to"] = json!(to.parse::<f64>().unwrap_or(0.0));
-                }
-            }
-            Some("json") | Some("bin") => {
-                if rule.get("to").is_some() {
-                    if serde_json::from_str::<Value>(rule.get("to").unwrap().as_str().unwrap_or(""))
-                        .is_err()
-                    {
-                        return Err(EdgelinkError::BadFlowsJson("Invalid JSON".to_string()).into());
+        // Preprocess the constants:
+        let tot = rule.get("tot").and_then(Value::as_str).unwrap_or("");
+
+        match tot {
+            "num" => {
+                if let Some(to_value) = rule.get("to").and_then(Value::as_str) {
+                    if let Ok(number) = to_value.parse::<f64>() {
+                        rule["to"] = Value::from(number);
                     }
                 }
             }
-            Some("bool") => {
-                if let Some(to) = rule.get("to").and_then(|t| t.as_str()) {
-                    rule["to"] = json!(to.eq_ignore_ascii_case("true"));
+            "json" | "bin" => {
+                if let Some(to_value) = rule.get("to").and_then(Value::as_str) {
+                    // Check if the string is valid JSON
+                    if from_str::<Value>(to_value).is_err() {
+                        log::error!("Error: invalid JSON");
+                    }
                 }
             }
-            Some("jsonata") => {
-                // Placeholder for expression preparation
-                // rule["to"] = json!("prepared JSONata expression");
-                return Err(EdgelinkError::NotSupported(
-                    "We are not supported the JSONata at this moment!".to_string(),
-                )
-                .into());
+            "bool" => {
+                if let Some(to_value) = rule.get("to").and_then(Value::as_str) {
+                    let re = Regex::new(r"^true$").unwrap();
+                    let is_true = re.is_match(to_value);
+                    rule["to"] = Value::from(is_true);
+                }
             }
-            Some("env") => {
-                // Placeholder for environment evaluation
-                // TODO FIXME
-                rule["to"] = json!("evaluated environment variable");
+            "jsonata" =>
+            {
+                if let Some(to_value) = rule.get("to").and_then(Value::as_str) {
+                    // Assuming `prepare_jsonata_expression` is a custom function to handle JSONata
+                    match prepare_jsonata_expression(to_value, node) {
+                        Ok(expression) => {
+                            rule["to"] = Value::from(expression);
+                        }
+                        Err(e) => {
+                            valid = false;
+                            println!("Error: invalid JSONata expression: {}", e);
+                        }
+                    }
+                }
+            }
+            "env" => {
+                if let Some(to_value) = rule.get("to").and_then(Value::as_str) {
+                    // Assuming `evaluate_node_property` is a custom function to evaluate environment variables
+                    let result = evaluate_node_property(to_value, "env", node);
+                    rule["to"] = Value::from(result);
+                }
             }
             _ => {}
         }
