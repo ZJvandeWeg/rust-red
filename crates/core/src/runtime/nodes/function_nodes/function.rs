@@ -16,6 +16,10 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
+const OUTPUT_MSGS_CAP: usize = 4;
+
+pub type OutputMsgs = smallvec::SmallVec<[(usize, Msg); OUTPUT_MSGS_CAP]>;
+
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
     func: String,
@@ -69,7 +73,7 @@ impl FlowNodeBehavior for FunctionNode {
                         let envelopes = changed_msgs
                             .into_iter()
                             .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
-                            .collect::<SmallVec<[Envelope; 4]>>();
+                            .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
                         node.fan_out_many(&envelopes, cancel.child_token()).await?;
                     }
@@ -104,8 +108,8 @@ impl FunctionNode {
         Ok(Box::new(node))
     }
 
-    async fn filter_msg(&self, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<SmallVec<[(usize, Msg); 4]>> {
-        let eval_result: js::Result<SmallVec<[(usize, Msg); 4]>> = js::async_with!(js_ctx => |ctx| {
+    async fn filter_msg(&self, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
+        let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
             let args =(js::Value::new_null(ctx.clone()), js_msg);
@@ -129,12 +133,8 @@ impl FunctionNode {
         }
     }
 
-    fn convert_return_value<'js>(
-        &self,
-        ctx: &js::Ctx<'js>,
-        js_result: js::Value<'js>,
-    ) -> js::Result<SmallVec<[(usize, Msg); 4]>> {
-        let mut items = SmallVec::<[(usize, Msg); 4]>::new();
+    fn convert_return_value<'js>(&self, ctx: &js::Ctx<'js>, js_result: js::Value<'js>) -> js::Result<OutputMsgs> {
+        let mut items = OutputMsgs::new();
         match js_result.type_of() {
             js::Type::Object => {
                 // Returns single Msg

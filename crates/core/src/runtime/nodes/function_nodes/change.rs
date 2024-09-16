@@ -76,10 +76,7 @@ impl FlowNodeBehavior for ChangeNode {
                 {
                     let mut msg_guard = msg.write().await;
                     // We always relay the message, regardless of whether the rules are followed or not.
-                    if let Err(e) = node.apply_rules(&mut msg_guard).await {
-                        // TODO Report Error to flow
-                        log::error!("Failed to apply rules: {}", e);
-                    }
+                    node.apply_rules(&mut msg_guard).await;
                 }
                 node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone()).await
             })
@@ -112,11 +109,12 @@ impl ChangeNode {
         }
     }
 
-    async fn apply_rules(&self, msg: &mut Msg) -> crate::Result<()> {
+    async fn apply_rules(&self, msg: &mut Msg) {
         for rule in self.config.rules.iter() {
-            self.apply_rule(rule, msg).await?;
+            if let Err(err) = self.apply_rule(rule, msg).await {
+                log::warn!("Failed to apply rule: {}", err);
+            }
         }
-        Ok(())
     }
 
     async fn apply_rule(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
@@ -151,8 +149,6 @@ impl ChangeNode {
             RedPropertyType::Global => {
                 if let Some(to_value) = to_value {
                     let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
-                                                                                                            // let csp = context::parse_context_store(&rule.p)?;
-                                                                                                            // engine.get_context().set_one("memory", csp.key, to_value).await
 
                     let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                     engine.get_context().set_one(&ctx_prop, Some(to_value)).await
@@ -164,8 +160,6 @@ impl ChangeNode {
             RedPropertyType::Flow => {
                 if let Some(to_value) = to_value {
                     let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
-                                                                   // let csp = context::parse_context_store(&rule.p)?;
-                                                                   // engine.get_context().set_one("memory", csp.key, to_value).await
                     let fe = flow as Arc<dyn FlowsElement>;
                     let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                     fe.context().set_one(&ctx_prop, Some(to_value)).await

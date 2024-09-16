@@ -37,7 +37,6 @@ semver.workspace = true
 rquickjs = { optional = true, workspace = true }
 rand.workspace = true
 base64.workspace = true
-smallvec.workspace = true
 # Serialization stuff
 bytes.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -47,6 +46,8 @@ bincode.workspace = true
 edgelink-macro = { path = "../macro" }
 dashmap.workspace = true
 itertools.workspace = true
+smallvec.workspace = true
+arrayvec = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]
 # Enable test-utilities in dev mode only. This is mostly for tests.

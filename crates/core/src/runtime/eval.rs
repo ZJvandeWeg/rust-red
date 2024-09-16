@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use regex::Regex;
@@ -9,12 +10,7 @@ use crate::runtime::nodes::*;
 use crate::utils;
 use crate::*;
 
-/**
- * Get value of environment variable.
- * @param {Node} node - accessing node
- * @param {String} name - name of variable
- * @return {String} value of env var
- */
+/// Get value of environment variable.
 fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Arc<Flow>>) -> Option<Variant> {
     if let Some(node) = node {
         if let Some(var) = node.get_env(name) {
@@ -37,16 +33,14 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
     Some(std::env::var(name).map(Variant::String).unwrap_or(Variant::Null))
 }
 
-/**
- * Evaluates a property value according to its type.
- *
- * @param  {String}   value    - the raw value
- * @param  {String}   _type     - the type of the value
- * @param  {Node}     node     - the node evaluating the property
- * @param  {Object}   msg      - the message object to evaluate against
- * @param  {Function} callback - (optional) called when the property is evaluated
- * @return {any} The evaluted property, if no `callback` is provided
- */
+/// Evaluates a property value according to its type.
+///
+/// # Arguments
+///
+/// * `value`       - the raw value
+///
+/// # Returns
+/// The evaluated result
 pub async fn evaluate_node_property(
     value: &str,
     _type: RedPropertyType,
@@ -133,38 +127,37 @@ pub async fn evaluate_node_property(
     }
 }
 
-/**
- * Evaluates a property variant according to its type.
- *
- * @param  {Variant}   value    - the raw variant
- * @param  {String}   _type     - the type of the value
- * @param  {Node}     node     - the node evaluating the property
- * @param  {Object}   msg      - the message object to evaluate against
- * @param  {Function} callback - (optional) called when the property is evaluated
- * @return {any} The evaluted property, if no `callback` is provided
- */
-pub fn evaluate_node_property_variant(
-    value: &Variant,
-    type_: &RedPropertyType,
-    node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Arc<Flow>>,
-    msg: Option<&Msg>,
-) -> crate::Result<Variant> {
-    match (type_, value) {
-        (RedPropertyType::Str, Variant::String(_)) => Ok(value.clone()),
-        (RedPropertyType::Str, _) => Ok(Variant::String(value.to_string()?)),
+/// Evaluates a property variant according to its type.
+pub fn evaluate_node_property_variant<'a>(
+    value: &'a Variant,
+    type_: &'a RedPropertyType,
+    node: Option<&'a dyn FlowNodeBehavior>,
+    flow: Option<&'a Arc<Flow>>,
+    msg: Option<&'a Msg>,
+) -> crate::Result<Cow<'a, Variant>> {
+    let res = match (type_, value) {
+        (RedPropertyType::Str, Variant::String(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Re, Variant::Regexp(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Num, Variant::Integer(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Num, Variant::Rational(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Bool, Variant::Bool(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Bin, Variant::Bytes(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Date, Variant::Date(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Json, Variant::Object(_) | Variant::Array(_)) => Cow::Borrowed(value),
+
+        (RedPropertyType::Bin, Variant::Array(array)) => Cow::Owned(Variant::bytes_from_vec(array)?),
 
         (RedPropertyType::Num | RedPropertyType::Json, Variant::String(s)) => {
             let jv: serde_json::Value = serde_json::from_str(s)?;
-            Ok(Variant::deserialize(jv)?)
+            Cow::Owned(Variant::deserialize(jv)?)
         }
 
-        (RedPropertyType::Re, _) => todo!(), // TODO FIXME
+        (RedPropertyType::Re, Variant::String(re)) => Cow::Owned(Variant::Regexp(Regex::new(re)?)),
 
         (RedPropertyType::Date, Variant::String(s)) => match s.as_str() {
-            "object" => Ok(Variant::now()),
-            "iso" => Ok(Variant::String(utils::time::iso_now())),
-            _ => Ok(Variant::Rational(utils::time::unix_now() as f64)),
+            "object" => Cow::Owned(Variant::now()),
+            "iso" => Cow::Owned(Variant::String(utils::time::iso_now())),
+            _ => Cow::Owned(Variant::Rational(utils::time::unix_now() as f64)),
         },
 
         (RedPropertyType::Bin, Variant::String(s)) => {
@@ -173,42 +166,47 @@ pub fn evaluate_node_property_variant(
             let bytes = arr
                 .to_bytes()
                 .ok_or(EdgelinkError::InvalidData(format!("Expected an array of bytes, got: {:?}", value)))?;
-            Ok(Variant::from(bytes))
+            Cow::Owned(Variant::from(bytes))
         }
-        (RedPropertyType::Bin, Variant::Bytes(_)) => Ok(value.clone()),
-        (RedPropertyType::Bin, Variant::Array(array)) => Variant::bytes_from_vec(array),
 
         (RedPropertyType::Msg, Variant::String(prop)) => {
             if let Some(msg) = msg {
                 if let Some(pv) = msg.get_nav_stripped(prop.as_str()) {
-                    Ok(pv.clone())
+                    Cow::Owned(pv.clone())
                 } else {
-                    Err(EdgelinkError::BadArguments(format!(
+                    return Err(EdgelinkError::BadArguments(format!(
                         "Cannot get the property(s) from `msg`: {}",
                         prop.as_str()
                     ))
-                    .into())
+                    .into());
                 }
             } else {
-                Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into())
+                return Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into());
             }
         }
 
         // process the context variables
         (RedPropertyType::Flow | RedPropertyType::Global, _) => todo!(),
 
-        (RedPropertyType::Bool, Variant::String(s)) => Ok(Variant::Bool(s.trim_ascii().parse::<bool>()?)),
-        (RedPropertyType::Bool, Variant::Bool(_)) => Ok(value.clone()), // TODO javascript rules
+        (RedPropertyType::Bool, Variant::String(s)) => Cow::Owned(Variant::Bool(s.trim_ascii().parse::<bool>()?)),
 
         (RedPropertyType::Jsonata, _) => todo!(),
 
         (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node, flow) {
-            Some(ev) => Ok(ev),
-            _ => Err(EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", s)).into()),
+            Some(ev) => Cow::Owned(ev),
+            _ => {
+                return Err(
+                    EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", s)).into()
+                );
+            }
         },
 
-        (_, _) => Err(EdgelinkError::BadArguments(format!("Unable to evaluate property value: {:?}", value)).into()),
-    }
+        (_, _) => {
+            return Err(EdgelinkError::BadArguments(format!("Unable to evaluate property value: {:?}", value)).into());
+        }
+    };
+
+    Ok(res)
 }
 
 #[cfg(test)]
