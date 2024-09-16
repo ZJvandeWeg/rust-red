@@ -1372,7 +1372,7 @@ class TestChangeNode:
             assert msgs[0]["payload"] == "a that [new]"
 
         @pytest.mark.asyncio
-        @pytest.mark.it('an access two persistable flow context property')
+        @pytest.mark.it('can access two persistable flow context property')
         async def test_multiple_rules_3(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
