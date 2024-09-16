@@ -196,7 +196,7 @@ impl ChangeNode {
             Err(_) => return Ok(()),
         };
 
-        /* 
+        /*
         let mut target_object = match rule.pt {
             RedPropertyType::Msg => msg.as_variant_object_mut(),
                     RedPropertyType::Flow => self.get_flow().upgrade().unwrap().context(),
@@ -210,7 +210,17 @@ impl ChangeNode {
             }
         };
         */
-
+        match rule.pt {
+            RedPropertyType::Msg => {}
+            RedPropertyType::Flow | RedPropertyType::Global => {}
+            _ => {
+                return Err(EdgelinkError::InvalidOperation(
+                    "`change` node only supports modifying the message, global, and workflow context properties."
+                        .into(),
+                )
+                .into())
+            }
+        }
         match rule.pt {
             RedPropertyType::Msg => match (&current, rule.fromt.unwrap()) {
                 //FIXME unwrap
@@ -421,7 +431,7 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
                     from_re = old_from_re_pattern.replace_all(&from_re, r"\$&").to_string();
                 }
 
-                match regex::Regex::new(&from_re) {
+                match regex::Regex(&from_re) {
                     Ok(re) => {
                         rule["fromRE"] = Value::String(re.as_str().to_string());
                     }
