@@ -37,23 +37,47 @@ class TestChangeNode:
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "globalValue", "pt": "global", "to": "changed", "tot": "str"}
+                    {"t": "set", "p": "globalValue", "pt": "global", "to": "changeMe", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "payload", "pt": "msg", "to": "globalValue", "tot": "global"}
+                    {"t": "set", "p": "globalValue", "pt": "global", "to": "changed", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "globalValue", "tot": "global"}
+                ], "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+
             ]
             injections = [
-                {"nid": "1", "msg": {'payload': 'changeMe'}},
+                {"nid": "1", "msg": {'payload': ''}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'changed'
 
-        # sets the value of persistable global context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('sets the value of persistable global context property')
+        async def test_set_3(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::globalValue", "pt": "global", "to": "changeMe", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::globalValue", "pt": "global", "to": "changed", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::globalValue", "tot": "global"}
+                ], "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {'payload': ''}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'changed'
 
         @pytest.mark.asyncio
-        @pytest.mark.it('''sets the value and type of the message property''')
+        @pytest.mark.it('sets the value and type of the message property')
         async def test_set_4(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
@@ -228,7 +252,24 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Hello World!'
 
-        # 15 changes the value to persistable flow context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value to persistable flow context property')
+        async def test_set_15(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "to": "#:(memory1)::flowValue", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::flowValue", "tot": "flow"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}, ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'Hello World!'
 
         @pytest.mark.asyncio
         @pytest.mark.it('changes the value to global context property')
@@ -251,7 +292,26 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Hello World!'
 
-        # changes the value to persistable global context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value to persistable global context property')
+        async def test_set_17(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::globalValue", "pt": "global",
+                        "to": "Hello World!", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg",
+                        "to": "#:(memory1)::globalValue", "tot": "global"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}, ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'Hello World!'
 
         @pytest.mark.asyncio
         @pytest.mark.it('''changes the value to a number''')
@@ -456,12 +516,14 @@ class TestChangeNode:
 # 25 changes the value using flow context with jsonata
 # 26 changes the value using persistable flow context with jsonata
 # 27 changes the value using persistable global context with jsonata
+
 # 28 sets the value of a message property using a nested property
 # 0037 sets the value of a nested message property using a message property
 # 0038 sets the value of a message property using a nested property in flow context
 # 0039 sets the value of a message property using a nested property in flow context
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
+
 
     @pytest.mark.describe('#change')
     class TestChange:
@@ -706,10 +768,10 @@ class TestChangeNode:
                     {"t": "set", "p": "#:(memory1)::topic", "pt": "flow", "to": "ABC", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    {"t":"change","p":"payload","from":"#:(memory1)::topic","to":"123","fromt":"flow","tot":"str"}
+                    {"t": "change", "p": "payload",
+                        "from": "#:(memory1)::topic", "to": "123", "fromt": "flow", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "z": "100", "type": "console-json"}
-
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc"}},
@@ -717,11 +779,83 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == "abc123abc"
 
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using global context property')
+        async def test_change_16(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "topic", "pt": "global", "to": "ABC", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "from": "topic", "to": "123", "fromt": "global", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "abcABCabc"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc123abc"
 
-# 16 changes the value using global context property
-# 17 changes the value using persistable global context property
-# 18 changes the number using global context property
-# 19 changes the number using persistable global context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value using persistable global context property')
+        async def test_change_17(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::topic", "pt": "global", "to": "ABC", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload",
+                        "from": "#:(memory1)::topic", "to": "123", "fromt": "global", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "abcABCabc"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "abc123abc"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the number using global context property')
+        async def test_change_18(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "topic", "pt": "global", "to": "123", "tot": "num"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload", "from": "topic", "to": "ABC", "fromt": "global", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": 123}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "ABC"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the number using persistable global context property')
+        async def test_change_19(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::topic", "pt": "global", "to": "123", "tot": "num"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "payload",
+                        "from": "#:(memory1)::topic", "to": "ABC", "fromt": "global", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": 123}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "ABC"
 
         @pytest.mark.asyncio
         @pytest.mark.it('changes the value using number - string payload')
@@ -811,6 +945,36 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == 'Goodbye World!'
 
+        @pytest.mark.asyncio
+        @pytest.mark.it('changes the value of the persistable global context')
+        async def test_change_25(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::payload", "pt": "global", "to": "Hello World!", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "global", "from": "Hello",
+                        "fromt": "str", "to": "Goodbye", "tot": "str"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [{"nid": "1", "msg": {'payload': ''}}, ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 'Goodbye World!'
+
+# 26 changes the value and doesnt change type of the flow context for partial match
+# 27 changes the value and doesnt change type of the persistable flow context for partial match
+# 28 changes the value and type of the flow context if a complete match
+# 29 changes the value and type of the persistable flow context if a complete match
+# 30 changes the value using number - number flow context
+# 31 changes the value using number - number persistable flow context
+# 32 changes the value using boolean - boolean flow context
+# 33 changes the value using boolean - boolean persistable flow context
+# 34 reports invalid fromValue
+
         @pytest.mark.describe('env var')
         class TestChangeEnvVar:
 
@@ -884,7 +1048,6 @@ class TestChangeNode:
 
 
 # 3. deletes the value of persistable global context property
-
 
         @pytest.mark.asyncio
         @pytest.mark.it('deletes the value of a multi-level message property')

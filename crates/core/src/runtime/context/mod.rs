@@ -273,9 +273,13 @@ mod tests {
 
     #[test]
     fn test_parse_context_store() {
-        let res = parse_store("#:(file)::foo.bar").unwrap();
-        assert_eq!(Some("file"), res.store);
+        let res = parse_store("#:(file1)::foo.bar").unwrap();
+        assert_eq!(Some("file1"), res.store);
         assert_eq!("foo.bar", res.key);
+
+        let res = parse_store("#:(memory1)::payload").unwrap();
+        assert_eq!(Some("memory1"), res.store);
+        assert_eq!("payload", res.key);
 
         let res = parse_store("foo.bar").unwrap();
         assert_eq!(None, res.store);

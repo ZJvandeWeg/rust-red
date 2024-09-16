@@ -196,10 +196,12 @@ impl ChangeNode {
             Err(_) => return Ok(()),
         };
 
-        /*
+        /* 
         let mut target_object = match rule.pt {
             RedPropertyType::Msg => msg.as_variant_object_mut(),
-            RedPropertyType::Flow | RedPropertyType::Global => todo!(),
+                    RedPropertyType::Flow => self.get_flow().upgrade().unwrap().context(),
+                    RedPropertyType::Global => self.get_engine().unwrap().get_context(),
+
             _ => {
                 return Err(EdgelinkError::NotSupported(
                     "The 'change' node only allows modifying the 'msg' and global/flow context properties".into(),
@@ -209,45 +211,106 @@ impl ChangeNode {
         };
         */
 
-        match (&current, rule.fromt.unwrap()) {
-            //FIXME unwrap
-            (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
-                if current == from_value =>
-            {
-                // str representation of exact from number/boolean
-                // only replace if they match exactly
-                msg.set_nav_stripped(&rule.p, to_value, false)?;
-            }
+        match rule.pt {
+            RedPropertyType::Msg => match (&current, rule.fromt.unwrap()) {
+                //FIXME unwrap
+                (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
+                    if current == from_value =>
+                {
+                    // str representation of exact from number/boolean
+                    // only replace if they match exactly
+                    msg.set_nav_stripped(&rule.p, to_value, false)?;
+                }
 
-            (Variant::String(ref cs), RedPropertyType::Re) => {
-                let replaced = rule.from_regex.as_ref().unwrap().replace_all(cs, to_value.to_string()?.as_str());
-                let value_to_set = match (rule.tot, replaced.as_ref()) {
-                    (Some(RedPropertyType::Bool), "true") => to_value,
-                    (Some(RedPropertyType::Bool), "false") => to_value,
-                    _ => Variant::String(replaced.into()),
+                (Variant::String(ref cs), RedPropertyType::Re) => {
+                    let replaced = rule.from_regex.as_ref().unwrap().replace_all(cs, to_value.to_string()?.as_str());
+                    let value_to_set = match (rule.tot, replaced.as_ref()) {
+                        (Some(RedPropertyType::Bool), "true") => to_value,
+                        (Some(RedPropertyType::Bool), "false") => to_value,
+                        _ => Variant::String(replaced.into()),
+                    };
+                    msg.set_nav_stripped(&rule.p, value_to_set, false)?;
+                }
+
+                (Variant::String(ref cs), _) => {
+                    dbg!(rule);
+                    dbg!(&from_value);
+                    // Otherwise we search and replace
+                    let replaced = rule.from_regex.as_ref().unwrap().replace_all(
+                        cs, //TODO opti
+                        to_value.to_string()?.as_str(),
+                    );
+                    msg.set_nav_stripped(&rule.p, Variant::String(replaced.into()), false)?;
+                }
+
+                (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
+                    msg.set_nav_stripped(&rule.p, to_value, false)?;
+                }
+
+                (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
+                    msg.set_nav_stripped(&rule.p, to_value, false)?;
+                }
+
+                _ => {
+                    // no rule matched
+                }
+            },
+
+            RedPropertyType::Flow | RedPropertyType::Global => {
+                let ctx = match rule.pt {
+                    RedPropertyType::Flow => self.get_flow().upgrade().unwrap().context(),
+                    RedPropertyType::Global => self.get_engine().unwrap().get_context(),
+                    _ => panic!("We are so over!"),
                 };
-                msg.set_nav_stripped(&rule.p, value_to_set, false)?;
-            }
+                match (&current, rule.fromt.unwrap()) {
+                    //FIXME unwrap
+                    (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
+                        if current == from_value =>
+                    {
+                        let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                        ctx.set_one(&ctx_prop, Some(to_value)).await?;
+                    }
 
-            (Variant::String(ref cs), _) => {
-                // Otherwise we search and replace
-                let replaced = cs.replace(
-                    from_value.to_string()?.as_str(), //TODO opti
-                    to_value.to_string()?.as_str(),
-                );
-                msg.set_nav_stripped(&rule.p, replaced.into(), false)?;
-            }
+                    (Variant::String(ref cs), RedPropertyType::Re) => {
+                        let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
+                        let value_to_set = match (rule.tot, replaced.as_ref()) {
+                            (Some(RedPropertyType::Bool), "true") => to_value,
+                            (Some(RedPropertyType::Bool), "false") => to_value,
+                            _ => Variant::String(replaced.into()),
+                        };
+                        let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                        ctx.set_one(&ctx_prop, Some(value_to_set)).await?;
+                    }
 
-            (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
-                msg.set_nav_stripped(&rule.p, to_value, false)?;
-            }
+                    (Variant::String(ref cs), _) => {
+                        // Otherwise we search and replace
+                        let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
+                        let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                        ctx.set_one(&ctx_prop, Some(Variant::String(replaced.into()))).await?;
+                    }
 
-            (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
-                msg.set_nav_stripped(&rule.p, to_value, false)?;
+                    (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
+                        let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                        ctx.set_one(&ctx_prop, Some(to_value)).await?;
+                    }
+
+                    (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
+                        let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
+                        ctx.set_one(&ctx_prop, Some(to_value)).await?;
+                    }
+
+                    _ => {
+                        // no rule matched
+                    }
+                }
             }
 
             _ => {
-                // no rule matched
+                return Err(EdgelinkError::InvalidOperation(
+                    "`change` node only supports modifying the message, global, and workflow context properties."
+                        .into(),
+                )
+                .into())
             }
         }
 
@@ -327,9 +390,7 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
             rule["pt"] = "msg".into();
         }
 
-        if let (Some("change"), Some(true)) =
-            (rule.get("t").and_then(|t| t.as_str()), rule.get("re").and_then(|x| x.as_bool()))
-        {
+        if let (Some("change"), Some(_)) = (rule.get("t").and_then(|t| t.as_str()), rule.get("re")) {
             rule["fromt"] = "re".into();
             rule.as_object_mut().unwrap().remove("re");
         }

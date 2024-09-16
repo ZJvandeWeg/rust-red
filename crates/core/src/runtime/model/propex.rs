@@ -20,7 +20,7 @@ pub enum PropexError {
     #[error("Invalid arguments")]
     BadArguments,
 
-    #[error("Invalid Propex syntax")]
+    #[error("Invalid Propex syntax, expr: `{0}`")]
     BadSyntax(String),
 
     #[error("Invalid number digit")]
@@ -184,7 +184,10 @@ pub fn parse(expr: &str) -> Result<Vec<PropexSegment>, PropexError> {
     }
     match expression(expr) {
         Ok((_, segs)) => Ok(segs),
-        Err(ve) => Err(PropexError::BadSyntax(ve.to_string())),
+        Err(ve) => {
+            log::debug!("{:?}", ve);
+            Err(PropexError::BadSyntax(expr.to_string()))
+        }
     }
 }
 
