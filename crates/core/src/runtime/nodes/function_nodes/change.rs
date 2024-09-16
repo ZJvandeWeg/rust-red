@@ -60,6 +60,14 @@ struct Rule {
     */
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
+enum ReducedType {
+    Str = 0,
+    Num,
+    Bool,
+    Regex,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ChangeNodeConfig {
@@ -111,6 +119,19 @@ impl ChangeNode {
         } else {
             Err(EdgelinkError::BadFlowsJson("The `fromt` and `from` in the rule cannot be None".into()).into())
         }
+    }
+
+    fn reduce_from_value(&self, rule: &Rule, from_value: &Variant) -> crate::Result<ReducedType> {
+        let result = match (from_value, rule.fromt) {
+            (Variant::String(_), Some(_)) => ReducedType::Str,
+            (Variant::Bool(_), Some(_)) => ReducedType::Bool,
+            (Variant::Integer(_) | Variant::Rational(_), Some(_)) => ReducedType::Num,
+            (_, Some(RedPropertyType::Re)) => ReducedType::Regex,
+            _ => {
+                return Err(EdgelinkError::InvalidOperation(format!("Invalid `from_value`: {:?}", from_value)).into());
+            }
+        };
+        Ok(result)
     }
 
     async fn apply_rules(&self, msg: &mut Msg) {
@@ -196,6 +217,11 @@ impl ChangeNode {
             Err(_) => return Ok(()),
         };
 
+        let reduced_from_type = match self.reduce_from_value(&rule, &from_value) {
+            Ok(v) => v,
+            Err(_) => return Ok(()),
+        };
+
         /*
         let mut target_object = match rule.pt {
             RedPropertyType::Msg => msg.as_variant_object_mut(),
@@ -210,21 +236,15 @@ impl ChangeNode {
             }
         };
         */
+
+        dbg!(&current);
+        dbg!(&from_value);
+        dbg!(current == from_value);
+        dbg!(&rule);
         match rule.pt {
-            RedPropertyType::Msg => {}
-            RedPropertyType::Flow | RedPropertyType::Global => {}
-            _ => {
-                return Err(EdgelinkError::InvalidOperation(
-                    "`change` node only supports modifying the message, global, and workflow context properties."
-                        .into(),
-                )
-                .into())
-            }
-        }
-        match rule.pt {
-            RedPropertyType::Msg => match (&current, rule.fromt.unwrap()) {
-                //FIXME unwrap
-                (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
+            //FIXME unwrap
+            RedPropertyType::Msg => match (&current, reduced_from_type) {
+                (Variant::String(_), ReducedType::Num | ReducedType::Str | ReducedType::Bool)
                     if current == from_value =>
                 {
                     // str representation of exact from number/boolean
@@ -232,8 +252,10 @@ impl ChangeNode {
                     msg.set_nav_stripped(&rule.p, to_value, false)?;
                 }
 
-                (Variant::String(ref cs), RedPropertyType::Re) => {
-                    let replaced = rule.from_regex.as_ref().unwrap().replace_all(cs, to_value.to_string()?.as_str());
+                (Variant::String(ref current_str), ReducedType::Regex) => {
+                    // TODO: In the future, this string needs to be optimized.
+                    let replaced =
+                        rule.from_regex.as_ref().unwrap().replace_all(current_str, to_value.to_string()?.as_str());
                     let value_to_set = match (rule.tot, replaced.as_ref()) {
                         (Some(RedPropertyType::Bool), "true") => to_value,
                         (Some(RedPropertyType::Bool), "false") => to_value,
@@ -242,27 +264,27 @@ impl ChangeNode {
                     msg.set_nav_stripped(&rule.p, value_to_set, false)?;
                 }
 
-                (Variant::String(ref cs), _) => {
-                    dbg!(rule);
-                    dbg!(&from_value);
+                (Variant::String(ref current_str), _) => {
                     // Otherwise we search and replace
-                    let replaced = rule.from_regex.as_ref().unwrap().replace_all(
-                        cs, //TODO opti
-                        to_value.to_string()?.as_str(),
-                    );
-                    msg.set_nav_stripped(&rule.p, Variant::String(replaced.into()), false)?;
+                    // TODO: In the future, this string needs to be optimized.
+                    let replaced = current_str.replace(&from_value.to_string()?, &to_value.to_string()?);
+                    dbg!(current_str);
+                    dbg!(&from_value);
+                    dbg!(&to_value);
+                    dbg!(&replaced);
+                    msg.set_nav_stripped(&rule.p, Variant::String(replaced), false)?;
                 }
 
-                (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
+                (Variant::Integer(_) | Variant::Rational(_), ReducedType::Num) if from_value == current => {
                     msg.set_nav_stripped(&rule.p, to_value, false)?;
                 }
 
-                (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
+                (Variant::Bool(_), ReducedType::Bool) if from_value == current => {
                     msg.set_nav_stripped(&rule.p, to_value, false)?;
                 }
 
                 _ => {
-                    // no rule matched
+                    log::debug!("No rule matched for msg: {:?}", rule);
                 }
             },
 
@@ -272,17 +294,18 @@ impl ChangeNode {
                     RedPropertyType::Global => self.get_engine().unwrap().get_context(),
                     _ => panic!("We are so over!"),
                 };
-                match (&current, rule.fromt.unwrap()) {
+                match (&current, reduced_from_type) {
                     //FIXME unwrap
-                    (Variant::String(_), RedPropertyType::Num | RedPropertyType::Bool | RedPropertyType::Str)
+                    (Variant::String(_), ReducedType::Num | ReducedType::Bool | ReducedType::Str)
                         if current == from_value =>
                     {
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                         ctx.set_one(&ctx_prop, Some(to_value)).await?;
                     }
 
-                    (Variant::String(ref cs), RedPropertyType::Re) => {
-                        let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
+                    (Variant::String(ref current_str), ReducedType::Regex) => {
+                        // TODO: In the future, this string needs to be optimized.
+                        let replaced = rule.from_regex.as_ref().unwrap().replace(&current_str, &to_value.to_string()?);
                         let value_to_set = match (rule.tot, replaced.as_ref()) {
                             (Some(RedPropertyType::Bool), "true") => to_value,
                             (Some(RedPropertyType::Bool), "false") => to_value,
@@ -294,23 +317,25 @@ impl ChangeNode {
 
                     (Variant::String(ref cs), _) => {
                         // Otherwise we search and replace
+                        // TODO: In the future, this string needs to be optimized.
                         let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                         ctx.set_one(&ctx_prop, Some(Variant::String(replaced.into()))).await?;
                     }
 
-                    (Variant::Integer(_) | Variant::Rational(_), RedPropertyType::Num) if from_value == current => {
+                    (Variant::Integer(_) | Variant::Rational(_), ReducedType::Num) if from_value == current => {
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                         ctx.set_one(&ctx_prop, Some(to_value)).await?;
                     }
 
-                    (Variant::Bool(_), RedPropertyType::Bool) if from_value == current => {
+                    (Variant::Bool(_), ReducedType::Bool) if from_value == current => {
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                         ctx.set_one(&ctx_prop, Some(to_value)).await?;
                     }
 
                     _ => {
                         // no rule matched
+                        log::debug!("No rule matched for context: {:?}", rule);
                     }
                 }
             }
@@ -431,7 +456,7 @@ fn handle_legacy_json(n: Value) -> crate::Result<Value> {
                     from_re = old_from_re_pattern.replace_all(&from_re, r"\$&").to_string();
                 }
 
-                match regex::Regex(&from_re) {
+                match regex::Regex::new(&from_re) {
                     Ok(re) => {
                         rule["fromRE"] = Value::String(re.as_str().to_string());
                     }

@@ -939,7 +939,12 @@ class TestChangeNode:
                         "fromt": "str", "to": "Goodbye", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                # Copy changed global value to payload for output
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "global"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -959,7 +964,11 @@ class TestChangeNode:
                         "fromt": "str", "to": "Goodbye", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "global"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
