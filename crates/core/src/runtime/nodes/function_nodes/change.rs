@@ -217,7 +217,7 @@ impl ChangeNode {
             Err(_) => return Ok(()),
         };
 
-        let reduced_from_type = match self.reduce_from_value(&rule, &from_value) {
+        let reduced_from_type = match self.reduce_from_value(rule, &from_value) {
             Ok(v) => v,
             Err(_) => return Ok(()),
         };
@@ -305,7 +305,7 @@ impl ChangeNode {
 
                     (Variant::String(ref current_str), ReducedType::Regex) => {
                         // TODO: In the future, this string needs to be optimized.
-                        let replaced = rule.from_regex.as_ref().unwrap().replace(&current_str, &to_value.to_string()?);
+                        let replaced = rule.from_regex.as_ref().unwrap().replace(current_str, &to_value.to_string()?);
                         let value_to_set = match (rule.tot, replaced.as_ref()) {
                             (Some(RedPropertyType::Bool), "true") => to_value,
                             (Some(RedPropertyType::Bool), "false") => to_value,
@@ -320,7 +320,7 @@ impl ChangeNode {
                         // TODO: In the future, this string needs to be optimized.
                         let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(Variant::String(replaced.into()))).await?;
+                        ctx.set_one(&ctx_prop, Some(Variant::String(replaced))).await?;
                     }
 
                     (Variant::Integer(_) | Variant::Rational(_), ReducedType::Num) if from_value == current => {
