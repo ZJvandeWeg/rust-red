@@ -524,7 +524,6 @@ class TestChangeNode:
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
 
-
     @pytest.mark.describe('#change')
     class TestChange:
 
@@ -1054,7 +1053,8 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123", "fromt": "str", "to": "456", "tot": "num"}
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123",
+                     "fromt": "str", "to": "456", "tot": "num"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "type": "change", "z": "100", "rules": [
@@ -1077,7 +1077,7 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    { "t": "change", "p": "payload", "pt": "flow", "from": "123", "fromt": "num", "to": "abc", "tot": "str" }
+                    {"t": "change", "p": "payload", "pt": "flow", "from": "123", "fromt": "num", "to": "abc", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "type": "change", "z": "100", "rules": [
@@ -1100,7 +1100,8 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    { "t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123", "fromt": "num", "to": "abc", "tot": "str" }
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "123",
+                     "fromt": "num", "to": "abc", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "type": "change", "z": "100", "rules": [
@@ -1123,7 +1124,7 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    { "t": "change", "p": "payload", "pt": "flow", "from": "true", "fromt": "bool", "to": "abc", "tot": "str" }
+                    {"t": "change", "p": "payload", "pt": "flow", "from": "true", "fromt": "bool", "to": "abc", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "type": "change", "z": "100", "rules": [
@@ -1146,7 +1147,8 @@ class TestChangeNode:
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
-                    { "t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "true", "fromt": "bool", "to": "abc", "tot": "str" }
+                    {"t": "change", "p": "#:(memory1)::payload", "pt": "flow", "from": "true",
+                     "fromt": "bool", "to": "abc", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
                 {"id": "3", "type": "change", "z": "100", "rules": [
@@ -1232,8 +1234,33 @@ class TestChangeNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert 'newGlobalValue' not in msgs[0]
 
-
-# 3. deletes the value of persistable global context property
+        @pytest.mark.asyncio
+        @pytest.mark.it('deletes the value of persistable global context property')
+        async def test_delete_3(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                # first, we set the global value
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory1)::globalValue", "pt": "global",
+                        "to": "Hello World", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                # then, we delete the global value
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "delete", "p": "#:(memory1)::globalValue", "pt": "global"}
+                ],
+                    "reg": False, "name": "changeNode", "wires": [["3"]]},
+                # finally, we retrieve the global value
+                {"id": "3", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "newGlobalValue", "pt": "msg",
+                        "to": "#:(memory1)::globalValue", "tot": "global"}
+                ], "reg": False, "name": "changeNode", "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {'payload': ''}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert 'newGlobalValue' not in msgs[0]
 
         @pytest.mark.asyncio
         @pytest.mark.it('deletes the value of a multi-level message property')
@@ -1343,3 +1370,69 @@ class TestChangeNode:
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == "a that [new]"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('an access two persistable flow context property')
+        async def test_multiple_rules_3(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory0)::val", "pt": "flow", "to": "foo", "tot": "str"},
+                    {"t": "set", "p": "#:(memory1)::val", "pt": "flow", "to": "bar", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "flow"},
+                    {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "flow"}
+                ], "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "changeMe"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["val0"] == "foo"
+            assert msgs[0]["val1"] == "bar"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('can access two persistable global context property')
+        async def test_multiple_rules_4(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory0)::val", "pt": "global", "to": "foo", "tot": "str"},
+                    {"t": "set", "p": "#:(memory1)::val", "pt": "global", "to": "bar", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "global"},
+                    {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "global"}
+                ], "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "changeMe"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["val0"] == "foo"
+            assert msgs[0]["val1"] == "bar"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('can access persistable global & flow context property')
+        async def test_multiple_rules_5(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "#:(memory0)::val", "pt": "flow", "to": "foo", "tot": "str"},
+                    {"t": "set", "p": "#:(memory1)::val", "pt": "global", "to": "bar", "tot": "str"}
+                ], "reg": False, "name": "changeNode", "wires": [["2"]]},
+                {"id": "2", "type": "change", "z": "100", "rules": [
+                    {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "flow"},
+                    {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "global"}
+                ], "name": "changeNode", "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "changeMe"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["val0"] == "foo"
+            assert msgs[0]["val1"] == "bar"
