@@ -159,7 +159,11 @@ impl ContextManagerBuilder {
         let settings: ContextStorageSettings = config.get("runtime.context")?;
         self.stores.clear();
         for (store_name, store_options) in settings.stores.iter() {
-            log::debug!("Initializing context store: name='{}', provider='{}' ...", store_name, store_options.provider);
+            log::debug!(
+                "[CONTEXT_MANAGER_BUILDER] Initializing context store: name='{}', provider='{}' ...",
+                store_name,
+                store_options.provider
+            );
             let meta =
                 __PROVIDERS.iter().find(|x| x.type_ == store_options.provider).ok_or(EdgelinkError::Configuration)?;
             let store = (meta.factory)(store_name.into(), Some(store_options))?;

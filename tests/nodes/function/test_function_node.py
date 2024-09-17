@@ -20,8 +20,8 @@ class TestFunctionNode:
         assert msgs[0]['payload'] == 'foo'
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should send returned message using send''')
-    async def test_it_should_send_returned_message_using_send(self):
+    @pytest.mark.it('should send returned message using send()')
+    async def test_it_should_send_returned_message_using_send_1(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "node.send(msg);"},
@@ -66,25 +66,70 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "foo"
 
+    @pytest.mark.skip
     @pytest.mark.asyncio
-    @pytest.mark.it('should clone single message sent using send')
-    async def test_it_should_clone_single_message_sent_using_send(self):
-        self._test_send_cloning("msg")
-
-
-    # 0006 should clone single message sent using send()
-    # 0007 should not clone single message sent using send(,false)
-
-    # 0008 should clone first message sent using send() - array 1
-    # 0009 should clone first message sent using send() - array 2
-    # 0010 should clone first message sent using send() - array 3
-    # 0011 should clone first message sent using send() - array 3
-    # 0012 should pass through _topic
-
-    # TODO FIXME
+    @pytest.mark.it('should clone single message sent using send()')
+    async def test_it_should_clone_single_message_sent_using_send_2(self):
+        await self._test_send_cloning("msg")
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should send to multiple outputs''')
+    @pytest.mark.it('should not clone single message sent using send(,false)')
+    async def test_it_should_not_clone_single_message_sent_using_send_false(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                ["2"]], "func": "node.send(msg,false); msg.payload = 'changed';"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "changed"
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should clone first message sent using send() - array 1')
+    async def test_it_should_clone_first_message_sent_using_send_array_1(self):
+        await self._test_send_cloning("[msg]")
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should clone first message sent using send() - array 2')
+    async def test_it_should_clone_first_message_sent_using_send_array_2(self):
+        await self._test_send_cloning("[[msg],[null]]")
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should clone first message sent using send() - array 3')
+    async def test_it_should_clone_first_message_sent_using_send_array_3(self):
+        await self._test_send_cloning("[null,msg]")
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should clone first message sent using send() - array 3')
+    async def test_it_should_clone_first_message_sent_using_send_array_3_1(self):
+        await self._test_send_cloning("[null,[msg]]")
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should pass through _topic')
+    async def test_it_should_pass_through__topic(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar', '_topic': 'barz'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["_topic"] == "barz"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should send to multiple outputs')
     async def test_it_should_send_to_multiple_outputs(self):
         node = {
             "type": "function",
@@ -97,7 +142,39 @@ class TestFunctionNode:
         assert msgs[0]['payload'] != msgs[1]['payload']
         assert sorted([msgs[0]['payload'], msgs[1]['payload']]) == ['foo', 'p2']
 
-    # 0014 should send to multiple messages
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should send to multiple messages')
+    async def test_it_should_send_to_multiple_message(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return [[{payload: 1},{payload: 2}]];"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar', '_msgid': 1234}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
+        assert msgs[0]['topic'] == msgs[1]['topic'] == 'bar'
+        assert msgs[0]['_msgid'] == msgs[1]['_msgid'] == 1234
+        assert msgs[0]['payload'] == 1
+        assert msgs[1]['payload'] == 2
+        assert sorted([msgs[0]['payload'], msgs[1]['payload']]) == ['foo', 'p2']
+
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should allow input to be discarded by returning null')
+    async def test_it_should_allow_input_to_be_discarded_by_returning_null(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return null;"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 0)
+
 
     class TestEnvVar:
         def setup_method(self, method):

@@ -39,7 +39,7 @@ impl RegistryBuilder {
 
     pub fn with_builtins(mut self) -> Self {
         for meta in __META_NODES.iter() {
-            log::debug!("Available built-in Node: '{}'", meta.type_);
+            log::debug!("[REGISTRY] Available built-in Node: '{}'", meta.type_);
             self.meta_nodes.insert(meta.type_, meta);
         }
         self
