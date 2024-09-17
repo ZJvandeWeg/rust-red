@@ -1,15 +1,8 @@
 use std::sync::Arc;
 
-use rquickjs::{
-    atom::PredefinedAtom,
-    class::{ClassId, JsClass, Readable, Trace},
-    prelude::Func,
-    CatchResultExt, Class, Context, Ctx, IntoJs, Object, Result, Runtime, Value,
-};
+use rquickjs::{class::Trace, Ctx, IntoJs, Result, Value};
 
 use crate::runtime::env::*;
-
-use super::Variant;
 
 #[derive(Clone, Trace)]
 #[rquickjs::class(frozen)]

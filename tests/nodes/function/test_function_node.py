@@ -35,7 +35,7 @@ class TestFunctionNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('''should send to multiple outputs''')
-    async def test_00013(self):
+    async def test_it_should_send_to_multiple_outputs(self):
         node = {
             "type": "function",
             "func": "var msg2 = RED.util.cloneMessage(msg); msg2.payload='p2'; return [msg, msg2];",
@@ -48,3 +48,22 @@ class TestFunctionNode:
         assert sorted([msgs[0]['payload'], msgs[1]['payload']]) == ['foo', 'p2']
 
     # 0014 should send to multiple messages
+
+    class TestEnvVar:
+        def setup_method(self, method):
+            os.environ["_TEST_FOO_"] = "hello"
+
+        def teardown_method(self, method):
+            del os.environ["_TEST_FOO_"]
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('should allow accessing env vars')
+        async def test_it_should_send_to_multiple_outputs(self):
+            node = {
+                "type": "function",
+                "func": "msg.payload = env.get('_TEST_FOO_'); return msg;",
+                "wires": [["3"]]
+            }
+            msgs = await run_with_single_node_ntimes(payload_type='str', payload='foo', node_json=node, nexpected=1, once=True, topic='bar')
+            assert msgs[0]['topic'] == 'bar'
+            assert msgs[0]['payload'] == 'hello'

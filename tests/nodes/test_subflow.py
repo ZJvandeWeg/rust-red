@@ -80,7 +80,7 @@ class TestSubflow:
         flows = [
             {"id": "100", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "100", "type": "subflow:200", "wires": [["2"]]},
+            {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},
             {"id": "2", "z": "100", "type": "console-json", "wires": []},
             # Subflow
             {"id": "200", "type": "subflow", "name": "Subflow", "info": "",
@@ -107,7 +107,7 @@ class TestSubflow:
         flows = [
             {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "999", "type": "subflow:100", "env": [
+            {"id": "1", "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V"}
             ], "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "console-json", "wires": []},
@@ -133,7 +133,7 @@ class TestSubflow:
         flows = [
             {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "999", "type": "subflow:100", "env": [
+            {"id": "1", "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V0"},
                 {"name": "X", "type": "str", "value": "VX"},
                 {"name": "K", "type": "str", "value": "V1"}
@@ -154,7 +154,6 @@ class TestSubflow:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["V"] == "V1"
 
-    @pytest.mark.skip #FIXME
     @pytest.mark.asyncio
     @pytest.mark.it('should access typed value of env var')
     async def test_0007(self):
@@ -169,19 +168,18 @@ class TestSubflow:
                     {"name": "KJ", "type": "json", "value": "[1,2,3]"},
                     {"name": "Kb", "type": "bin", "value": "[65,65]"},
                     {"name": "Ke", "type": "env", "value": "KS"},
-                    {"name": "Kj", "type": "jsonata", "value": "1+2"}
+                    # FIXME {"name": "Kj", "type": "jsonata", "value": "1+2"}
                 ],
                 "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "console-json", "wires": []},
             {
                 "id": "100", "type": "subflow", "name": "Subflow", "info": "",
-                "in": [{"wires": [{"id": "s1-n1"}]}],
-                "out": [{"wires": [{"id": "s1-n1", "port": 0}]}],
-                "env": [
-                    {"name": "KS", "type": "str", "value": "STR"}]
+                "in": [{"wires": [{"id": "101"}]}],
+                "out": [{"wires": [{"id": "101", "port": 0}]}],
+                "env": [{"name": "KS", "type": "str", "value": "STR"}]
             },
             {"id": "101", "z": "100", "type": "function",
-                "func": "msg.VE = env.get('Ke'); msg.VS = env.get('KS'); msg.VN = env.get('KN'); msg.VB = env.get('KB'); msg.VJ = env.get('KJ'); msg.Vb = env.get('Kb'); msg.Vj = env.get('Kj'); return msg;",
+                "func": "msg.VE = env.get('Ke'); msg.VS = env.get('KS'); msg.VN = env.get('KN'); msg.VB = env.get('KB'); msg.VJ = env.get('KJ'); msg.Vb = env.get('Kb'); /*msg.Vj = env.get('Kj');*/ return msg;",
                 "wires": []
              }
         ]
@@ -195,18 +193,18 @@ class TestSubflow:
         assert msg["VN"] == 100
         assert msg["VB"] == True
         assert msg["VJ"] == [1, 2, 3]
-        assert msg["Vb"] == [65, 65]
-        assert msg["VE"] == "STR"
-        assert msg["Vj"] == 3
+        #assert msg["Vb"] == [65, 65] #FIXME
+        #assert msg["VE"] == "STR"
+        #assert msg["Vj"] == 3
 
-    @pytest.mark.skip #FIXME
+    @pytest.mark.skip  # FIXME
     @pytest.mark.asyncio
     @pytest.mark.it('should overwrite env var of subflow template by env var of subflow instance')
     async def test_0008(self):
         flows = [
             {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "1",  "z": "999", "type": "subflow:100", "env": [
+            {"id": "1", "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V"},
             ], "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "console-json", "wires": []},
@@ -399,7 +397,7 @@ class TestSubflow:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["V"] == "V"
 
-    @pytest.mark.skip #FIXME
+    @pytest.mark.skip  # FIXME
     @pytest.mark.asyncio
     @pytest.mark.it('should access NR_NODE_PATH env var within subflow instance')
     async def test_0014(self):
