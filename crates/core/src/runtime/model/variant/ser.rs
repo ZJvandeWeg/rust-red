@@ -9,8 +9,7 @@ impl Serialize for Variant {
     {
         match self {
             Variant::Null => serializer.serialize_none(),
-            Variant::Rational(v) => serializer.serialize_f64(*v),
-            Variant::Integer(v) => serializer.serialize_i32(*v),
+            Variant::Number(v) => v.serialize(serializer),
             Variant::String(v) => serializer.serialize_str(v),
             Variant::Bool(v) => serializer.serialize_bool(*v),
             Variant::Bytes(v) => serializer.serialize_bytes(v),
@@ -42,10 +41,7 @@ impl From<serde_json::Value> for Variant {
         match jv {
             serde_json::Value::Null => Variant::Null,
             serde_json::Value::Bool(boolean) => Variant::from(boolean),
-            serde_json::Value::Number(number) => {
-                //FIXME TODO
-                Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
-            }
+            serde_json::Value::Number(number) => Variant::Number(number),
             serde_json::Value::String(string) => Variant::String(string.to_owned()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
@@ -61,10 +57,7 @@ impl From<&serde_json::Value> for Variant {
         match jv {
             serde_json::Value::Null => Variant::Null,
             serde_json::Value::Bool(boolean) => Variant::from(*boolean),
-            serde_json::Value::Number(number) => {
-                // FIXME TODO
-                Variant::Rational(number.as_f64().unwrap_or(f64::NAN))
-            }
+            serde_json::Value::Number(number) => Variant::Number(number.clone()),
             serde_json::Value::String(string) => Variant::String(string.clone()),
             serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
             serde_json::Value::Object(object) => {
@@ -107,29 +100,21 @@ impl<'de> Deserialize<'de> for Variant {
             where
                 E: de::Error,
             {
-                if value > i32::MAX.into() || value < i32::MIN.into() {
-                    Ok(Variant::Rational(value as f64))
-                } else {
-                    Ok(Variant::Integer(value as i32))
-                }
+                Ok(Variant::Number(value.into()))
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<Variant, E>
             where
                 E: de::Error,
             {
-                if value > (i32::MAX as u64) {
-                    Ok(Variant::Rational(value as f64))
-                } else {
-                    Ok(Variant::Integer(value as i32))
-                }
+                Ok(Variant::Number(value.into()))
             }
 
             fn visit_f64<E>(self, value: f64) -> Result<Variant, E>
             where
                 E: de::Error,
             {
-                Ok(Variant::Rational(value))
+                Ok(Variant::Number(serde_json::Number::from_f64(value).unwrap()))
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Variant, E>

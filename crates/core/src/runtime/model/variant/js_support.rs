@@ -1,3 +1,5 @@
+use core::panic;
+
 use super::*;
 
 #[cfg(feature = "js")]
@@ -15,9 +17,9 @@ impl<'js> js::FromJs<'js> for Variant {
 
             js::Type::Bool => Ok(Variant::Bool(jv.get()?)),
 
-            js::Type::Int => Ok(Variant::Integer(jv.get()?)),
+            js::Type::Int => Ok(Variant::from(jv.get::<i64>()?)),
 
-            js::Type::Float => Ok(Variant::Rational(jv.get()?)),
+            js::Type::Float => Ok(Variant::from(jv.get::<f64>()?)),
 
             js::Type::String => Ok(Variant::String(jv.get()?)),
 
@@ -100,15 +102,23 @@ impl<'js> js::IntoJs<'js> for Variant {
 
             Variant::Bytes(bytes) => Ok(js::ArrayBuffer::new(ctx.clone(), bytes)?.into_value()),
 
-            Variant::Integer(i) => i.into_js(ctx),
+            Variant::Number(num) => {
+                if let Some(f) = num.as_f64() {
+                    f.into_js(ctx)
+                } else if let Some(i) = num.as_i64() {
+                    i.into_js(ctx)
+                } else if let Some(u) = num.as_u64() {
+                    u.into_js(ctx)
+                } else {
+                    panic!();
+                }
+            }
 
             Variant::Null => Ok(js::Value::new_null(ctx.clone())),
 
             Variant::Object(map) => map.into_js(ctx),
 
             Variant::String(s) => s.into_js(ctx),
-
-            Variant::Rational(f) => f.into_js(ctx),
 
             Variant::Date(t) => t.into_js(ctx),
 

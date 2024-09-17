@@ -73,8 +73,7 @@ impl RangeNode {
     fn do_range(&self, msg: &mut Msg) -> bool {
         if let Some(value) = msg.get_nav_stripped_mut(&self.config.property) {
             let mut n: f64 = match value {
-                Variant::Rational(num_value) => *num_value,
-                Variant::Integer(num_value) => *num_value as f64,
+                Variant::Number(num_value) => num_value.as_f64().unwrap(), // FIXME
                 Variant::String(s) => s.parse::<f64>().unwrap(),
                 _ => f64::NAN,
             };
@@ -104,7 +103,7 @@ impl RangeNode {
                     new_value = new_value.round();
                 }
 
-                *value = Variant::Rational(new_value);
+                *value = Variant::Number(serde_json::Number::from_f64(new_value).unwrap());
                 true
             } else {
                 log::info!("The value is not a numner: {:?}", value); //FIXME TODO

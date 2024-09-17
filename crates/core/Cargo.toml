@@ -47,6 +47,7 @@ edgelink-macro = { path = "../macro" }
 dashmap.workspace = true
 itertools.workspace = true
 smallvec.workspace = true
+smallstr.workspace = true
 arrayvec = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]

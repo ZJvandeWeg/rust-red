@@ -170,9 +170,10 @@ impl VariantObject for VariantObjectMap {
                 }
                 *seg = match self.get_segs_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
                     Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
-                    Variant::Integer(int_index) if *int_index >= 0 => PropexSegment::Index(*int_index as usize),
-                    Variant::Rational(f64_index) if *f64_index >= 0.0 => {
-                        PropexSegment::Index(f64_index.round() as usize)
+                    Variant::Number(num_index)
+                        if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
+                    {
+                        PropexSegment::Index(num_index.as_u64().unwrap() as usize)
                     }
                     _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
                 };

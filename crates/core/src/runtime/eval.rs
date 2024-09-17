@@ -61,7 +61,7 @@ pub async fn evaluate_node_property(
         RedPropertyType::Date => match value {
             "object" => Ok(Variant::now()),
             "iso" => Ok(Variant::String(utils::time::iso_now())),
-            _ => Ok(Variant::Rational(utils::time::unix_now() as f64)),
+            _ => Ok(Variant::Number(utils::time::unix_now().into())),
         },
 
         RedPropertyType::Bin => {
@@ -138,8 +138,7 @@ pub fn evaluate_node_property_variant<'a>(
     let res = match (type_, value) {
         (RedPropertyType::Str, Variant::String(_)) => Cow::Borrowed(value),
         (RedPropertyType::Re, Variant::Regexp(_)) => Cow::Borrowed(value),
-        (RedPropertyType::Num, Variant::Integer(_)) => Cow::Borrowed(value),
-        (RedPropertyType::Num, Variant::Rational(_)) => Cow::Borrowed(value),
+        (RedPropertyType::Num, Variant::Number(_)) => Cow::Borrowed(value),
         (RedPropertyType::Bool, Variant::Bool(_)) => Cow::Borrowed(value),
         (RedPropertyType::Bin, Variant::Bytes(_)) => Cow::Borrowed(value),
         (RedPropertyType::Date, Variant::Date(_)) => Cow::Borrowed(value),
@@ -157,7 +156,7 @@ pub fn evaluate_node_property_variant<'a>(
         (RedPropertyType::Date, Variant::String(s)) => match s.as_str() {
             "object" => Cow::Owned(Variant::now()),
             "iso" => Cow::Owned(Variant::String(utils::time::iso_now())),
-            _ => Cow::Owned(Variant::Rational(utils::time::unix_now() as f64)),
+            _ => Cow::Owned(Variant::Number(utils::time::unix_now().into())),
         },
 
         (RedPropertyType::Bin, Variant::String(s)) => {

@@ -125,7 +125,7 @@ impl ChangeNode {
         let result = match (from_value, rule.fromt) {
             (Variant::String(_), Some(_)) => ReducedType::Str,
             (Variant::Bool(_), Some(_)) => ReducedType::Bool,
-            (Variant::Integer(_) | Variant::Rational(_), Some(_)) => ReducedType::Num,
+            (Variant::Number(_), Some(_)) => ReducedType::Num,
             (_, Some(RedPropertyType::Re)) => ReducedType::Regex,
             _ => {
                 return Err(EdgelinkError::InvalidOperation(format!("Invalid `from_value`: {:?}", from_value)).into());
@@ -275,7 +275,7 @@ impl ChangeNode {
                     msg.set_nav_stripped(&rule.p, Variant::String(replaced), false)?;
                 }
 
-                (Variant::Integer(_) | Variant::Rational(_), ReducedType::Num) if from_value == current => {
+                (Variant::Number(_), ReducedType::Num) if from_value == current => {
                     msg.set_nav_stripped(&rule.p, to_value, false)?;
                 }
 
@@ -323,7 +323,7 @@ impl ChangeNode {
                         ctx.set_one(&ctx_prop, Some(Variant::String(replaced))).await?;
                     }
 
-                    (Variant::Integer(_) | Variant::Rational(_), ReducedType::Num) if from_value == current => {
+                    (Variant::Number(_), ReducedType::Num) if from_value == current => {
                         let ctx_prop = crate::runtime::context::parse_store(&rule.p)?;
                         ctx.set_one(&ctx_prop, Some(to_value)).await?;
                     }

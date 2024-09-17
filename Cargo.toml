@@ -67,6 +67,7 @@ clap = { version = "4.5.16", features = ["derive"] }
 itertools = "0.13.0"
 arrayvec = "0.7.6"
 smallvec = "1.13.2"
+smallstr = { version = "0.3.0", features = ["serde", "std", "union"] }
 
 
 [dependencies]

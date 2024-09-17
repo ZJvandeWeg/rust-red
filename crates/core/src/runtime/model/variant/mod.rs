@@ -1,6 +1,5 @@
 use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
-use std::convert::TryInto;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -19,6 +18,7 @@ use super::propex::PropexSegment;
 #[cfg(feature = "js")]
 mod js_support;
 
+mod converts;
 mod map;
 mod ser;
 
@@ -65,11 +65,8 @@ pub enum Variant {
     #[default]
     Null,
 
-    /// Represents a floating-point number.
-    Rational(f64),
-
-    /// Represents a 32-bit signed integer.
-    Integer(i32),
+    /// Represents a floating-point number or a 64-bit integer number.
+    Number(serde_json::Number),
 
     /// Represents a string of characters.
     String(String),
@@ -97,8 +94,7 @@ impl PartialEq for Variant {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Variant::Null, Variant::Null) => true,
-            (Variant::Rational(a), Variant::Rational(b)) => a == b,
-            (Variant::Integer(a), Variant::Integer(b)) => a == b,
+            (Variant::Number(a), Variant::Number(b)) => a == b,
             (Variant::String(a), Variant::String(b)) => a == b,
             (Variant::Bool(a), Variant::Bool(b)) => a == b,
             (Variant::Date(a), Variant::Date(b)) => a == b,
@@ -154,12 +150,30 @@ impl Variant {
     pub fn bytes_from_vec(vec: &[Variant]) -> crate::Result<Variant> {
         let mut bytes: Vec<u8> = Vec::with_capacity(vec.len());
         for v in vec.iter() {
-            match v {
-                Variant::Rational(f) if *f >= 0.0 && *f <= 255.0 => bytes.push(*f as u8),
-                Variant::Integer(i) if *i >= 0 && *i <= 255 => bytes.push(*i as u8),
-                _ => {
-                    return Err(EdgelinkError::NotSupported("Unsupported Variant type".into()).into());
+            if let Variant::Number(n) = v {
+                if let Some(i) = n.as_i64() {
+                    if i >= 0 && i <= 255 {
+                        bytes.push(i as u8);
+                    } else {
+                        return Err(EdgelinkError::OutOfRange.into());
+                    }
+                } else if let Some(u) = n.as_u64() {
+                    if u <= 255 {
+                        bytes.push(u as u8);
+                    } else {
+                        return Err(EdgelinkError::OutOfRange.into());
+                    }
+                } else if let Some(f) = n.as_f64() {
+                    if f >= 0.0 && f <= 255.0 {
+                        bytes.push(f as u8);
+                    } else {
+                        return Err(EdgelinkError::OutOfRange.into());
+                    }
+                } else {
+                    panic!();
                 }
+            } else {
+                return Err(EdgelinkError::InvalidOperation("Invalid Variant type".into()).into());
             }
         }
         Ok(Variant::Bytes(bytes))
@@ -182,10 +196,13 @@ impl Variant {
             Variant::Bytes(ref bytes) => Some(bytes.clone()),
             Variant::String(ref s) => Some(s.bytes().collect()),
             Variant::Array(ref arr) => {
-                arr.iter().flat_map(|x| x.to_u8()).next().map(|_| arr.iter().filter_map(|x| x.to_u8()).collect())
+                let mut bytes = Vec::with_capacity(arr.len());
+                for e in arr.iter() {
+                    bytes.push(e.as_u8()?);
+                }
+                Some(bytes)
             }
-            Variant::Rational(f) => Some(f.to_string().bytes().collect()),
-            Variant::Integer(i) => Some(i.to_string().bytes().collect()),
+            Variant::Number(f) => Some(f.to_string().bytes().collect()),
             _ => None,
         }
     }
@@ -204,60 +221,66 @@ impl Variant {
         }
     }
 
-    pub fn to_u8(&self) -> Option<u8> {
-        match self {
-            Variant::Rational(value) => {
-                if value.is_nan() || *value < u8::MIN as f64 || *value > u8::MAX as f64 {
-                    None
-                } else {
-                    let rounded = value.round();
-                    if rounded < u8::MIN as f64 || rounded > u8::MAX as f64 {
-                        None
-                    } else {
-                        Some(rounded as u8)
-                    }
-                }
-            }
-            Variant::Integer(ivalue) => (*ivalue).try_into().ok(),
-            _ => None,
-        }
-    }
-
-    pub fn is_rational(&self) -> bool {
-        matches!(self, Variant::Rational(..) | Variant::Integer(..))
-    }
-
-    pub fn as_rational(&self) -> Option<f64> {
+    pub fn is_number(&self) -> bool {
         match *self {
-            Variant::Rational(f) => Some(f),
-            Variant::Integer(f) => Some(f as f64),
+            Variant::Number(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_i64(&self) -> bool {
+        match self {
+            Variant::Number(n) => n.is_i64(),
+            _ => false,
+        }
+    }
+
+    pub fn is_u64(&self) -> bool {
+        match self {
+            Variant::Number(n) => n.is_u64(),
+            _ => false,
+        }
+    }
+
+    pub fn is_f64(&self) -> bool {
+        match self {
+            Variant::Number(n) => n.is_f64(),
+            _ => false,
+        }
+    }
+
+    pub fn as_number(&self) -> Option<&serde_json::Number> {
+        match self {
+            Variant::Number(number) => Some(number),
             _ => None,
         }
     }
 
-    pub fn into_number(self) -> Result<f64, Self> {
+    pub fn as_f64(&self) -> Option<f64> {
         match self {
-            Variant::Rational(f) => Ok(f),
-            Variant::Integer(f) => Ok(f as f64),
-            other => Err(other),
-        }
-    }
-
-    pub fn is_integer(&self) -> bool {
-        matches!(self, Variant::Integer(..))
-    }
-
-    pub fn as_integer(&self) -> Option<i32> {
-        match *self {
-            Variant::Integer(f) => Some(f),
+            Variant::Number(number) => number.as_f64(),
             _ => None,
         }
     }
 
-    pub fn into_integer(self) -> Result<i32, Self> {
+    pub fn as_i64(&self) -> Option<i64> {
         match self {
-            Variant::Integer(v) => Ok(v),
-            other => Err(other),
+            Variant::Number(number) => number.as_i64(),
+            _ => None,
+        }
+    }
+
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Variant::Number(number) => number.as_u64(),
+            _ => None,
+        }
+    }
+
+    pub fn as_u8(&self) -> Option<u8> {
+        match self {
+            Variant::Number(number) => number.as_u64().map(|x| x as u8), // FIXME
+            _ => None,
         }
     }
 
@@ -282,8 +305,7 @@ impl Variant {
     pub fn to_string(&self) -> Result<String, VariantError> {
         match self {
             Variant::String(s) => Ok(s.clone()),
-            Variant::Rational(f) => Ok(f.to_string()),
-            Variant::Integer(i) => Ok(i.to_string()),
+            Variant::Number(f) => Ok(f.to_string()),
             Variant::Bool(b) => Ok(b.to_string()),
             _ => Err(VariantError::WrongType),
         }
@@ -390,7 +412,7 @@ impl Variant {
             Variant::Array(array) => array.is_empty(),
             Variant::Bytes(bytes) => bytes.is_empty(),
             Variant::String(s) => s.is_empty(),
-            Variant::Rational(f) => f.is_nan(),
+            Variant::Number(f) => f.as_f64().map(|x| x.is_nan()).unwrap_or(false),
             _ => false,
         }
     }
@@ -486,11 +508,11 @@ impl Variant {
             }
             Variant::Bytes(ref mut this_bytes) => {
                 if let Some(existed) = this_bytes.get_mut(index) {
-                    *existed = value.to_u8().ok_or(VariantError::BadCast)?;
+                    *existed = value.as_u8().ok_or(VariantError::BadCast)?;
                     Ok(())
                 } else if index == this_bytes.len() {
                     // insert to tail
-                    this_bytes.push(value.to_u8().ok_or(VariantError::BadCast)?);
+                    this_bytes.push(value.as_u8().ok_or(VariantError::BadCast)?);
                     Ok(())
                 } else {
                     Err(VariantError::OutOfRange)
@@ -572,87 +594,6 @@ impl Variant {
         }
     }
 } // struct Variant
-
-impl From<&Variant> for String {
-    #[inline]
-    fn from(var: &Variant) -> Self {
-        match var {
-            Variant::Integer(i) => i.to_string(),
-            Variant::Rational(f) => f.to_string(),
-            Variant::String(s) => s.clone(),
-            _ => "".to_string(),
-        }
-    }
-}
-
-macro_rules! implfrom {
-    ($($v:ident($t:ty)),+ $(,)?) => {
-        $(
-            impl From<$t> for Variant {
-                #[inline]
-                fn from(value: $t) -> Self {
-                    Self::$v(value.into())
-                }
-            }
-        )+
-    };
-}
-
-implfrom! {
-    Integer(i32),
-    Integer(u16),
-    Integer(i16),
-    Integer(u8),
-    Integer(i8),
-
-    Bytes(Vec<u8>),
-
-    Rational(f32),
-    Rational(f64),
-
-    String(String),
-    String(&str),
-
-    Bool(bool),
-
-    Array(&[Variant]),
-    Array(Vec<Variant>),
-
-    // Object(&[(String, Variant)]),
-    // Object(&[(&str, Variant)]),
-    Object(VariantObjectMap),
-    // Object(&BTreeMap<String, Variant>),
-    // Object(BTreeMap<&str, Variant>),
-}
-
-impl From<char> for Variant {
-    #[inline]
-    fn from(value: char) -> Self {
-        Variant::String(value.to_string())
-    }
-}
-
-impl From<&[(String, Variant)]> for Variant {
-    #[inline]
-    fn from(value: &[(String, Variant)]) -> Self {
-        let map: VariantObjectMap = value.iter().map(|x| (x.0.clone(), x.1.clone())).collect();
-        Variant::Object(map)
-    }
-}
-
-impl<const N: usize> From<[(&str, Variant); N]> for Variant {
-    #[inline]
-    fn from(value: [(&str, Variant); N]) -> Self {
-        let map: VariantObjectMap = value.iter().map(|x| (x.0.to_string(), x.1.clone())).collect();
-        Variant::Object(map)
-    }
-}
-
-impl From<&[u8]> for Variant {
-    fn from(array: &[u8]) -> Self {
-        Variant::Bytes(array.to_vec())
-    }
-}
 
 #[cfg(test)]
 mod tests {

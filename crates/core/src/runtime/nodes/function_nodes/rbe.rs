@@ -202,8 +202,7 @@ impl RbeNode {
                 };
             } else {
                 let num_value = match value {
-                    Variant::Integer(v) => *v as f64,
-                    Variant::Rational(v) => *v,
+                    Variant::Number(v) => v.as_f64().unwrap(), // FIXME
                     Variant::String(s) => parsing::parse_float_lossy::<f64>(s).unwrap_or(f64::NAN),
                     _ => f64::NAN,
                 };
@@ -214,7 +213,7 @@ impl RbeNode {
                 }
 
                 // Read node.previous[t] value
-                let mut prev_value = state.prev.get(t).and_then(|x| x.as_rational());
+                let mut prev_value = state.prev.get(t).and_then(|x| x.as_f64());
 
                 // Handle the initial value of previous_value
                 if prev_value.is_none() && self.config.func.is_narrowband() {
@@ -261,9 +260,9 @@ impl RbeNode {
                 // Store the updated previous_value back to node.previous[t]
                 if let Some(pv) = prev_value {
                     if let Some(prev) = state.prev.get_mut(t) {
-                        *prev = Variant::Rational(pv);
+                        *prev = Variant::from(pv);
                     } else {
-                        state.prev.insert(t.to_string(), Variant::Rational(pv));
+                        state.prev.insert(t.to_string(), Variant::from(pv));
                     }
                 }
 
