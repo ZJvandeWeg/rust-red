@@ -6,7 +6,7 @@ use crate::runtime::env::*;
 
 #[derive(Clone, Trace)]
 #[rquickjs::class(frozen)]
-pub(crate) struct EnvClass<'js> {
+pub(super) struct EnvClass<'js> {
     #[qjs(skip_trace)]
     pub ctx: Ctx<'js>,
 

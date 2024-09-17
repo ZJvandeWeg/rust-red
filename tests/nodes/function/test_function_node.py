@@ -67,3 +67,22 @@ class TestFunctionNode:
             msgs = await run_with_single_node_ntimes(payload_type='str', payload='foo', node_json=node, nexpected=1, once=True, topic='bar')
             assert msgs[0]['topic'] == 'bar'
             assert msgs[0]['payload'] == 'hello'
+
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should allow accessing node.id and node.name and node.outputCount')
+    async def test_it_should_allow_accessing_node_id_and_node_name_and_node_output_count(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "function", "z": "100", "name":"test-function", "wires": [["2"]], "outputs": 2,
+                    "func": "return [{ topic: node.name, payload:node.id, outputCount: node.outputCount }];",
+                    },
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {'payload': ''}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "0000000000000001"
+            assert msgs[0]["topic"] == "test-function"
+            assert msgs[0]["outputCount"] == 2

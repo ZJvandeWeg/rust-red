@@ -16,7 +16,8 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
-pub mod env;
+mod env_class;
+mod node_class;
 
 const OUTPUT_MSGS_CAP: usize = 4;
 
@@ -32,8 +33,8 @@ struct FunctionNodeConfig {
     #[serde(default)]
     finalize: String,
 
-    #[serde(default)]
-    outputs: usize,
+    #[serde(default, rename="outputs")]
+    output_count: usize,
 }
 
 #[derive(Debug)]
@@ -59,12 +60,13 @@ impl FlowNodeBehavior for FunctionNode {
         let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
         js_rt.set_loader(resolver, loaders).await;
 
-        let _ = self.init_async(&js_ctx).await;
+        let _ = self.clone().init_async(&js_ctx).await;
 
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
             let cancel = stop_token.child_token();
-            with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
+            let this_node = self.clone();
+            with_uow(this_node.as_ref(), cancel.child_token(), |node, msg| async move {
                 let res = {
                     let msg_guard = msg.write().await;
                     node.filter_msg(msg_guard.clone(), sub_ctx).await // This gonna eat the msg and produce a new one
@@ -102,8 +104,8 @@ impl FunctionNode {
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let mut function_config = FunctionNodeConfig::deserialize(&_config.json)?;
-        if function_config.outputs == 0 {
-            function_config.outputs = 1;
+        if function_config.output_count == 0 {
+            function_config.output_count = 1;
         }
 
         let node = FunctionNode { base: base_node, config: function_config };
@@ -178,7 +180,7 @@ impl FunctionNode {
         Ok(items)
     }
 
-    async fn init_async(&self, js_ctx: &js::AsyncContext) -> crate::Result<()> {
+    async fn init_async(self: Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
         let user_script = format!(
             r#"
@@ -194,7 +196,8 @@ function __el_user_func(context, msg) {{
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
-            ctx.globals().set("env", env::EnvClass::new(ctx.clone(), self.get_envs().clone()))?;
+            ctx.globals().set("env", env_class::EnvClass::new(ctx.clone(), self.get_envs().clone()))?;
+            ctx.globals().set("node", node_class::NodeClass::new(ctx.clone(), &self))?;
 
 
             match ctx.eval::<(), _>(JS_PRELUDE_SCRIPT) {

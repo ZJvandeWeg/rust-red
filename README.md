@@ -134,8 +134,8 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
             - [ ] `context` object
             - [ ] `flow` object
             - [ ] `global` object
-            - [x] `RED` object
-            - [ ] `env` object
+            - [x] `RED.util` object
+            - [x] `env` object
         - [ ] Switch
         - [ ] Change
         - [x] :heavy_check_mark: Range
