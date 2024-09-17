@@ -33,7 +33,7 @@ struct FunctionNodeConfig {
     #[serde(default)]
     finalize: String,
 
-    #[serde(default, rename="outputs")]
+    #[serde(default, rename = "outputs")]
     output_count: usize,
 }
 
