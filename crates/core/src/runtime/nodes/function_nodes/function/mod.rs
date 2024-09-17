@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rquickjs::context::EvalOptions;
 use serde::Deserialize;
 use smallvec::SmallVec;
 
@@ -45,6 +46,7 @@ struct FunctionNode {
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
+static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
@@ -53,14 +55,23 @@ impl FlowNodeBehavior for FunctionNode {
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
-        let js_rt = js::AsyncRuntime::new().unwrap();
-        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
-        let mut resolver = js::loader::BuiltinResolver::default();
-        resolver.add_module("console");
-        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
-        js_rt.set_loader(resolver, loaders).await;
+        let js_rt = JS_RUMTIME
+            .get_or_init(|| async move {
+                log::debug!("-------- [FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
+                let rt = js::AsyncRuntime::new().unwrap();
+                let mut resolver = js::loader::BuiltinResolver::default();
 
-        let _ = self.clone().init_async(&js_ctx).await;
+                resolver.add_module("console");
+
+                let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
+                rt.set_loader(resolver, loaders).await;
+                rt
+            })
+            .await;
+
+        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
+
+        let _ = self.init_async(&js_ctx).await;
 
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
@@ -74,12 +85,14 @@ impl FlowNodeBehavior for FunctionNode {
                 match res {
                     Ok(changed_msgs) => {
                         // Pack the new messages
-                        let envelopes = changed_msgs
-                            .into_iter()
-                            .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
-                            .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
+                        if !changed_msgs.is_empty() {
+                            let envelopes = changed_msgs
+                                .into_iter()
+                                .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
+                                .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
-                        node.fan_out_many(&envelopes, cancel.child_token()).await?;
+                            node.fan_out_many(&envelopes, cancel.child_token()).await?;
+                        }
                     }
                     Err(e) => {
                         return Err(e);
@@ -128,6 +141,9 @@ impl FunctionNode {
         })
         .await;
 
+        // This is VERY IMPORTANT! Execute all spawned tasks.
+        JS_RUMTIME.get().unwrap().idle().await;
+
         match eval_result {
             Ok(msgs) => Ok(msgs),
             Err(e) => {
@@ -173,6 +189,7 @@ impl FunctionNode {
                     }
                 }
             }
+            js::Type::Undefined => {}
             _ => {
                 log::warn!("Wrong type of the return values: Javascript type={}", js_result.type_of());
             }
@@ -180,7 +197,7 @@ impl FunctionNode {
         Ok(items)
     }
 
-    async fn init_async(self: Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
+    async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
         let user_script = format!(
             r#"
@@ -191,16 +208,19 @@ function __el_user_func(context, msg) {{
         );
         let user_script_ref = &user_script;
 
+        log::debug!("-------- [FUNCTION_NODE] Initializing JavaScript context...");
         js::async_with!(js_ctx => |ctx| {
 
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
-            ctx.globals().set("env", env_class::EnvClass::new(ctx.clone(), self.get_envs().clone()))?;
-            ctx.globals().set("node", node_class::NodeClass::new(ctx.clone(), &self))?;
+            ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
+            ctx.globals().set("node", node_class::NodeClass::new(&self))?;
 
-
-            match ctx.eval::<(), _>(JS_PRELUDE_SCRIPT) {
+            let mut eval_options = EvalOptions::default();
+            eval_options.promise = true;
+            eval_options.strict = true;
+            match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options) {
                 Err(e) => {
                     log::error!("Failed to evaluate the prelude script: {}", e);
                     panic!();
@@ -220,6 +240,9 @@ function __el_user_func(context, msg) {{
                 }
             }
 
+            let mut eval_options = EvalOptions::default();
+            eval_options.promise = true;
+            eval_options.strict = true;
             match ctx.eval::<(),_>(user_script_ref.as_bytes()) {
                 Ok(()) => Ok(()),
                 Err(e) => {

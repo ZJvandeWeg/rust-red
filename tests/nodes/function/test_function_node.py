@@ -19,8 +19,58 @@ class TestFunctionNode:
         assert msgs[0]['topic'] == 'bar'
         assert msgs[0]['payload'] == 'foo'
 
-    # 0004 should send returned message using send()
-    # 0005 should allow accessing node.id and node.name and node.outputCount
+    @pytest.mark.asyncio
+    @pytest.mark.it('''should send returned message using send''')
+    async def test_it_should_send_returned_message_using_send(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "node.send(msg);"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should allow accessing node.id and node.name and node.outputCount')
+    async def test_it_should_allow_accessing_node_id_and_node_name_and_node_output_count(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "name": "test-function", "wires": [["2"]], "outputs": 2,
+                "func": "return [{ topic: node.name, payload:node.id, outputCount: node.outputCount }];",
+             },
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': ''}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["payload"] == "0000000000000001"
+        assert msgs[0]["topic"] == "test-function"
+        assert msgs[0]["outputCount"] == 2
+
+    async def _test_send_cloning(self, args):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+                "func": f"node.send({args}); msg.payload = 'changed';"},
+            {"id": "2", "z": "100", "type": "console-json"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should clone single message sent using send')
+    async def test_it_should_clone_single_message_sent_using_send(self):
+        self._test_send_cloning("msg")
+
 
     # 0006 should clone single message sent using send()
     # 0007 should not clone single message sent using send(,false)
@@ -67,22 +117,3 @@ class TestFunctionNode:
             msgs = await run_with_single_node_ntimes(payload_type='str', payload='foo', node_json=node, nexpected=1, once=True, topic='bar')
             assert msgs[0]['topic'] == 'bar'
             assert msgs[0]['payload'] == 'hello'
-
-
-    @pytest.mark.asyncio
-    @pytest.mark.it('should allow accessing node.id and node.name and node.outputCount')
-    async def test_it_should_allow_accessing_node_id_and_node_name_and_node_output_count(self):
-            flows = [
-                {"id": "100", "type": "tab"},  # flow 1
-                {"id": "1", "type": "function", "z": "100", "name":"test-function", "wires": [["2"]], "outputs": 2,
-                    "func": "return [{ topic: node.name, payload:node.id, outputCount: node.outputCount }];",
-                    },
-                {"id": "2", "z": "100", "type": "console-json"}
-            ]
-            injections = [
-                {"nid": "1", "msg": {'payload': ''}},
-            ]
-            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
-            assert msgs[0]["payload"] == "0000000000000001"
-            assert msgs[0]["topic"] == "test-function"
-            assert msgs[0]["outputCount"] == 2
