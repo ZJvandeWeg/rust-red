@@ -58,7 +58,7 @@ pub enum VariantError {
 /// let integer_variant = Variant::from(42);
 /// assert_eq!(integer_variant.as_i64().unwrap(), 42);
 /// ```
-#[non_exhaustive]
+
 #[derive(Default, Clone)]
 pub enum Variant {
     /// Represents a null value.
