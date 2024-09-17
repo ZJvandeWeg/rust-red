@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::*;
 
 impl From<&Variant> for String {
@@ -92,6 +94,18 @@ impl<const N: usize> From<[(&str, Variant); N]> for Variant {
 impl From<&[u8]> for Variant {
     fn from(array: &[u8]) -> Self {
         Variant::Bytes(array.to_vec())
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for Variant {
+    fn from(f: Cow<'a, str>) -> Self {
+        Variant::String(f.into_owned())
+    }
+}
+
+impl From<serde_json::Number> for Variant {
+    fn from(f: serde_json::Number) -> Self {
+        Variant::Number(f)
     }
 }
 
