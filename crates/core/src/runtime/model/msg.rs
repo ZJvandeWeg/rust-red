@@ -335,7 +335,7 @@ mod tests {
         {
             assert!(msg.contains("lookup"));
             assert!(msg.contains("topic"));
-            assert_eq!(*msg.get_nav("lookup[msg.topic]").unwrap(), Variant::Integer(2));
+            assert_eq!(*msg.get_nav("lookup[msg.topic]").unwrap(), Variant::from(2));
         }
     }
 
@@ -347,8 +347,8 @@ mod tests {
             assert!(msg.contains("lookup"));
             assert!(msg.contains("topic"));
             let b = msg.get_nav_mut("lookup[msg.topic]").unwrap();
-            *b = Variant::Integer(1701);
-            assert_eq!(*msg.get_nav("lookup.b").unwrap(), Variant::Integer(1701));
+            *b = Variant::from(1701);
+            assert_eq!(*msg.get_nav("lookup.b").unwrap(), Variant::from(1701));
         }
     }
 

@@ -52,11 +52,11 @@ pub enum VariantError {
 /// let null_variant = Variant::Null;
 ///
 /// // Create a rational variant
-/// let rational_variant = Variant::Rational(3.14);
+/// let rational_variant = Variant::from(3.14);
 ///
 /// // Create an integer variant
-/// let integer_variant = Variant::Integer(42);
-/// assert_eq!(integer_variant.as_integer().unwrap(), 42);
+/// let integer_variant = Variant::from(42);
+/// assert_eq!(integer_variant.as_i64().unwrap(), 42);
 /// ```
 #[non_exhaustive]
 #[derive(Default, Clone)]
@@ -633,17 +633,17 @@ mod tests {
     #[test]
     fn variant_clone_should_be_ok() {
         let var1 = Variant::Array(vec![
-            Variant::Integer(123),
-            Variant::Integer(333),
-            Variant::Array(vec![Variant::Integer(901), Variant::Integer(902)]),
+            Variant::from(123),
+            Variant::from(333),
+            Variant::Array(vec![Variant::from(901), Variant::from(902)]),
         ]);
         let mut var2 = var1.clone();
 
         let inner_array = var2.as_array_mut().unwrap()[2].as_array_mut().unwrap();
-        inner_array[0] = Variant::Integer(999);
+        inner_array[0] = Variant::from(999);
 
-        let value1 = var1.as_array().unwrap()[2].as_array().unwrap()[0].as_integer().unwrap();
-        let value2 = var2.as_array().unwrap()[2].as_array().unwrap()[0].as_integer().unwrap();
+        let value1 = var1.as_array().unwrap()[2].as_array().unwrap()[0].as_i64().unwrap();
+        let value2 = var2.as_array().unwrap()[2].as_array().unwrap()[0].as_i64().unwrap();
 
         assert_eq!(value1, 901);
         assert_eq!(value2, 999);
@@ -652,42 +652,33 @@ mod tests {
 
     #[test]
     fn variant_propex_readonly_accessing_should_be_ok() {
-        /*
-        let obj = Variant::Object(vec![
-            Variant::Integer(123),
-            Variant::Integer(333),
-            Variant::Array(vec![Variant::Integer(901), Variant::Integer(902)]),
-        ]);
-
-
-        */
         let obj1 = Variant::from([
-            ("value1", Variant::Integer(123)),
-            ("value2", Variant::Rational(123.0)),
+            ("value1", Variant::from(123)),
+            ("value2", Variant::from(123.0)),
             (
                 "value3",
                 Variant::from([
-                    ("aaa", Variant::Integer(333)),
-                    ("bbb", Variant::Integer(444)),
-                    ("ccc", Variant::Integer(555)),
-                    ("ddd", Variant::Integer(999)),
+                    ("aaa", Variant::from(333)),
+                    ("bbb", Variant::from(444)),
+                    ("ccc", Variant::from(555)),
+                    ("ddd", Variant::from(999)),
                 ]),
             ),
         ]);
 
-        let value1 = obj1.get_nav_property("value1").unwrap().as_integer().unwrap();
+        let value1 = obj1.get_nav_property("value1").unwrap().as_i64().unwrap();
         assert_eq!(value1, 123);
 
-        let ccc_1 = obj1.get_nav_property("value3.ccc").unwrap().as_integer().unwrap();
+        let ccc_1 = obj1.get_nav_property("value3.ccc").unwrap().as_i64().unwrap();
         assert_eq!(ccc_1, 555);
 
-        let ccc_2 = obj1.get_nav_property("['value3'].ccc").unwrap().as_integer().unwrap();
+        let ccc_2 = obj1.get_nav_property("['value3'].ccc").unwrap().as_i64().unwrap();
         assert_eq!(ccc_2, 555);
 
-        let ccc_3 = obj1.get_nav_property("['value3'][\"ccc\"]").unwrap().as_integer().unwrap();
+        let ccc_3 = obj1.get_nav_property("['value3'][\"ccc\"]").unwrap().as_i64().unwrap();
         assert_eq!(ccc_3, 555);
 
-        let ddd_1 = obj1.get_nav_property("value3.ddd").unwrap().as_integer().unwrap();
+        let ddd_1 = obj1.get_nav_property("value3.ddd").unwrap().as_i64().unwrap();
         assert_eq!(ddd_1, 999);
     }
 
@@ -713,7 +704,7 @@ mod tests {
     #[test]
     fn variant_can_serialize_to_json_value() {
         let org = Variant::Object(VariantObjectMap::from([
-            ("a".into(), 1.into()), //
+            ("a".into(), Variant::from(1)), //
             ("b".into(), "hello".into()),
         ]));
         let jv = serde_json::to_value(org).unwrap();
@@ -729,13 +720,13 @@ mod tests {
 
         let json = json!(3.34);
         let var = Variant::deserialize(&json).unwrap();
-        assert!(var.is_rational());
-        assert_eq!((var.as_rational().unwrap() * 100.0) as i64, 334);
+        assert!(var.is_f64());
+        assert_eq!((var.as_f64().unwrap() * 100.0) as i64, 334);
 
         let json = json!(123);
         let var = Variant::deserialize(&json).unwrap();
-        assert!(var.is_integer());
-        assert_eq!(var.as_integer().unwrap(), 123);
+        assert!(var.is_i64());
+        assert_eq!(var.as_i64().unwrap(), 123);
 
         let json = json!("text");
         let var = Variant::deserialize(&json).unwrap();
@@ -768,17 +759,17 @@ mod tests {
         assert!(var.is_array());
         let var = var.as_array().unwrap();
         assert_eq!(var.len(), 6);
-        assert_eq!(var[0].as_integer().unwrap(), 0);
-        assert_eq!(var[1].as_integer().unwrap(), 1);
-        assert_eq!(var[2].as_integer().unwrap(), 2);
+        assert_eq!(var[0].as_i64().unwrap(), 0);
+        assert_eq!(var[1].as_i64().unwrap(), 1);
+        assert_eq!(var[2].as_i64().unwrap(), 2);
         let inner_obj = var[3].as_object().unwrap();
         assert_eq!(inner_obj.len(), 5);
         assert!(inner_obj["p0"].is_null());
         assert_eq!(inner_obj["p1"].as_str().unwrap(), "a");
-        assert_eq!(inner_obj["p2"].as_integer().unwrap(), 123);
+        assert_eq!(inner_obj["p2"].as_i64().unwrap(), 123);
         assert!(inner_obj["p3"].as_bool().unwrap());
         let inner_arr = inner_obj["p4"].as_array().unwrap();
-        assert_eq!(inner_arr[0].as_integer().unwrap(), 100);
+        assert_eq!(inner_arr[0].as_i64().unwrap(), 100);
         assert_eq!(inner_arr[1].as_f64().unwrap(), 200.0);
     }
 }

@@ -238,15 +238,15 @@ mod tests {
     #[test]
     fn test_remove_nav_property() {
         let mut obj1 = Variant::from([
-            ("value1", Variant::Integer(123)),
-            ("value2", Variant::Rational(123.0)),
+            ("value1", Variant::from(123)),
+            ("value2", Variant::from(123.0)),
             (
                 "value3",
                 Variant::from([
-                    ("aaa", Variant::Integer(333)),
-                    ("bbb", Variant::Integer(444)),
-                    ("ccc", Variant::Integer(555)),
-                    ("ddd", Variant::Integer(999)),
+                    ("aaa", Variant::from(333)),
+                    ("bbb", Variant::from(444)),
+                    ("ccc", Variant::from(555)),
+                    ("ddd", Variant::from(999)),
                 ]),
             ),
             ("value4", Variant::Array(vec!["foo".into(), "foobar".into(), "bar".into()])),

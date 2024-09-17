@@ -56,6 +56,18 @@ impl From<f64> for Variant {
     }
 }
 
+impl From<i32> for Variant {
+    fn from(f: i32) -> Self {
+        Variant::Number(serde_json::Number::from(f as i64))
+    }
+}
+
+impl From<u32> for Variant {
+    fn from(f: u32) -> Self {
+        Variant::Number(serde_json::Number::from(f as u64))
+    }
+}
+
 impl From<i64> for Variant {
     fn from(f: i64) -> Self {
         Variant::Number(serde_json::Number::from(f))

@@ -267,9 +267,9 @@ mod tests {
             },
         ]);
         let global =
-            EnvStoreBuilder::default().load_json(&json).extends([("FILE_SIZE".into(), Variant::Integer(123))]).build();
+            EnvStoreBuilder::default().load_json(&json).extends([("FILE_SIZE".into(), Variant::from(123))]).build();
         assert_eq!(global.evalute_env("FOO").unwrap().as_str().unwrap(), "foofoo");
-        assert_eq!(global.evalute_env("AGE").unwrap().as_integer().unwrap(), 41);
+        assert_eq!(global.evalute_env("AGE").unwrap().as_i64().unwrap(), 41);
 
         let json = json!([
             {
@@ -308,6 +308,6 @@ mod tests {
         assert_eq!(node.evalute_env("GLOBAL_FOO").unwrap().as_str().unwrap(), "foofoo");
         assert_eq!(node.evalute_env("PARENT_BAR").unwrap().as_str().unwrap(), "barbar");
         assert_eq!(node.evalute_env("AGE").unwrap().as_str().unwrap(), "100");
-        assert_eq!(node.evalute_env("FILE_SIZE").unwrap().as_integer().unwrap(), 123);
+        assert_eq!(node.evalute_env("FILE_SIZE").unwrap().as_i64().unwrap(), 123);
     }
 }

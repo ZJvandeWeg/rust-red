@@ -163,7 +163,7 @@ mod tests {
             assert_eq!(v, vec![1, 2, 3]);
 
             let v: Vec<Variant> = ctx.eval("foo.arrayValue").unwrap();
-            assert_eq!(v, vec![Variant::Integer(1), Variant::Integer(2), Variant::Integer(3)]);
+            assert_eq!(v, vec![Variant::from(1), Variant::from(2), Variant::from(3)]);
         });
     }
 }
