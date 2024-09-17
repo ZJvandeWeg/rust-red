@@ -1,6 +1,6 @@
-use std::borrow::BorrowMut;
+use core::fmt::{self, Debug};
+use std::borrow::{BorrowMut, Cow};
 use std::collections::BTreeMap;
-use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
@@ -59,7 +59,7 @@ pub enum VariantError {
 /// assert_eq!(integer_variant.as_integer().unwrap(), 42);
 /// ```
 #[non_exhaustive]
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone)]
 pub enum Variant {
     /// Represents a null value.
     #[default]
@@ -152,7 +152,7 @@ impl Variant {
         for v in vec.iter() {
             if let Variant::Number(n) = v {
                 if let Some(i) = n.as_i64() {
-                    if i >= 0 && i <= 255 {
+                    if (0..=255).contains(&i) {
                         bytes.push(i as u8);
                     } else {
                         return Err(EdgelinkError::OutOfRange.into());
@@ -164,7 +164,7 @@ impl Variant {
                         return Err(EdgelinkError::OutOfRange.into());
                     }
                 } else if let Some(f) = n.as_f64() {
-                    if f >= 0.0 && f <= 255.0 {
+                    if (0.0..=255.0).contains(&f) {
                         bytes.push(f as u8);
                     } else {
                         return Err(EdgelinkError::OutOfRange.into());
@@ -222,10 +222,7 @@ impl Variant {
     }
 
     pub fn is_number(&self) -> bool {
-        match *self {
-            Variant::Number(_) => true,
-            _ => false,
-        }
+        matches!(*self, Variant::Number(_))
     }
 
     pub fn is_i64(&self) -> bool {
@@ -308,6 +305,13 @@ impl Variant {
             Variant::Number(f) => Ok(f.to_string()),
             Variant::Bool(b) => Ok(b.to_string()),
             _ => Err(VariantError::WrongType),
+        }
+    }
+
+    pub fn to_cow_str<'a>(&'a self) -> Result<Cow<'a, str>, VariantError> {
+        match self {
+            Variant::String(s) => Ok(Cow::Borrowed(s.as_str())),
+            _ => Ok(Cow::Owned(self.to_string()?)),
         }
     }
 
@@ -593,7 +597,33 @@ impl Variant {
             Err(VariantError::OutOfRange)
         }
     }
+
+    pub fn take(&mut self) -> Variant {
+        core::mem::replace(self, Variant::Null)
+    }
 } // struct Variant
+
+impl Debug for Variant {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Variant::Null => formatter.write_str("Null"),
+            Variant::Bool(boolean) => write!(formatter, "Bool({})", boolean),
+            Variant::Number(number) => Debug::fmt(number, formatter),
+            Variant::String(string) => write!(formatter, "String({:?})", string),
+            Variant::Date(sd) => write!(formatter, "Date({:?})", sd),
+            Variant::Regexp(re) => write!(formatter, "Regexp({:?})", re),
+            Variant::Bytes(bytes) => write!(formatter, "Bytes({:?})", bytes),
+            &Variant::Array(ref vec) => {
+                formatter.write_str("Array ")?;
+                Debug::fmt(vec, formatter)
+            }
+            Variant::Object(ref map) => {
+                formatter.write_str("Object ")?;
+                Debug::fmt(map, formatter)
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -749,6 +779,6 @@ mod tests {
         assert!(inner_obj["p3"].as_bool().unwrap());
         let inner_arr = inner_obj["p4"].as_array().unwrap();
         assert_eq!(inner_arr[0].as_integer().unwrap(), 100);
-        assert_eq!(inner_arr[1].as_rational().unwrap(), 200.0);
+        assert_eq!(inner_arr[1].as_f64().unwrap(), 200.0);
     }
 }
