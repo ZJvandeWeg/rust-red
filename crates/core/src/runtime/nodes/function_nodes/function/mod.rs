@@ -16,6 +16,8 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
+pub mod env;
+
 const OUTPUT_MSGS_CAP: usize = 4;
 
 pub type OutputMsgs = smallvec::SmallVec<[(usize, Msg); OUTPUT_MSGS_CAP]>;
@@ -192,6 +194,7 @@ function __el_user_func(context, msg) {{
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
+            ctx.globals().set("env", env::EnvClass::new(ctx.clone(), self.get_envs().clone()))?;
 
 
             match ctx.eval::<(), _>(JS_PRELUDE_SCRIPT) {
