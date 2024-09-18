@@ -107,8 +107,8 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 
 ### Node-RED Features Roadmap:
 
-- [x] Flow :heavy_check_mark:
-- [x] Sub-flow :heavy_check_mark:
+- [x] :heavy_check_mark: Flow
+- [x] :heavy_check_mark: Sub-flow
 - [x] Group
 - [x] Environment Variables (WIP)
 - [ ] Context
