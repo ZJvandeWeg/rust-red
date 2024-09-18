@@ -58,6 +58,7 @@ impl NodeClass {
     async fn _send_msgs<'js>(&self, ctx: Ctx<'js>, msgs: rquickjs::Value<'js>, _cloning: bool) -> crate::Result<()> {
         match msgs.type_of() {
             rquickjs::Type::Array => {
+                // The first-level array is bound to a port.
                 /* TODO
                 if let Some(msgs) = msgs.as_array() {
                     let msgs_to_send = Vec::with_capacity(msgs.len());
