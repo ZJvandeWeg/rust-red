@@ -128,18 +128,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install cross-compilation tools for ARM 64
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
-
-      - name: Install cross-compilation tools for ARM 32
-        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross gcc-multilib
-
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
@@ -193,7 +181,7 @@ jobs:
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
 
       - name: Install cross-compilation tools for ARM 32 (GNUEABI)
-        if: matrix.target == 'gcc-arm-linux-gnueabi'
+        if: matrix.target == 'armv7-unknown-linux-gnueabi'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabi libc-dev-armel-cross
