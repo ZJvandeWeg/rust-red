@@ -168,21 +168,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
-          echo "TOOLCHAIN_TRIPPLE=aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "TOOLCHAIN_TRIPLE=aarch64-linux-gnu" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabihf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
-          echo "TOOLCHAIN_TRIPPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
+          echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabi)
         if: matrix.target == 'armv7-unknown-linux-gnueabi'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabi libc-dev-armel-cross
-          echo "TOOLCHAIN_TRIPPLE=arm-linux-gnueabi" >> $GITHUB_ENV
+          echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
@@ -197,9 +197,9 @@ jobs:
         run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
 
       - name: Run unit tests in QEMU ARM
-        run: python3 ./scripts/cross-unittest.py $TOOLCHAIN_TRIPPLE ./target/${{ matrix.target }}/ci/cargo-build-test.json
+        run: python3 ./scripts/cross-unittest.py  ${{ env.TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
         env:
-          TOOLCHAIN_TRIPPLE: ${{ env.TOOLCHAIN_TRIPPLE }}
+          TOOLCHAIN_TRIPLE: ${{ env.TOOLCHAIN_TRIPLE }}
 
 
 
