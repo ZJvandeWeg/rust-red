@@ -287,8 +287,8 @@ impl<'js> js::FromJs<'js> for Msg {
                                 }
                             },
                             Err(e) => {
-                                eprintln!("Error occurred: {:?}", e);
-                                panic!();
+                                log::error!("Error occurred: {:?}", e);
+                                unreachable!();
                             }
                         }
                     }

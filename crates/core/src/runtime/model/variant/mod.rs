@@ -170,7 +170,7 @@ impl Variant {
                         return Err(EdgelinkError::OutOfRange.into());
                     }
                 } else {
-                    panic!();
+                    unreachable!();
                 }
             } else {
                 return Err(EdgelinkError::InvalidOperation("Invalid Variant type".into()).into());

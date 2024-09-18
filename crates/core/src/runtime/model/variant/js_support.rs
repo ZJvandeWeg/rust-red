@@ -1,5 +1,3 @@
-use core::panic;
-
 use super::*;
 
 #[cfg(feature = "js")]
@@ -73,8 +71,8 @@ impl<'js> js::FromJs<'js> for Variant {
                                     map.insert(k.clone(), Variant::from_js(_ctx, v)?);
                                 }
                                 Err(e) => {
-                                    eprintln!("Error occurred: {:?}", e);
-                                    panic!();
+                                    log::error!("Unknown fatal error: {}", e);
+                                    unreachable!();
                                 }
                             }
                         }
@@ -110,7 +108,7 @@ impl<'js> js::IntoJs<'js> for Variant {
                 } else if let Some(u) = num.as_u64() {
                     u.into_js(ctx)
                 } else {
-                    panic!();
+                    unreachable!();
                 }
             }
 

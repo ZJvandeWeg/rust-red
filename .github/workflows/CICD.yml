@@ -8,6 +8,12 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
+env:
+  RUSTFLAGS: -Dwarnings
+
 jobs:
   build:
     name: Build and Test
@@ -130,5 +136,4 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      - run: cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
-      - run: cargo clippy --all-features --tests -- -Dclippy::all -Dclippy::pedantic
+      - run: cargo clippy --all-features --tests --all
