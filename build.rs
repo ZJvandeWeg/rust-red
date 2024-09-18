@@ -60,8 +60,8 @@ fn check_patch() {
         if output.status.success() {
             let version_info = String::from_utf8_lossy(&output.stdout);
             let first_line = version_info.lines().next().unwrap_or("Unknown version");
-            if !first_line.to_lowercase().contains("gnu patch") {
-                eprintln!("Error: The GNU Patch program is required to build this project, but got: {}", first_line);
+            if !first_line.to_lowercase().contains("patch") {
+                eprintln!("Error: The Patch program is required to build this project, but got: {}", first_line);
                 std::process::exit(1);
             }
         } else {
