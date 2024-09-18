@@ -15,7 +15,6 @@ impl Default for EdgelinkClass {
 #[allow(non_snake_case)]
 #[rquickjs::methods]
 impl<'js> EdgelinkClass {
-
     /// Deep clone a JS object
     #[qjs(rename = "deepClone")]
     fn deep_clone(&self, obj: Value<'js>, ctx: Ctx<'js>) -> Result<Value<'js>> {
