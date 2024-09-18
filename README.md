@@ -45,7 +45,7 @@ cargo build -r
 >
 > To compile `rquickjs`, which is required by the project, you will need to install Microsoft Visual C++ (MSVC) and the corresponding Windows Software Development Kit (SDK).
 
-The toolchain tested is as follows:
+The toolchains tested are as follows:
 
 * `x86_64-pc-windows-msvc`
 * `x86_64-pc-windows-gnu`
