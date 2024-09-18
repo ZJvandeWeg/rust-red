@@ -60,7 +60,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.target }}
-          components: llvm-tools-preview,rustfmt
+          components: llvm-tools-preview
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -82,9 +82,6 @@ jobs:
       - name: Run Rust tests
         run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
 
-      - name: Run doc tests
-        run: cargo test --doc --profile ci --workspace --target ${{ matrix.target }} --features full
-
       - name: Run Python tests
         env:
           EDGELINK_BUILD_TARGET: ${{ matrix.target }}
@@ -92,7 +89,7 @@ jobs:
         run: pytest ./tests -v
 
   build-and-test-linux:
-    name: Build and Test on Linux
+    name: Build and Test on Linux (x86-64)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -115,7 +112,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.target }}
-          components: llvm-tools-preview,rustfmt
+          components: llvm-tools-preview
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -133,9 +130,6 @@ jobs:
 
       - name: Run Rust tests
         run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
-
-      - name: Run doc tests
-        run: cargo test --doc --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Python tests
         env:
@@ -158,7 +152,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.target }}
-          components: llvm-tools-preview,rustfmt
+          components: llvm-tools-preview
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -174,13 +168,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
 
-      - name: Install cross-compilation tools for ARM 32 (HF)
+      - name: Install cross-compilation tools for ARM 32 (gnueabihf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
 
-      - name: Install cross-compilation tools for ARM 32 (GNUEABI)
+      - name: Install cross-compilation tools for ARM 32 (gnueabi)
         if: matrix.target == 'armv7-unknown-linux-gnueabi'
         run: |
           sudo apt-get update
@@ -232,3 +226,25 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: Clippy
         run: cargo clippy --all-features --tests --all
+
+  doctest:
+    name: Run doctests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: x86_64-unknown-linux-gnu
+          components: clippy
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Doctest
+        run: cargo test --doc --profile ci --workspace --features full
