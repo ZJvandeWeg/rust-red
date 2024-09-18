@@ -52,8 +52,9 @@ cargo build -r
 
 * `x86_64-pc-windows-msvc`
 * `x86_64-pc-windows-gnu`
-* `x86_64-unknown-linux-gnu	`
+* `x86_64-unknown-linux-gnu`
 * `aarch64-unknown-linux-gnu`
+* `armv7-unknown-linux-gnueabihf`
 
 ### 2. 运行
 
