@@ -194,7 +194,7 @@ jobs:
           cache: 'pip'
 
       - name: Build tests without running
-        run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./${{ matrix.target }}/ci/cargo-build-test.json
+        run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json > ./${{ matrix.target }}/ci/cargo-build-test.json
 
       - name: Run unit tests in QEMU ARM
         run: python3 ./scripts/cross-unittest.py $TOOLCHAIN_TRIPPLE ./${{ matrix.target }}/ci/cargo-build-test.json
