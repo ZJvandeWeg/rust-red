@@ -161,7 +161,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install dependencies
-        run: sudo apt-get install qemu-user qemu-user-static
+        run: sudo apt-get -y install qemu-user qemu-user-static
 
       - name: Install cross-compilation tools for ARM 64
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -169,7 +169,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
           echo "TOOLCHAIN_TRIPLE=aarch64-linux-gnu" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-arm64" >> $GITHUB_ENV
+          echo "QEMU_CMD=/usr/bin/qemu-arm64" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabihf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
@@ -177,7 +177,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
           echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-armhf" >> $GITHUB_ENV
+          echo "QEMU_CMD=/usr/bin/qemu-armhf" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabi)
         if: matrix.target == 'armv7-unknown-linux-gnueabi'
@@ -185,7 +185,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabi libc-dev-armel-cross
           echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-arm" >> $GITHUB_ENV
+          echo "QEMU_CMD=/usr/bin/qemu-arm" >> $GITHUB_ENV
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
