@@ -13,6 +13,7 @@ pub(super) struct NodeClass {
     node: Weak<FunctionNode>,
 }
 
+#[allow(non_snake_case)]
 #[rquickjs::methods]
 impl NodeClass {
     // All functions declared in this impl block will be defined on the prototype of the

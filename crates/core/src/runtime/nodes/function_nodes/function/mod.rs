@@ -17,6 +17,7 @@ use crate::runtime::nodes::*;
 use crate::runtime::registry::*;
 use edgelink_macro::*;
 
+mod edgelink_class;
 mod env_class;
 mod node_class;
 
@@ -220,6 +221,7 @@ function __el_user_func(context, msg) {{
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
+            ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
             ctx.globals().set("node", node_class::NodeClass::new(&self))?;
 
