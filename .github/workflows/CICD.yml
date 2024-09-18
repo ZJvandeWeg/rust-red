@@ -135,7 +135,7 @@ jobs:
           EDGELINK_BUILD_PROFILE: ci
         run: pytest ./tests -v
 
-  build-arm-linux:
+  build-and-test-on-arm-linux:
     name: Build on ARM Linux
     runs-on: ubuntu-latest
     strategy:
@@ -165,21 +165,37 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
+          echo "TOOLCHAIN_TRIPPLE=aarch64-linux-gnu" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabihf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
+          echo "TOOLCHAIN_TRIPPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabi)
         if: matrix.target == 'armv7-unknown-linux-gnueabi'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabi libc-dev-armel-cross
+          echo "TOOLCHAIN_TRIPPLE=arm-linux-gnueabi" >> $GITHUB_ENV
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Build tests without running
+        run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./${{ matrix.target }}/ci/cargo-build-test.json
+
+      - name: Run unit tests in QEMU ARM
+        run: python3 ./scripts/cross-unittest.py $TOOLCHAIN_TRIPPLE ./${{ matrix.target }}/ci/cargo-build-test.json
+
 
   fmt:
     name: Format checking
