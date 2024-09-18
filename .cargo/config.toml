@@ -13,3 +13,9 @@ rustdocflags = ["-Clinker=rust-lld.exe"]
 # This cfg will reduce the size of `windows::core::Error` from 16 bytes to 4 bytes
 [target.'cfg(target_os = "windows")']
 rustflags = ["--cfg", "windows_slim_errors"]
+
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"

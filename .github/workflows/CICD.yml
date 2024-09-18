@@ -155,6 +155,46 @@ jobs:
           EDGELINK_BUILD_PROFILE: ci
         run: pytest ./tests -v
 
+  build-arm-linux:
+    name: Build on ARM Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [aarch64-unknown-linux-gnu, arm-linux-gnueabihf-gcc]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          components: llvm-tools-preview,rustfmt
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cross-compilation tools for ARM 64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+      - name: Install cross-compilation tools for ARM 32
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+
+      - name: Build
+        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
+
   fmt-and-clippy:
     name: Format and Clippy
     runs-on: ubuntu-latest
