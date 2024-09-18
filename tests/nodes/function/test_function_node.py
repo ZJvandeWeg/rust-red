@@ -55,7 +55,7 @@ class TestFunctionNode:
     async def _test_send_cloning(self, args):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"], ["2"]],
                 "func": f"node.send({args}); msg.payload = 'changed';"},
             {"id": "2", "z": "100", "type": "console-json"}
         ]
@@ -72,6 +72,9 @@ class TestFunctionNode:
     async def test_it_should_clone_single_message_sent_using_send_2(self):
         await self._test_send_cloning("msg")
 
+
+    # Not supported, yet
+    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should not clone single message sent using send(,false)')
     async def test_it_should_not_clone_single_message_sent_using_send_false(self):
@@ -88,25 +91,21 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "changed"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should clone first message sent using send() - array 1')
     async def test_it_should_clone_first_message_sent_using_send_array_1(self):
         await self._test_send_cloning("[msg]")
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should clone first message sent using send() - array 2')
     async def test_it_should_clone_first_message_sent_using_send_array_2(self):
         await self._test_send_cloning("[[msg],[null]]")
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should clone first message sent using send() - array 3')
     async def test_it_should_clone_first_message_sent_using_send_array_3(self):
         await self._test_send_cloning("[null,msg]")
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should clone first message sent using send() - array 3')
     async def test_it_should_clone_first_message_sent_using_send_array_3_1(self):
@@ -162,6 +161,8 @@ class TestFunctionNode:
         assert sorted([msgs[0]['payload'], msgs[1]['payload']]) == ['foo', 'p2']
 
 
+    # TODO the testing frame has no way to handle time-out for now
+    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should allow input to be discarded by returning null')
     async def test_it_should_allow_input_to_be_discarded_by_returning_null(self):

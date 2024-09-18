@@ -2,7 +2,7 @@
 name = "edgelink-app"
 version = "0.1.0"
 edition = "2021"
-rust_version = "1.77.2"
+rust-version = "1.77.2"
 readme = "README.md"
 homepage = "https://github.com/oldrev/edgelink.rs"
 description = "EdgeLink is a Node-RED compatible run-time engine in Rust."

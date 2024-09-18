@@ -70,7 +70,7 @@ impl FlowNodeBehavior for FunctionNode {
             })
             .await;
 
-        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
+        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
 
         let _ = self.init_async(&js_ctx).await;
         JS_RUMTIME.get().unwrap().idle().await;
@@ -133,7 +133,8 @@ impl FunctionNode {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
             let args =(js::Value::new_null(ctx.clone()), js_msg);
-            let js_res_value: js::Result<js::Value> = user_func.call(args);
+            let promised = user_func.call::<_, rquickjs::Promise>(args)?;
+            let js_res_value: js::Result<js::Value> = promised.into_future().await;
             match js_res_value.catch(&ctx) {
                 Ok(js_result) => self.convert_return_value(&ctx , js_result),
                 Err(e) => {
@@ -193,9 +194,13 @@ impl FunctionNode {
                 }
             }
 
-            js::Type::Null => {}
+            js::Type::Null => {
+                log::debug!("[FUNCTION_NODE] Skip `null`");
+            }
 
-            js::Type::Undefined => {}
+            js::Type::Undefined => {
+                log::debug!("[FUNCTION_NODE] No returned msg(s).");
+            }
 
             _ => {
                 log::warn!("Wrong type of the return values: Javascript type={}", js_result.type_of());
@@ -206,13 +211,7 @@ impl FunctionNode {
 
     async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
-        let user_script = format!(
-            r#"
-function __el_user_func(context, msg) {{
-    {user_func}
-}}
-"#
-        );
+        let user_script = format!(r"async function __el_user_func(context, msg) {{ {user_func} }}");
         let user_script_ref = &user_script;
 
         log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");
@@ -223,7 +222,7 @@ function __el_user_func(context, msg) {{
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
-            ctx.globals().set("node", node_class::NodeClass::new(&self))?;
+            ctx.globals().set("node", node_class::NodeClass::new(self))?;
 
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;

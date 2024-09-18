@@ -40,6 +40,7 @@ After completing the flow design in Node-RED, please ensure that you click the b
 cargo build -r
 ```
 
+> [!IMPORTANT]
 > **Note for Windows Users:** Windows users should ensure that the `patch.exe` program is available in the `%PATH%` environment variable to successfully compile the project using `rquickjs`. This utility is required to apply patches to the QuickJS library for Windows compatibility. If Git is already installed, it will include `patch.exe`.
 
 ### 2. Run

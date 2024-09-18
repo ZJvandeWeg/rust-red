@@ -308,7 +308,7 @@ impl Variant {
         }
     }
 
-    pub fn to_cow_str<'a>(&'a self) -> Result<Cow<'a, str>, VariantError> {
+    pub fn to_cow_str(&self) -> Result<Cow<'_, str>, VariantError> {
         match self {
             Variant::String(s) => Ok(Cow::Borrowed(s.as_str())),
             _ => Ok(Cow::Owned(self.to_string()?)),
@@ -613,9 +613,9 @@ impl Debug for Variant {
             Variant::Date(sd) => write!(formatter, "Date({:?})", sd),
             Variant::Regexp(re) => write!(formatter, "Regexp({:?})", re),
             Variant::Bytes(bytes) => write!(formatter, "Bytes({:?})", bytes),
-            &Variant::Array(ref vec) => {
+            Variant::Array(vec) => {
                 formatter.write_str("Array ")?;
-                Debug::fmt(vec, formatter)
+                Debug::fmt(&vec, formatter)
             }
             Variant::Object(ref map) => {
                 formatter.write_str("Object ")?;

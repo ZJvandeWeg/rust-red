@@ -4,6 +4,8 @@ use rquickjs::{class::Trace, prelude::Opt, Ctx, FromJs, IntoJs, Value};
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
+use crate::runtime::js::util;
+
 use super::{EdgelinkError, Envelope, FlowNodeBehavior, FunctionNode, Msg};
 
 #[derive(Clone, Trace)]
@@ -42,56 +44,78 @@ impl NodeClass {
     }
 
     #[qjs(rename = "send")]
-    fn send<'js>(self, msgs: Value<'js>, _cloning: Opt<bool>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
-        let _cloning = _cloning.unwrap_or(false);
+    fn send<'js>(self, msgs: Value<'js>, cloning: Opt<bool>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        let cloning = cloning.unwrap_or(true);
         let async_ctx = ctx.clone();
-        ctx.spawn(async move {
-            if let Err(err) = self._send_msgs(async_ctx, msgs, _cloning).await {
-                // TODO report error
-                log::warn!("Failed to send msg(s): {}", err);
-            }
-        });
+        if let Err(err) = self.send_msgs_internal(async_ctx, msgs, cloning) {
+            // TODO report error
+            log::warn!("Failed to send msg(s): {}", err);
+        }
         Ok(())
     }
 
     #[qjs(skip)]
-    async fn _send_msgs<'js>(&self, ctx: Ctx<'js>, msgs: rquickjs::Value<'js>, _cloning: bool) -> crate::Result<()> {
+    fn send_msgs_internal<'js>(&self, ctx: Ctx<'js>, msgs: rquickjs::Value<'js>, cloning: bool) -> crate::Result<()> {
+        let node = self.node.upgrade().clone().ok_or(rquickjs::Error::UnrelatedRuntime)? as Arc<dyn FlowNodeBehavior>;
+
         match msgs.type_of() {
             rquickjs::Type::Array => {
+                let mut msgs_to_send = Vec::new();
+                let ports = msgs.as_array().expect("Must be an array");
                 // The first-level array is bound to a port.
-                /* TODO
-                if let Some(msgs) = msgs.as_array() {
-                    let msgs_to_send = Vec::with_capacity(msgs.len());
-                    for msg_ele in msgs.iter() {
-                        let msg = msg_ele?;
-                        let msg_to_send = Arc::new(RwLock::new(Msg::from_js(&ctx, msg)?));
-                        msgs_to_send.push(msg_to_send);
-                        let node = self.node.upgrade().clone().ok_or(rquickjs::Error::UnrelatedRuntime)?
-                            as Arc<dyn FlowNodeBehavior>;
-                        let envelope = Envelope { port: 0, msg: msg_to_send };
-                        let cancel = CancellationToken::new();
-                        match node.fan_out_one(&envelope, cancel).await {
-                            Ok(_) => {}
-                            Err(err) => log::error!("Failed to send msg in function node: {}", err),
+                let mut is_first = true;
+                for (port, msgs_in_port) in ports.iter().enumerate() {
+                    let msgs_in_port: Value<'js> = msgs_in_port?;
+                    if let Some(msgs_in_port) = msgs_in_port.as_array() {
+                        // The second-level array is msgs in single port.
+                        for msg in msgs_in_port.iter() {
+                            let msg: Value<'js> = msg?;
+                            if msg.is_object() {
+                                let msg_value =
+                                    if cloning && is_first { util::deep_clone(ctx.clone(), msg)? } else { msg };
+                                is_first = false;
+                                let envelope =
+                                    Envelope { port, msg: Arc::new(RwLock::new(Msg::from_js(&ctx, msg_value)?)) };
+                                msgs_to_send.push(envelope);
+                            }
                         }
+                    } else if msgs_in_port.is_object() {
+                        // This port has only one msg
+                        let msg_value = if cloning && is_first {
+                            util::deep_clone(ctx.clone(), msgs_in_port)?
+                        } else {
+                            msgs_in_port
+                        };
+                        is_first = false;
+                        let envelope = Envelope { port, msg: Arc::new(RwLock::new(Msg::from_js(&ctx, msg_value)?)) };
+                        msgs_to_send.push(envelope);
+                    } else {
+                        log::warn!("Unknown msg type: {}", port);
                     }
-                } else {
-                    unreachable!();
                 }
-                */
+
+                let cancel = CancellationToken::new();
+                let async_node = node.clone();
+                ctx.spawn(async move {
+                    match async_node.fan_out_many(&msgs_to_send, cancel).await {
+                        Ok(_) => {}
+                        Err(err) => log::error!("Failed to send msg in function node: {}", err),
+                    }
+                });
             }
 
             rquickjs::Type::Object => {
                 let msg_to_send = Arc::new(RwLock::new(Msg::from_js(&ctx, msgs)?));
-                let node =
-                    self.node.upgrade().clone().ok_or(rquickjs::Error::UnrelatedRuntime)? as Arc<dyn FlowNodeBehavior>;
                 let envelope = Envelope { port: 0, msg: msg_to_send };
                 // FIXME
                 let cancel = CancellationToken::new();
-                match node.fan_out_one(&envelope, cancel).await {
-                    Ok(_) => {}
-                    Err(err) => log::error!("Failed to send msg in function node: {}", err),
-                }
+                let async_node = node.clone();
+                ctx.spawn(async move {
+                    match async_node.fan_out_one(&envelope, cancel).await {
+                        Ok(_) => {}
+                        Err(err) => log::error!("Failed to send msg in function node: {}", err),
+                    }
+                });
             }
 
             _ => {
