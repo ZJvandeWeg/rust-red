@@ -138,7 +138,7 @@ jobs:
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
+          sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross gcc-multilib
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
