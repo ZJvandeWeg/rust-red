@@ -1,5 +1,3 @@
-extern crate linkme;
-
 use std::sync::Arc;
 
 use async_trait::*;
@@ -10,7 +8,6 @@ use edgelink_core::runtime::flow::*;
 use edgelink_core::runtime::model::json::*;
 use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::nodes::*;
-use edgelink_core::runtime::registry::*;
 use edgelink_core::Result;
 use edgelink_macro::*;
 

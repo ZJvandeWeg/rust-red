@@ -8,8 +8,8 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
 
     let struct_name = &input.ident;
-    let meta_node_name_string = format!("__{}_meta_node", struct_name).to_uppercase();
-    let meta_node_name = syn::Ident::new(&meta_node_name_string, struct_name.span());
+    // let meta_node_name_string = format!("__{}_meta_node", struct_name).to_uppercase();
+    // let meta_node_name = syn::Ident::new(&meta_node_name_string, struct_name.span());
 
     // parse node_type
     let lit = parse_macro_input!(attr as Lit);
@@ -51,13 +51,14 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        #[linkme::distributed_slice(__META_NODES)]
-        static #meta_node_name: MetaNode = MetaNode {
-            kind: NodeKind::Flow,
-            type_: #node_type,
-            factory: NodeFactory::Flow(#struct_name::build),
-        };
-    };
+        ::inventory::submit! {
+            MetaNode {
+                kind: NodeKind::Flow,
+                type_: #node_type,
+                factory: NodeFactory::Flow(#struct_name::build),
+            }
+        }
+    }; // quote!
 
     TokenStream::from(expanded)
 }
@@ -67,8 +68,8 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
 
     let struct_name = &input.ident;
-    let meta_node_name_string = format!("__{}_meta_node", struct_name).to_uppercase();
-    let meta_node_name = syn::Ident::new(&meta_node_name_string, struct_name.span());
+    // let meta_node_name_string = format!("__{}_meta_node", struct_name).to_uppercase();
+    // let meta_node_name = syn::Ident::new(&meta_node_name_string, struct_name.span());
 
     // parse node_type
     let lit = parse_macro_input!(attr as Lit);
@@ -80,14 +81,14 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
+        ::inventory::submit! {
+            MetaNode {
+                kind: NodeKind::Global,
+                type_: #node_type,
+                factory: NodeFactory::Global(#struct_name::build),
+            }
+        }
 
-        #[linkme::distributed_slice(__META_NODES)]
-        static #meta_node_name: MetaNode = MetaNode {
-            kind: NodeKind::Global,
-            type_: #node_type,
-            factory: NodeFactory::Global(#struct_name::build),
-        };
-    };
-
+    }; // quote!
     TokenStream::from(expanded)
 }

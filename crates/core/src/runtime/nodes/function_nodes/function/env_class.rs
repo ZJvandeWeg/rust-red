@@ -11,6 +11,7 @@ pub(super) struct EnvClass {
     pub env_store: Arc<EnvStore>,
 }
 
+#[allow(non_snake_case)]
 #[rquickjs::methods]
 impl<'js> EnvClass {
     #[qjs(skip)]

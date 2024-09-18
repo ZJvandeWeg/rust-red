@@ -14,9 +14,9 @@ use js::IntoJs;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
-use crate::runtime::registry::*;
 use edgelink_macro::*;
 
+mod edgelink_class;
 mod env_class;
 mod node_class;
 
@@ -57,7 +57,7 @@ impl FlowNodeBehavior for FunctionNode {
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         let js_rt = JS_RUMTIME
             .get_or_init(|| async move {
-                log::debug!("-------- [FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
+                log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
                 let rt = js::AsyncRuntime::new().unwrap();
                 let mut resolver = js::loader::BuiltinResolver::default();
 
@@ -69,9 +69,10 @@ impl FlowNodeBehavior for FunctionNode {
             })
             .await;
 
-        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
+        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
 
         let _ = self.init_async(&js_ctx).await;
+        JS_RUMTIME.get().unwrap().idle().await;
 
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
@@ -105,6 +106,7 @@ impl FlowNodeBehavior for FunctionNode {
 
         //let _ = js_ctx.eval(js::Source::from_bytes(&self1.config.initialize));
         let _ = self.finalize_async(&js_ctx).await;
+        JS_RUMTIME.get().unwrap().idle().await;
 
         log::debug!("DebugNode process() task has been terminated.");
     }
@@ -130,7 +132,8 @@ impl FunctionNode {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
             let args =(js::Value::new_null(ctx.clone()), js_msg);
-            let js_res_value: js::Result<js::Value> = user_func.call(args);
+            let promised = user_func.call::<_, rquickjs::Promise>(args)?;
+            let js_res_value: js::Result<js::Value> = promised.into_future().await;
             match js_res_value.catch(&ctx) {
                 Ok(js_result) => self.convert_return_value(&ctx , js_result),
                 Err(e) => {
@@ -189,7 +192,15 @@ impl FunctionNode {
                     }
                 }
             }
-            js::Type::Undefined => {}
+
+            js::Type::Null => {
+                log::debug!("[FUNCTION_NODE] Skip `null`");
+            }
+
+            js::Type::Undefined => {
+                log::debug!("[FUNCTION_NODE] No returned msg(s).");
+            }
+
             _ => {
                 log::warn!("Wrong type of the return values: Javascript type={}", js_result.type_of());
             }
@@ -199,23 +210,18 @@ impl FunctionNode {
 
     async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
-        let user_script = format!(
-            r#"
-function __el_user_func(context, msg) {{
-    {user_func}
-}}
-"#
-        );
+        let user_script = format!(r"async function __el_user_func(context, msg) {{ {user_func} }}");
         let user_script_ref = &user_script;
 
-        log::debug!("-------- [FUNCTION_NODE] Initializing JavaScript context...");
+        log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");
         js::async_with!(js_ctx => |ctx| {
 
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
+            ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
-            ctx.globals().set("node", node_class::NodeClass::new(&self))?;
+            ctx.globals().set("node", node_class::NodeClass::new(self))?;
 
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;
@@ -226,7 +232,7 @@ function __el_user_func(context, msg) {{
                     panic!();
                 }
                 _ =>{
-                    log::info!("The evulation of the prelude script has been succeed.");
+                    log::debug!("[FUNCTION_NODE] The evulation of the prelude script has been succeed.");
                 }
             }
 
@@ -235,7 +241,7 @@ function __el_user_func(context, msg) {{
                     Ok(()) => (),
                     Err(e) => {
                         log::error!("Failed to evaluate the initialization script code: {}", e);
-                        return Err(EdgelinkError::InvalidData(e.to_string()).into())
+                        return Err(EdgelinkError::InvalidData(e.to_string()).into());
                     }
                 }
             }

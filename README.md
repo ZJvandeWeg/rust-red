@@ -40,7 +40,17 @@ After completing the flow design in Node-RED, please ensure that you click the b
 cargo build -r
 ```
 
+The toolchain tested is as follows:
+
+* `x86_64-pc-windows-msvc`
+* `x86_64-unknown-linux-gnu	`
+* `aarch64-unknown-linux-gnu`
+
+> [!IMPORTANT]
 > **Note for Windows Users:** Windows users should ensure that the `patch.exe` program is available in the `%PATH%` environment variable to successfully compile the project using `rquickjs`. This utility is required to apply patches to the QuickJS library for Windows compatibility. If Git is already installed, it will include `patch.exe`.
+>
+> To compile `rquickjs`, which is required by the project, you will need to install Microsoft Visual C++ (MSVC) and the corresponding Windows Software Development Kit (SDK).
+
 
 ### 2. Run
 

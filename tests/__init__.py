@@ -84,7 +84,7 @@ async def read_json_from_process(process, nexpected: int, timeout=3):
                 break
 
 
-async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> tuple[bytes, list[dict]]:
+async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout=3) -> tuple[bytes, list[dict]]:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     el_home_dir = os.path.join(script_dir, 'home')
     el_args = ['-v', '0', '--stdin', '--home', el_home_dir]
@@ -94,7 +94,7 @@ async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> tuple[b
         process = await start_edgelink_process(el_args)
         process.stdin.write(input_data)
         process.stdin.close()
-        async for msg in read_json_from_process(process, nexpected):
+        async for msg in read_json_from_process(process, nexpected, timeout):
             msgs.append(msg)
         return (bytes(all_output), msgs)
     except Exception as e:
@@ -106,7 +106,7 @@ async def _run_edgelink_with_stdin(input_data: bytes, nexpected: int) -> tuple[b
 
 
 async def run_edgelink_with_stdin(input_data: bytes, nexpected: int, timeout=3) -> list[dict]:
-    result = await asyncio.wait_for(_run_edgelink_with_stdin(input_data, nexpected), timeout)
+    result = await asyncio.wait_for(_run_edgelink_with_stdin(input_data, nexpected, timeout), timeout)
     return result[1]
 
 
@@ -171,7 +171,7 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
 
 async def run_flow_with_msgs_ntimes(flows_obj: list[object],
                                     msgs: list[object] | None,
-                                    nexpected: int, injectee_node_id: str = '1'):
+                                    nexpected: int, injectee_node_id: str = '1', timeout=3):
     flow_bytes = json.dumps(flows_obj, ensure_ascii=False).encode('utf-8')
 
     input_bytes = bytearray()
@@ -193,7 +193,7 @@ async def run_flow_with_msgs_ntimes(flows_obj: list[object],
     print("INPUT_JSON_SEQ:\n", input_bytes)
     # with open("c:\\tmp\\hello.dat", "wb") as f:
     #    f.write(input_bytes)
-    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected)
+    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected, timeout)
 
 
 async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object] | None,

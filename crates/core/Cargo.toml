@@ -24,7 +24,6 @@ tokio = { workspace = true, features = [
 config.workspace = true
 async-trait.workspace = true
 log.workspace = true
-linkme.workspace = true
 tokio-util.workspace = true
 thiserror.workspace = true
 nom.workspace = true
@@ -48,6 +47,7 @@ dashmap.workspace = true
 itertools.workspace = true
 smallvec.workspace = true
 smallstr.workspace = true
+inventory.workspace = true
 arrayvec = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]
