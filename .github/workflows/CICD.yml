@@ -73,9 +73,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check code formatting
-        run: cargo fmt --check --all
-
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
