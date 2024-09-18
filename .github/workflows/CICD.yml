@@ -15,26 +15,12 @@ env:
   RUSTFLAGS: -Dwarnings
 
 jobs:
-  build:
+  build-and-test-windows:
     name: Build and Test
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - name: Ubuntu (GNU)
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - name: Windows (MSVC)
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - name: Windows (GNU)
-            os: windows-latest
-            target: x86_64-pc-windows-gnu
-#         - os: ubuntu-latest
-#           target: aarch64-unknown-linux-gnu
-#         - os: ubuntu-latest
-#           target: armv7-unknown-linux-gnueabihf
+        target: [x86_64-pc-windows-msvc, x86_64-pc-windows-gnu]
 
     steps:
       - name: Checkout repository
@@ -50,14 +36,14 @@ jobs:
         run: pip install -r ./tests/requirements.txt
 
       - name: Setup msys2 toolchains
-        if: startsWith(matrix.os, 'windows') && endsWith(matrix.target, '-gnu')
+        if: endsWith(matrix.target, '-gnu')
         uses: msys2/setup-msys2@v2
         with:
           release: false
           install: mingw-w64-x86_64-gcc mingw-w64-i686-gcc
 
       - name: Prepare env for windows
-        if: startsWith(matrix.os, 'windows') && endsWith(matrix.target, '-gnu')
+        if: endsWith(matrix.target, '-gnu')
         run: |
           # Add symlinks to the target-specific GNU sysroots for Clang
           New-Item -Path "C:\Program Files\LLVM\x86_64-w64-mingw32" -ItemType SymbolicLink -Value "C:\msys64\mingw64\x86_64-w64-mingw32"
@@ -69,6 +55,61 @@ jobs:
           echo "CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
           echo "CC_i686_pc_windows_gnu=i686-w64-mingw32-gcc" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
           # echo "HOST_CC=x86_64-w64-mingw32-gcc" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          components: llvm-tools-preview,rustfmt
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check code formatting
+        run: cargo fmt --check --all
+
+      - name: Build
+        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
+
+      - name: Run Rust tests
+        run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
+
+      - name: Run doc tests
+        run: cargo test --doc --profile ci --workspace --target ${{ matrix.target }} --features full
+
+      - name: Run Python tests
+        env:
+          EDGELINK_BUILD_TARGET: ${{ matrix.target }}
+          EDGELINK_BUILD_PROFILE: ci
+        run: pytest ./tests -v
+
+  build-and-test-linux:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r ./tests/requirements.txt
 
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -99,9 +140,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
 
-      - name: Check code formatting
-        run: cargo fmt --check --all
-
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
@@ -117,8 +155,8 @@ jobs:
           EDGELINK_BUILD_PROFILE: ci
         run: pytest ./tests -v
 
-  clippy:
-    name: Clippy
+  fmt-and-clippy:
+    name: Format and Clippy
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     timeout-minutes: 45
@@ -128,7 +166,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          components: clippy
+          components: clippy,fmt
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -136,4 +174,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      - run: cargo clippy --all-features --tests --all
+      - name: Check code formatting
+        run: cargo fmt --check --all
+      - name: Clippy
+        run: cargo clippy --all-features --tests --all
