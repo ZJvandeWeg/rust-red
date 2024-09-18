@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
+        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf, armv7-unknown-linux-gnueabi]
 
     steps:
       - name: Checkout repository
@@ -186,16 +186,44 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
 
-      - name: Install cross-compilation tools for ARM 32
+      - name: Install cross-compilation tools for ARM 32 (HF)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
 
+      - name: Install cross-compilation tools for ARM 32 (GNUEABI)
+        if: matrix.target == 'gcc-arm-linux-gnueabi'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabi libc6-dev-armel-cross
+
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
-  fmt-and-clippy:
+  fmt:
+    name: Format checking
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: x86_64-unknown-linux-gnu
+          components: rustfmt
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Check code formatting
+        run: cargo fmt --check --all
+
+  clippy:
     name: Format and Clippy
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
@@ -206,7 +234,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: x86_64-unknown-linux-gnu
-          components: clippy,rustfmt
+          components: clippy
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -214,7 +242,5 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      - name: Check code formatting
-        run: cargo fmt --check --all
       - name: Clippy
         run: cargo clippy --all-features --tests --all
