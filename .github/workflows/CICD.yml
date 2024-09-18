@@ -200,7 +200,7 @@ jobs:
         run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
 
       - name: Run unit tests in QEMU ARM
-        run: python3 ./scripts/cross-unittest.py ${{ QEMU_CMD }}  ${{ env.TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
+        run: python3 ./scripts/cross-unittest.py ${{ env.QEMU_CMD }}  ${{ env.TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
         env:
           TOOLCHAIN_TRIPLE: ${{ env.TOOLCHAIN_TRIPLE }}
           QEMU_CMD: ${{ env.QEMU_CMD }}
