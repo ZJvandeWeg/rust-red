@@ -16,7 +16,7 @@ env:
 
 jobs:
   build-and-test-windows:
-    name: Build and Test
+    name: Build and Test on Windows
     runs-on: windows-latest
     strategy:
       matrix:
@@ -92,7 +92,7 @@ jobs:
         run: pytest ./tests -v
 
   build-and-test-linux:
-    name: Build and Test
+    name: Build and Test on Linux
     runs-on: ubuntu-latest
     strategy:
       matrix:
