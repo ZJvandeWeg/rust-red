@@ -7,11 +7,13 @@ import os
 import argparse
 
 # 使用 argparse 处理命令行参数
-parser = argparse.ArgumentParser(description="Run test binaries using qemu-arm.")
+parser = argparse.ArgumentParser(description="Run test binaries using qemu-*.")
+parser.add_argument("qemu", help="The QEMU command (qemu-arm)")
 parser.add_argument("toolchain_prefix", help="The toolchain prefix (e.g., arm-linux-gnueabihf)")
 parser.add_argument("cargo_output", help="The path to the cargo-output.json file")
 args = parser.parse_args()
 
+qemu_cmd = args.qemu
 toolchain_prefix = args.toolchain_prefix
 cargo_output_path = args.cargo_output
 
@@ -41,7 +43,7 @@ for test_binary in test_binaries:
     print(f"Running test binary: {test_binary}")
     
     # 使用 subprocess 运行 qemu-arm
-    result = subprocess.run([f"qemu-arm", "-L", f"/usr/{toolchain_prefix}", test_binary])
+    result = subprocess.run([qemu_cmd, "-L", f"/usr/{toolchain_prefix}", test_binary])
     
     # 如果测试失败，更新退出码
     if result.returncode != 0:
