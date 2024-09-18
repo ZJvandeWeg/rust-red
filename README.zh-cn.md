@@ -50,7 +50,7 @@ cargo build -r
 > [!IMPORTANT]
 > **Windows 用户请注意:** 为了成功编译项目用到的 `rquickjs` 库，需要确保 `patch.exe` 程序存在于 `%PATH%` 环境变量中。`patch.exe` 用于为 QuickJS 库打上支持 Windows 的补丁，如果你已经安装了 Git，那 Git 都会附带 `patch.exe`。
 >
-> 由于项目用到的 [`linkme`](https://github.com/dtolnay/linkme/issues/25) 这个 crate 的问题，不支持 Windows 下的 GNU 工具链（Linux 下没有问题）。你还需要安装 `rquickjs` 这个 crate 需要的 Microsoft Visual C++ 和 Windows SDK，推荐直接装 Visual Studio。
+> 你还需要安装 `rquickjs` 这个 crate 需要的 Microsoft Visual C++ 和 Windows SDK，推荐直接装 Visual Studio。
 
 ### 2. 运行
 

@@ -3,8 +3,7 @@ use std::sync::Arc;
 
 use crate::runtime::nodes::*;
 
-#[linkme::distributed_slice]
-pub static __META_NODES: [MetaNode];
+inventory::collect!(MetaNode);
 
 pub trait Registry: 'static + Send + Sync {
     fn all(&self) -> &HashMap<&'static str, &'static MetaNode>;
@@ -38,7 +37,7 @@ impl RegistryBuilder {
     }
 
     pub fn with_builtins(mut self) -> Self {
-        for meta in __META_NODES.iter() {
+        for meta in inventory::iter::<MetaNode> {
             log::debug!("[REGISTRY] Available built-in Node: '{}'", meta.type_);
             self.meta_nodes.insert(meta.type_, meta);
         }

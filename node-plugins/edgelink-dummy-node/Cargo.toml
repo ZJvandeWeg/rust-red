@@ -7,7 +7,7 @@ edition = "2021"
 async-trait.workspace = true
 tokio-util.workspace = true
 log.workspace = true
-linkme.workspace = true
+inventory.workspace = true
 edgelink-core = { path = "../../crates/core", default-features = false, features = [
     "core",
 ] }

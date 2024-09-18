@@ -8,20 +8,18 @@ use super::{EdgelinkError, ElementId, Variant};
 use crate::runtime::context::*;
 use crate::Result;
 
-#[linkme::distributed_slice(crate::runtime::context::__PROVIDERS)]
-static _MEMORY_CONTEXT_STORE_METADATA: ProviderMetadata =
-    ProviderMetadata { type_: "memory", factory: MemoryContextStore::build };
+inventory::submit! {
+    ProviderMetadata { type_: "memory", factory: MemoryContextStore::build }
+}
 
 struct MemoryContextStore {
-    meta: &'static ProviderMetadata,
     name: String,
     scopes: RwLock<HashMap<String, VariantObjectMap>>,
 }
 
 impl MemoryContextStore {
     fn build(name: String, _options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>> {
-        let this =
-            MemoryContextStore { meta: &_MEMORY_CONTEXT_STORE_METADATA, name, scopes: RwLock::new(HashMap::new()) };
+        let this = MemoryContextStore { name, scopes: RwLock::new(HashMap::new()) };
         Ok(Box::new(this))
     }
 }
@@ -30,10 +28,6 @@ impl MemoryContextStore {
 impl ContextStore for MemoryContextStore {
     async fn name(&self) -> &str {
         &self.name
-    }
-
-    fn metadata(&self) -> &'static ProviderMetadata {
-        self.meta
     }
 
     async fn open(&self) -> Result<()> {

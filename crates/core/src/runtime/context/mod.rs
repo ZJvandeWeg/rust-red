@@ -18,16 +18,15 @@ pub const GLOBAL_STORE_NAME: &str = "global";
 pub const DEFAULT_STORE_NAME: &str = "default";
 pub const DEFAULT_STORE_NAME_ALIAS: &str = "_";
 
-#[linkme::distributed_slice]
-pub static __PROVIDERS: [ProviderMetadata];
-
 type StoreFactoryFn = fn(name: String, options: Option<&ContextStoreOptions>) -> crate::Result<Box<dyn ContextStore>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ProviderMetadata {
     pub type_: &'static str,
     pub factory: StoreFactoryFn,
 }
+
+inventory::collect!(ProviderMetadata);
 
 #[derive(Debug, Clone, serde:: Deserialize)]
 pub struct ContextStorageSettings {
@@ -52,8 +51,6 @@ pub struct ContextStoreProperty<'a> {
 /// The API trait for a context storage plug-in
 #[async_trait]
 pub trait ContextStore: Send + Sync {
-    fn metadata(&self) -> &'static ProviderMetadata;
-
     async fn name(&self) -> &str;
 
     async fn open(&self) -> Result<()>;
@@ -125,7 +122,8 @@ impl Context {
 
 impl Default for ContextManager {
     fn default() -> Self {
-        let memory_metadata = __PROVIDERS.iter().find(|x| x.type_ == "memory").unwrap();
+        let x = inventory::iter::<ProviderMetadata>;
+        let memory_metadata = x.into_iter().find(|x| x.type_ == "memory").unwrap();
         let memory_store =
             (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
         let mut stores: HashMap<std::string::String, Arc<dyn ContextStore>> = HashMap::with_capacity(1);
@@ -142,12 +140,12 @@ impl Default for ContextManagerBuilder {
 
 impl ContextManagerBuilder {
     pub fn new() -> Self {
-        let stores = HashMap::with_capacity(__PROVIDERS.len());
+        let stores = HashMap::with_capacity(inventory::iter::<ProviderMetadata>.into_iter().count());
         Self { stores, default_store: "memory".into(), settings: None }
     }
 
     pub fn load_default(&mut self) -> &mut Self {
-        let memory_metadata = __PROVIDERS.iter().find(|x| x.type_ == "memory").unwrap();
+        let memory_metadata = inventory::iter::<ProviderMetadata>.into_iter().find(|x| x.type_ == "memory").unwrap();
         let memory_store =
             (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
         self.stores.clear();
@@ -164,8 +162,10 @@ impl ContextManagerBuilder {
                 store_name,
                 store_options.provider
             );
-            let meta =
-                __PROVIDERS.iter().find(|x| x.type_ == store_options.provider).ok_or(EdgelinkError::Configuration)?;
+            let meta = inventory::iter::<ProviderMetadata>
+                .into_iter()
+                .find(|x| x.type_ == store_options.provider)
+                .ok_or(EdgelinkError::Configuration)?;
             let store = (meta.factory)(store_name.into(), Some(store_options))?;
             self.stores.insert(store_name.clone(), Arc::from(store));
         }

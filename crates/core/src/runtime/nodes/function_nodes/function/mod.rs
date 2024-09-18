@@ -14,7 +14,6 @@ use js::IntoJs;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::*;
 use crate::runtime::nodes::*;
-use crate::runtime::registry::*;
 use edgelink_macro::*;
 
 mod edgelink_class;
