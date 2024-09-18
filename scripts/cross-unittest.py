@@ -41,7 +41,7 @@ for test_binary in test_binaries:
     print(f"Running test binary: {test_binary}")
     
     # 使用 subprocess 运行 qemu-arm
-    result = subprocess.run([f"qemu-arm-static", "-L", f"/usr/{toolchain_prefix}", test_binary])
+    result = subprocess.run([f"qemu-arm", "-L", f"/usr/{toolchain_prefix}", test_binary])
     
     # 如果测试失败，更新退出码
     if result.returncode != 0:
