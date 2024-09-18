@@ -136,7 +136,7 @@ jobs:
         run: pytest ./tests -v
 
   build-and-test-on-arm-linux:
-    name: Build on ARM Linux
+    name: Build and Test on ARM Linux
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -198,6 +198,9 @@ jobs:
 
       - name: Run unit tests in QEMU ARM
         run: python3 ./scripts/cross-unittest.py $TOOLCHAIN_TRIPPLE ./target/${{ matrix.target }}/ci/cargo-build-test.json
+        env:
+          TOOLCHAIN_TRIPPLE: ${{ env.TOOLCHAIN_TRIPPLE }}
+
 
 
   fmt:
