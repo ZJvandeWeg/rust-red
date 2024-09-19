@@ -154,11 +154,11 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
     // Load configuration from default, development, and production files
     let home_dir = dirs_next::home_dir()
         .map(|x| x.join(".edgelink").to_string_lossy().to_string())
-        .expect("Cannot got the `~/home` directory");
+        .expect("Cannot get the `~/home` directory");
 
     let edgelink_home_dir = cli_args.home.clone().or(std::env::var("EDGELINK_HOME").ok()).or(Some(home_dir));
 
-    let run_env = cli_args.env.clone().and(std::env::var("EDGELINK_RUN_ENV").ok()).unwrap_or("dev".to_string());
+    let run_env = cli_args.env.clone().or(std::env::var("EDGELINK_RUN_ENV").ok()).unwrap_or("dev".to_string());
 
     if cli_args.verbose > 0 {
         if let Some(ref x) = edgelink_home_dir {
@@ -168,18 +168,26 @@ fn load_config(cli_args: &CliArgs) -> anyhow::Result<Option<config::Config>> {
 
     if let Some(md) = edgelink_home_dir.as_ref().and_then(|x| std::fs::metadata(x).ok()) {
         if md.is_dir() {
-            let cfg = config::Config::builder()
-                .add_source(config::File::with_name("edgelinkd.toml"))
-                .add_source(config::File::with_name(&format!("edgelinkd.{}.toml", run_env)).required(false))
-                .set_override("home_dir", edgelink_home_dir)?
-                .set_override("run_env", run_env)?
-                .set_override("node.msg_queue_capacity", 1)?
-                .build()?;
-            return Ok(Some(cfg));
+            let mut builder = config::Config::builder();
+
+            builder = if let Some(hd) = edgelink_home_dir {
+                builder
+                    .add_source(config::File::with_name(&format!("{}/edgelinkd.toml", hd)).required(false))
+                    .add_source(config::File::with_name(&format!("{}/edgelinkd.{}.toml", hd, run_env)).required(false))
+                    .set_override("home_dir", hd)?
+            } else {
+                builder
+            };
+
+            builder = builder
+                .set_override("run_env", run_env)? // override run_env
+                .set_override("node.msg_queue_capacity", 1)?;
+            let config = builder.build()?;
+            return Ok(Some(config));
         }
     }
     if cli_args.verbose > 0 {
-        eprintln!("The `$EDGELINK_HOME` does not existed!");
+        eprintln!("The `$EDGELINK_HOME` directory does not exist!");
     }
     Ok(None)
 }

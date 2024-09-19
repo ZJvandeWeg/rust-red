@@ -72,7 +72,13 @@ impl FlowNodeBehavior for FunctionNode {
 
         let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
 
-        let _ = self.init_async(&js_ctx).await;
+        if let Err(e) = self.init_async(&js_ctx).await {
+            // It's a fatal error
+            log::error!("[FUNCTION NODE] Fatal error! Failed to initialize JavaScript environment: {}", e);
+
+            stop_token.cancel();
+            stop_token.cancelled().await;
+        }
         JS_RUMTIME.get().unwrap().idle().await;
 
         while !stop_token.is_cancelled() {
@@ -225,8 +231,16 @@ impl FunctionNode {
 
     async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
-        let user_script =
-            format!(r"async function __el_user_func(context, msg) {{ var __msgid__=msg._msgid; {user_func} }}");
+        let user_script = format!(
+            r#"
+            async function __el_user_func(context, msg) {{ 
+                var global = __edgelinkGlobalContext; 
+                var flow = __edgelinkFlowContext; 
+                var context = __edgelinkNodeContext; 
+                var __msgid__ = msg._msgid; 
+                {user_func} 
+            }}"#
+        );
         let user_script_ref = &user_script;
 
         log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");
@@ -241,7 +255,7 @@ impl FunctionNode {
 
             // Register the global-scoped context
             if let Some(global_context) = self.get_engine().map(|x| x.context()) {
-                ctx.globals().set("global", context_class::ContextClass::new(global_context))?;
+                ctx.globals().set("__edgelinkGlobalContext", context_class::ContextClass::new(global_context))?;
             }
             else {
                 return Err(EdgelinkError::InvalidData("Failed to get global context".into()).into());
@@ -249,14 +263,14 @@ impl FunctionNode {
 
             // Register the flow-scoped context
             if let Some(flow_context) = self.get_flow().upgrade().map(|x| x.context()) {
-                ctx.globals().set("flow", context_class::ContextClass::new(flow_context))?;
+                ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
             }
             else {
                 return Err(EdgelinkError::InvalidData("Failed to get flow context".into()).into());
             }
 
             // Register the node-scoped context
-            ctx.globals().set("context", context_class::ContextClass::new(self.context()))?;
+            ctx.globals().set("__edgelinkNodeContext", context_class::ContextClass::new(self.context()))?;
 
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;

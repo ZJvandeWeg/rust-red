@@ -4,6 +4,7 @@ use rquickjs::{class::Trace, Ctx, Function, IntoJs, Value};
 use rquickjs::{prelude::*, Exception};
 
 use crate::runtime::context::{Context as RedContext, ContextKey};
+use crate::utils::async_util::SyncWaitableFuture;
 
 use super::{UndefinableVariant, Variant};
 
@@ -23,7 +24,7 @@ impl ContextClass {
     }
 
     #[qjs(rename = "get")]
-    fn get<'js>(
+    pub fn get<'js>(
         self,
         keys: Value<'js>,
         store: Opt<rquickjs::String<'js>>,
@@ -53,14 +54,17 @@ impl ContextClass {
         } else {
             // No callback, we do it in sync
             let store = store.0.and_then(|x| x.get::<String>().ok());
-            let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-            let ctx_value = self.red_ctx.get_one_sync(&ctx_key);
+            let ctx_value = async move {
+                let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
+                self.red_ctx.get_one(&ctx_key).await
+            }
+            .wait();
             UndefinableVariant(ctx_value).into_js(&ctx)
         }
     }
 
     #[qjs(rename = "set")]
-    fn set<'js>(
+    pub fn set<'js>(
         self,
         keys: Value<'js>,
         values: Value<'js>,
@@ -92,11 +96,47 @@ impl ContextClass {
         } else {
             // No callback, we do it in sync
             let store = store.0.and_then(|x| x.get::<String>().ok());
-            let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-            self.red_ctx
-                .set_one_sync(&ctx_key, Some(values))
-                .map_err(|e| ctx.throw(format!("{}", e).into_js(&ctx).unwrap()))?;
+            async move {
+                let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
+                self.red_ctx.set_one(&ctx_key, Some(values)).await
+            }
+            .wait()
+            .map_err(|e| ctx.throw(format!("{}", e).into_js(&ctx).unwrap()))?;
         }
         Ok(())
+    }
+
+    #[qjs(rename = "keys")]
+    pub fn keys<'js>(
+        self,
+        store: Opt<rquickjs::String<'js>>,
+        cb: Opt<Function<'js>>,
+        ctx: Ctx<'js>,
+    ) -> rquickjs::Result<Value<'js>> {
+        let async_ctx = ctx.clone();
+        if let Some(cb) = cb.0 {
+            // User provides the callback, we do it in async
+            ctx.spawn(async move {
+                let store = store.0.and_then(|x| x.get::<String>().ok());
+                match self.red_ctx.keys(store.as_deref()).await {
+                    Some(ctx_keys) => {
+                        let args = (Value::new_undefined(async_ctx.clone()), ctx_keys.into_js(&async_ctx));
+                        cb.call::<_, ()>(args).unwrap();
+                    }
+                    None => {
+                        let args = (Value::new_undefined(async_ctx.clone()), Value::new_undefined(async_ctx.clone()));
+                        cb.call::<_, ()>(args).unwrap();
+                    }
+                }
+            });
+            Ok(Value::new_undefined(ctx.clone()))
+        } else {
+            // No callback, we do it in sync
+            let store = store.0.and_then(|x| x.get::<String>().ok());
+            match async move { self.red_ctx.keys(store.as_deref()).await }.wait() {
+                Some(ctx_keys) => ctx_keys.into_js(&ctx),
+                None => Ok(Value::new_undefined(ctx.clone())),
+            }
+        }
     }
 }

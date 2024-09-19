@@ -1,5 +1,4 @@
 // Prelude script for every `function` node
-
 const RED = (function () {
     return {
         util: {

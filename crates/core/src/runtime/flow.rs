@@ -771,7 +771,7 @@ impl Flow {
                 ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.id, node_config.id))),
             ])
             .build();
-        let context = engine.get_context_manager().new_context(Some(&self.context), self.id.to_string());
+        let context = engine.get_context_manager().new_context(Some(&self.context), node_config.id.to_string());
 
         Ok(FlowNode {
             id: node_config.id,

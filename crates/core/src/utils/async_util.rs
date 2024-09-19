@@ -22,3 +22,17 @@ pub async fn delay_secs_f64(secs: f64, cancel: CancellationToken) -> crate::Resu
 pub async fn delay_millis(millis: u64, cancel: CancellationToken) -> crate::Result<()> {
     delay(Duration::from_millis(millis), cancel).await
 }
+
+pub trait SyncWaitableFuture: std::future::Future {
+    fn wait(self) -> Self::Output
+    where
+        Self: Sized + Send + 'static,
+        Self::Output: Send + 'static,
+    {
+        let handle = tokio::runtime::Handle::current();
+        let task = handle.spawn(self);
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task).unwrap())
+    }
+}
+
+impl<F> SyncWaitableFuture for F where F: std::future::Future {}

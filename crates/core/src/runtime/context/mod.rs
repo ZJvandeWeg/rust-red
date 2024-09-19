@@ -14,7 +14,7 @@ use runtime::model::*;
 mod localfs;
 mod memory;
 
-pub const GLOBAL_STORE_NAME: &str = "global";
+pub const GLOBAL_CONTEXT_NAME: &str = "global";
 pub const DEFAULT_STORE_NAME: &str = "default";
 pub const DEFAULT_STORE_NAME_ALIAS: &str = "_";
 
@@ -92,12 +92,22 @@ pub struct ContextManagerBuilder {
 impl Context {
     pub async fn get_one(&self, prop: &ContextKey<'_>) -> Option<Variant> {
         let store = if let Some(storage) = prop.store {
-            self.manager.upgrade()?.get_context(storage)?
+            self.manager.upgrade()?.get_context_store(storage)?
         } else {
-            self.manager.upgrade()?.get_default()
+            self.manager.upgrade()?.get_default_store()
         };
         // TODO FIXME change it to fixed length stack-allocated string
         store.get_one(&self.scope, prop.key).await.ok()
+    }
+
+    pub async fn keys(&self, store: Option<&str>) -> Option<Vec<String>> {
+        let store = if let Some(storage) = store {
+            self.manager.upgrade()?.get_context_store(storage)?
+        } else {
+            self.manager.upgrade()?.get_default_store()
+        };
+        // TODO FIXME change it to fixed length stack-allocated string
+        store.get_keys(&self.scope).await.ok()
     }
 
     pub async fn set_one(&self, prop: &ContextKey<'_>, value: Option<Variant>) -> Result<()> {
@@ -105,10 +115,10 @@ impl Context {
             self.manager
                 .upgrade()
                 .expect("The mananger cannot be released!")
-                .get_context(storage)
+                .get_context_store(storage)
                 .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?
         } else {
-            self.manager.upgrade().expect("The manager cannot be released!").get_default()
+            self.manager.upgrade().expect("The manager cannot be released!").get_default_store()
         };
         // TODO FIXME change it to fixed length stack-allocated string
         if let Some(value) = value {
@@ -117,16 +127,6 @@ impl Context {
             let _ = store.remove_one(&self.scope, prop.key).await?;
             Ok(())
         }
-    }
-
-    pub fn get_one_sync(&self, key: &ContextKey<'_>) -> Option<Variant> {
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(self.get_one(key))
-    }
-
-    pub fn set_one_sync(&self, key: &ContextKey<'_>, value: Option<Variant>) -> Result<()> {
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(self.set_one(key, value))
     }
 }
 
@@ -220,16 +220,17 @@ impl ContextManager {
     }
 
     pub fn new_global_context(self: &Arc<Self>) -> Arc<Context> {
-        let c = Arc::new(Context { parent: None, manager: Arc::downgrade(self), scope: GLOBAL_STORE_NAME.to_string() });
-        self.contexts.insert(GLOBAL_STORE_NAME.to_string(), c.clone());
+        let c =
+            Arc::new(Context { parent: None, manager: Arc::downgrade(self), scope: GLOBAL_CONTEXT_NAME.to_string() });
+        self.contexts.insert(GLOBAL_CONTEXT_NAME.to_string(), c.clone());
         c
     }
 
-    pub fn get_default(&self) -> Arc<dyn ContextStore> {
+    pub fn get_default_store(&self) -> Arc<dyn ContextStore> {
         self.default_store.clone()
     }
 
-    pub fn get_context(&self, store_name: &str) -> Option<Arc<dyn ContextStore>> {
+    pub fn get_context_store(&self, store_name: &str) -> Option<Arc<dyn ContextStore>> {
         match store_name {
             DEFAULT_STORE_NAME | DEFAULT_STORE_NAME_ALIAS | "" => Some(self.default_store.clone()),
             _ => self.stores.get(store_name).cloned(),
