@@ -129,6 +129,16 @@ impl<'js> js::IntoJs<'js> for Variant {
     }
 }
 
+#[cfg(feature = "js")]
+impl<'js> js::IntoJs<'js> for UndefinableVariant {
+    fn into_js(self, ctx: &js::Ctx<'js>) -> js::Result<js::Value<'js>> {
+        match self.0 {
+            Some(var) => var.into_js(ctx),
+            None => Ok(js::Value::new_undefined(ctx.clone())),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use js::IntoJs;

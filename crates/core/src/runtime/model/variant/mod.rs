@@ -36,6 +36,8 @@ pub enum VariantError {
     BadCast,
 }
 
+pub struct UndefinableVariant(pub Option<Variant>);
+
 /// A versatile enum that can represent various types of data.
 ///
 /// This enum is designed to be a flexible container for different kinds of data,
@@ -58,7 +60,6 @@ pub enum VariantError {
 /// let integer_variant = Variant::from(42);
 /// assert_eq!(integer_variant.as_i64().unwrap(), 42);
 /// ```
-
 #[derive(Default, Clone)]
 pub enum Variant {
     /// Represents a null value.
