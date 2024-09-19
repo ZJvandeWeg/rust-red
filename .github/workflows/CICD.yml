@@ -168,24 +168,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu libc-dev-arm64-cross
-          echo "TOOLCHAIN_TRIPLE=aarch64-linux-gnu" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-aarch64-static" >> $GITHUB_ENV
+          echo "EDGELINK_TOOLCHAIN_TRIPLE=aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "EDGELINK_QEMU_CMD=qemu-aarch64-static" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabihf)
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf libc-dev-armhf-cross
-          echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-arm-static" >> $GITHUB_ENV
+          echo "EDGELINK_TOOLCHAIN_TRIPLE=arm-linux-gnueabihf" >> $GITHUB_ENV
+          echo "EDGELINK_QEMU_CMD=qemu-arm-static" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools for ARM 32 (gnueabi)
         if: matrix.target == 'armv7-unknown-linux-gnueabi'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabi libc-dev-armel-cross
-          echo "TOOLCHAIN_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
-          echo "QEMU_CMD=qemu-arm-static" >> $GITHUB_ENV
+          echo "EDGELINK_TOOLCHAIN_TRIPLE=arm-linux-gnueabi" >> $GITHUB_ENV
+          echo "EDGELINK_QEMU_CMD=qemu-arm-static" >> $GITHUB_ENV
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
@@ -200,10 +200,16 @@ jobs:
         run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
 
       - name: Run unit tests in QEMU ARM
-        run: python3 ./scripts/cross-unittest.py ${{ env.QEMU_CMD }}  ${{ env.TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
+        run: python3 ./scripts/cross-unittest.py ${{ env.EDGELINK_QEMU_CMD }}  ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
         env:
-          TOOLCHAIN_TRIPLE: ${{ env.TOOLCHAIN_TRIPLE }}
-          QEMU_CMD: ${{ env.QEMU_CMD }}
+          EDGELINK_TOOLCHAIN_TRIPLE: ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }}
+          EDGELINK_QEMU_CMD: ${{ env.EDGELINK_QEMU_CMD }}
+
+      - name: Run Python tests with QEMU ARM
+        env:
+          EDGELINK_TOOLCHAIN_TRIPLE: ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }}
+          EDGELINK_QEMU_CMD: ${{ env.EDGELINK_QEMU_CMD }}
+        run: python3 -B -m pytest ./tests -v
 
 
 

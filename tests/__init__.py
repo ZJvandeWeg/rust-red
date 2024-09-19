@@ -17,6 +17,8 @@ class EdgelinkError(Exception):
 
 
 async def start_edgelink_process(el_args: list[str]):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
     # Determine the operating system and choose the appropriate executable name
     if platform.system() == 'Windows':
         createion_flags = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -25,17 +27,19 @@ async def start_edgelink_process(el_args: list[str]):
         createion_flags = 0
         myprog_name = 'edgelinkd'
 
-    # Get the path of the current script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     target = os.getenv('EDGELINK_BUILD_TARGET', '')
     profile = os.getenv('EDGELINK_BUILD_PROFILE', 'release')
 
-    # Construct the full path to the myprog executable
     myprog_path = os.path.join(
         script_dir, '..', 'target', target, profile, myprog_name)
 
-    # Start the process
+    qemu_cmd = os.getenv("EDGELINK_QEMU_CMD", None)
+    toolchain_triple = os.getenv("EDGELINK_TOOLCHAIN_TRIPLE", None)
+    if qemu_cmd and toolchain_triple:
+        myprog_path = qemu_cmd
+        el_args = ["-L", f"/usr/{toolchain_triple}"] + el_args
+
     process = await asyncio.create_subprocess_exec(
         myprog_path, *el_args,
         stdout=asyncio.subprocess.PIPE,
