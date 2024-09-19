@@ -286,7 +286,7 @@ impl FlowEngine {
         self.context_manager.clone()
     }
 
-    pub fn get_context(&self) -> Arc<Context> {
+    pub fn context(&self) -> Arc<Context> {
         self.context.clone()
     }
 }

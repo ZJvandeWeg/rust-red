@@ -286,7 +286,7 @@ impl Flow {
         };
         let envs = envs_builder.build();
 
-        let context = engine.get_context_manager().new_context(Some(&engine.get_context()), flow_config.id.to_string());
+        let context = engine.get_context_manager().new_context(Some(&engine.context()), flow_config.id.to_string());
 
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,

@@ -16,6 +16,7 @@ use crate::runtime::model::*;
 use crate::runtime::nodes::*;
 use edgelink_macro::*;
 
+mod context_class;
 mod edgelink_class;
 mod env_class;
 mod node_class;
@@ -237,6 +238,25 @@ impl FunctionNode {
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
             ctx.globals().set("node", node_class::NodeClass::new(self))?;
+
+            // Register the global-scoped context
+            if let Some(global_context) = self.get_engine().map(|x| x.context()) {
+                ctx.globals().set("global", context_class::ContextClass::new(global_context))?;
+            }
+            else {
+                return Err(EdgelinkError::InvalidData("Failed to get global context".into()).into());
+            }
+
+            // Register the flow-scoped context
+            if let Some(flow_context) = self.get_flow().upgrade().map(|x| x.context()) {
+                ctx.globals().set("flow", context_class::ContextClass::new(flow_context))?;
+            }
+            else {
+                return Err(EdgelinkError::InvalidData("Failed to get flow context".into()).into());
+            }
+
+            // Register the node-scoped context
+            ctx.globals().set("context", context_class::ContextClass::new(self.context()))?;
 
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;
