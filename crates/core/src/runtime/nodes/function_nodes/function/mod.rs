@@ -139,7 +139,7 @@ impl FunctionNode {
         let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
-            let args =(js::Value::new_null(ctx.clone()), js_msg);
+            let args = (js_msg,);
             let promised = user_func.call::<_, rquickjs::Promise>(args)?;
             let js_res_value: js::Result<js::Value> = promised.into_future().await;
             match js_res_value.catch(&ctx) {
@@ -233,7 +233,7 @@ impl FunctionNode {
         let user_func = &self.config.func;
         let user_script = format!(
             r#"
-            async function __el_user_func(context, msg) {{ 
+            async function __el_user_func(msg) {{ 
                 var global = __edgelinkGlobalContext; 
                 var flow = __edgelinkFlowContext; 
                 var context = __edgelinkNodeContext; 
@@ -278,18 +278,43 @@ impl FunctionNode {
             match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options) {
                 Err(e) => {
                     log::error!("Failed to evaluate the prelude script: {}", e);
-                    panic!();
+                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
                 }
                 _ =>{
                     log::debug!("[FUNCTION_NODE] The evulation of the prelude script has been succeed.");
                 }
             }
 
-            if !self.config.initialize.is_empty() {
-                match ctx.eval::<(),_>(self.config.initialize.as_bytes()) {
+            if !self.config.initialize.trim_ascii().is_empty() {
+                let init_body = &self.config.initialize;
+                let init_script = format!(
+                    r#"
+                    async function __el_init_func() {{ 
+                        var global = __edgelinkGlobalContext; 
+                        var flow = __edgelinkFlowContext; 
+                        var context = __edgelinkNodeContext; 
+                        {init_body} 
+                    }}"#
+                );
+                let mut eval_options = EvalOptions::default();
+                eval_options.promise = true;
+                eval_options.strict = true;
+                match ctx.eval_with_options::<(), _>(init_script.as_bytes(), eval_options) {
+                    Err(e) => {
+                        log::error!("Failed to evaluate the `initialize` script: {:?}", e);
+                        return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                    }
+                    _ =>{
+                        log::debug!("[FUNCTION_NODE] The evulation of the `initialize` script has been succeed.");
+                    }
+                }
+
+                let init_func : js::Function = ctx.globals().get("__el_init_func")?;
+                let promised = init_func.call::<_, rquickjs::Promise>(())?;
+                match promised.into_future().await {
                     Ok(()) => (),
                     Err(e) => {
-                        log::error!("Failed to evaluate the initialization script code: {}", e);
+                        log::error!("Failed to invoke the initialization script code: {}", e);
                         return Err(EdgelinkError::InvalidData(e.to_string()).into());
                     }
                 }
