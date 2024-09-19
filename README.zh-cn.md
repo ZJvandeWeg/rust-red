@@ -48,13 +48,14 @@ cargo build -r
 >
 > 你还需要安装 `rquickjs` 这个 crate 需要的 Microsoft Visual C++ 和 Windows SDK，推荐直接装 Visual Studio。
 
-测试过的工具链：
+测试过的工具链（见 GitHub Actions）：
 
 * `x86_64-pc-windows-msvc`
 * `x86_64-pc-windows-gnu`
 * `x86_64-unknown-linux-gnu`
 * `aarch64-unknown-linux-gnu`
 * `armv7-unknown-linux-gnueabihf`
+* `armv7-unknown-linux-gnueabi`
 
 ### 2. 运行
 
