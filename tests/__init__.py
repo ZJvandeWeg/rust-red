@@ -30,7 +30,7 @@ async def start_edgelink_process(el_args: list[str]):
 
 
     target = os.getenv('EDGELINK_BUILD_TARGET', '')
-    profile = os.getenv('EDGELINK_BUILD_PROFILE', 'release')
+    profile = os.getenv('EDGELINK_BUILD_PROFILE', 'debug')
 
     myprog_path = os.path.join(
         script_dir, '..', 'target', target, profile, myprog_name)

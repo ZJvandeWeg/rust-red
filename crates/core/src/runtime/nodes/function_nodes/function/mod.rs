@@ -128,6 +128,7 @@ impl FunctionNode {
     }
 
     async fn filter_msg(&self, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
+        let origin_msg_id = msg.id();
         let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
@@ -135,7 +136,7 @@ impl FunctionNode {
             let promised = user_func.call::<_, rquickjs::Promise>(args)?;
             let js_res_value: js::Result<js::Value> = promised.into_future().await;
             match js_res_value.catch(&ctx) {
-                Ok(js_result) => self.convert_return_value(&ctx , js_result),
+                Ok(js_result) => self.convert_return_value(&ctx , js_result, origin_msg_id),
                 Err(e) => {
                     log::error!("Javascript user function exception: {:?}", e);
                     Err(js::Error::Exception)
@@ -156,41 +157,55 @@ impl FunctionNode {
         }
     }
 
-    fn convert_return_value<'js>(&self, ctx: &js::Ctx<'js>, js_result: js::Value<'js>) -> js::Result<OutputMsgs> {
+    fn convert_return_value<'js>(
+        &self,
+        ctx: &js::Ctx<'js>,
+        js_result: js::Value<'js>,
+        origin_msg_id: Option<ElementId>,
+    ) -> js::Result<OutputMsgs> {
         let mut items = OutputMsgs::new();
         match js_result.type_of() {
-            js::Type::Object => {
-                // Returns single Msg
-                let item = (0, Msg::from_js(ctx, js_result)?);
-                items.push(item);
-            }
+            // Returns an array of Msgs
             js::Type::Array => {
-                // Returns an array of Msgs
                 for (port, ele) in js_result.as_array().unwrap().iter::<js::Value>().enumerate() {
                     match ele {
                         Ok(ele) => {
-                            if ele.is_object() {
-                                items.push((port, Msg::from_js(ctx, ele)?));
-                            } else if let Some(subarr) = ele.as_array() {
+                            if let Some(subarr) = ele.as_array() {
                                 for subele in subarr.iter() {
                                     match subele {
                                         Ok(obj) => {
-                                            items.push((port, Msg::from_js(ctx, obj)?));
+                                            let mut msg = Msg::from_js(ctx, obj)?;
+                                            if let Some(org_id) = origin_msg_id {
+                                                msg.set_id(org_id);
+                                            }
+                                            items.push((port, msg));
                                         }
                                         Err(ref e) => {
-                                            log::warn!("Bad array item: \n{:#?}", e);
+                                            log::warn!("Bad msg array item: \n{:#?}", e);
                                         }
                                     }
                                 }
+                            } else if ele.is_object() {
+                                let mut msg = Msg::from_js(ctx, ele)?;
+                                if let Some(org_id) = origin_msg_id {
+                                    msg.set_id(org_id);
+                                }
+                                items.push((port, msg));
                             } else {
-                                log::warn!("Bad array item: \n{:#?}", ele);
+                                log::warn!("Bad msg array item: \n{:#?}", ele);
                             }
                         }
                         Err(ref e) => {
-                            log::warn!("Bad array item: \n{:#?}", e);
+                            log::warn!("Bad msg array item: \n{:#?}", e);
                         }
                     }
                 }
+            }
+
+            // Returns single Msg
+            js::Type::Object => {
+                let item = (0, Msg::from_js(ctx, js_result)?);
+                items.push(item);
             }
 
             js::Type::Null => {
@@ -210,7 +225,8 @@ impl FunctionNode {
 
     async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         let user_func = &self.config.func;
-        let user_script = format!(r"async function __el_user_func(context, msg) {{ {user_func} }}");
+        let user_script =
+            format!(r"async function __el_user_func(context, msg) {{ var __msgid__=msg._msgid; {user_func} }}");
         let user_script_ref = &user_script;
 
         log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");

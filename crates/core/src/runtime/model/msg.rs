@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use serde::de;
@@ -72,12 +73,18 @@ impl Msg {
         self.body.get(wellknown::MSG_ID_PROPERTY).and_then(|x| x.as_str()).and_then(parse_red_id_str)
     }
 
+    pub fn set_id(&mut self, id: ElementId) {
+        let uid: u64 = id.into();
+        self.body.insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::from(uid));
+    }
+
     pub fn generate_id() -> ElementId {
         ElementId::new()
     }
 
     pub fn generate_id_variant() -> Variant {
-        Variant::String(ElementId::new().to_string())
+        let uid: u64 = Msg::generate_id().into();
+        Variant::from(uid)
     }
 
     pub fn as_variant_object(&self) -> &VariantObjectMap {
@@ -268,6 +275,19 @@ impl<'js> js::FromJs<'js> for Msg {
                     for result in jo.props::<String, js::Value>() {
                         match result {
                             Ok((ref k, v)) => match k.as_str() {
+                                wellknown::MSG_ID_PROPERTY if v.is_string() => {
+                                    // covert
+                                    let uid_str: String = v.get()?;
+                                    let uid: u64 =
+                                        ElementId::from_str(uid_str.as_str()).map(|x| x.into()).map_err(|e| {
+                                            js::Error::FromJs {
+                                                from: "String",
+                                                to: "ElementID",
+                                                message: Some(format!("Failed to convert msg id '{}': {}", uid_str, e)),
+                                            }
+                                        })?;
+                                    body.insert(k.clone(), Variant::from(uid));
+                                }
                                 wellknown::LINK_SOURCE_PROPERTY => {
                                     if let Some(bytes) =
                                         v.as_object().and_then(|x| x.as_array_buffer()).and_then(|x| x.as_bytes())
@@ -305,8 +325,13 @@ impl<'js> js::FromJs<'js> for Msg {
 #[cfg(feature = "js")]
 impl<'js> js::IntoJs<'js> for Msg {
     fn into_js(self, ctx: &js::Ctx<'js>) -> js::Result<js::Value<'js>> {
+        let msg_id = self.id();
         let jsv = self.body.into_js(ctx)?;
         let obj = jsv.as_object().unwrap();
+        if let Some(msg_id) = msg_id {
+            let msgid_atom = wellknown::MSG_ID_PROPERTY.into_js(ctx)?;
+            obj.set(msgid_atom, msg_id.to_string().into_js(ctx))?;
+        }
         {
             let link_source_atom = wellknown::LINK_SOURCE_PROPERTY.into_js(ctx)?;
             let link_source_bytes = bincode::serialize(&self.link_call_stack).map_err(|e| js::Error::IntoJs {

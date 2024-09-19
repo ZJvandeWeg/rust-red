@@ -36,6 +36,18 @@ impl FromStr for ElementId {
     }
 }
 
+impl From<u64> for ElementId {
+    fn from(value: u64) -> Self {
+        ElementId(value)
+    }
+}
+
+impl From<ElementId> for u64 {
+    fn from(val: ElementId) -> Self {
+        val.0
+    }
+}
+
 impl ElementId {
     pub fn new() -> Self {
         Self(utils::generate_uid())

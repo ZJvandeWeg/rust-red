@@ -88,7 +88,7 @@ pip install -U -r ./tests/requirements.txt
 然后执行以下命令即可：
 
 ```bash
-cargo build -r
+cargo build
 python -B -m pytest tests
 ```
 
