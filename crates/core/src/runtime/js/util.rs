@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
-use rquickjs::{Ctx, IntoJs, Value};
+use rquickjs::function::{Constructor, This};
+use rquickjs::{Ctx, Function, IntoJs, Value};
 
 pub fn deep_clone<'js>(ctx: Ctx<'js>, obj: Value<'js>) -> rquickjs::Result<Value<'js>> {
     if let Some(obj_ref) = obj.as_object() {
-        let global = ctx.globals();
-        let date_ctor: rquickjs::function::Constructor = global.get("Date")?;
+        let globals = ctx.globals();
+        let date_ctor: Constructor = globals.get("Date")?;
         if obj_ref.is_instance_of(&date_ctor) {
-            let get_time_fn: rquickjs::Function = obj_ref.get("getTime")?;
-            let time: i64 = get_time_fn.call((rquickjs::function::This(&obj),))?;
+            let get_time_fn: Function = obj_ref.get("getTime")?;
+            let time: i64 = get_time_fn.call((This(&obj),))?;
             return date_ctor.construct((time,));
         }
 
@@ -23,10 +24,10 @@ pub fn deep_clone<'js>(ctx: Ctx<'js>, obj: Value<'js>) -> rquickjs::Result<Value
 
         {
             let mut obj_copy: HashMap<String, Value<'js>> = HashMap::with_capacity(obj_ref.len());
-            let has_own_property_fn: rquickjs::Function = obj_ref.get("hasOwnProperty")?;
+            let has_own_property_fn: Function = obj_ref.get("hasOwnProperty")?;
             for item in obj_ref.props::<String, Value<'js>>() {
                 let (k, v) = item?;
-                let has: bool = has_own_property_fn.call((rquickjs::function::This(&obj), k.as_str()))?;
+                let has: bool = has_own_property_fn.call((This(&obj), k.as_str()))?;
                 if has {
                     obj_copy.insert(k, deep_clone(ctx.clone(), v)?);
                 }

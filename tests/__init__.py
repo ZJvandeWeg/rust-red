@@ -5,6 +5,7 @@ import platform
 import subprocess
 import signal
 import copy
+import pytest
 
 
 class EdgelinkError(Exception):
