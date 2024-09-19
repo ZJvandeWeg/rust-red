@@ -5,9 +5,27 @@ on:
     branches:
       - master
       - dev
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'crates/**'
+      - 'node-plugins/**'
+      - '*.rs'
+      - '*.toml'
+      - '*.ini'
+      - '*.lock'
   pull_request:
     branches:
       - master
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'crates/**'
+      - 'node-plugins/**'
+      - '*.rs'
+      - '*.toml'
+      - '*.ini'
+      - '*.lock'
 
 permissions:
   contents: read
