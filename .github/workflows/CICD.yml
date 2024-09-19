@@ -160,6 +160,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r ./tests/requirements.txt
+
       - name: Install dependencies
         run: sudo apt-get -y install qemu-user qemu-user-static
 
@@ -189,12 +198,6 @@ jobs:
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
 
       - name: Build tests without running
         run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
