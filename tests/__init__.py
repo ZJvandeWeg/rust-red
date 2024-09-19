@@ -36,9 +36,10 @@ async def start_edgelink_process(el_args: list[str]):
 
     qemu_cmd = os.getenv("EDGELINK_QEMU_CMD", None)
     toolchain_triple = os.getenv("EDGELINK_TOOLCHAIN_TRIPLE", None)
+
     if qemu_cmd and toolchain_triple:
+        el_args = ["-L", f"/usr/{toolchain_triple}", myprog_path] + el_args
         myprog_path = qemu_cmd
-        el_args = ["-L", f"/usr/{toolchain_triple}"] + el_args
 
     process = await asyncio.create_subprocess_exec(
         myprog_path, *el_args,
@@ -47,6 +48,8 @@ async def start_edgelink_process(el_args: list[str]):
         stdin=asyncio.subprocess.PIPE,
         creationflags=createion_flags
     )
+    if not process:
+        pytest.exit("Run EdgeLink process failed!")
     return process
 
 
