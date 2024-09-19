@@ -72,8 +72,8 @@ class TestFunctionNode:
     async def test_it_should_clone_single_message_sent_using_send_2(self):
         await self._test_send_cloning("msg")
 
-
     # Not supported, yet
+
     @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should not clone single message sent using send(,false)')
@@ -146,19 +146,21 @@ class TestFunctionNode:
     async def test_it_should_send_to_multiple_message(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return [[{payload: 1},{payload: 2}]];"},
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                ["2"]], "func": "return [[{payload: 1},{payload: 2}]];"},
             {"id": "2", "z": "100", "type": "console-json"}
         ]
         injections = [
-            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar', '_msgid': '1234'}}, #TODO FIXME, MSGID SHOULD ALLOWED i64/u64
+            # TODO FIXME, MSGID SHOULD ALLOWED i64/u64
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar', '_msgid': '1234'}},
         ]
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
         assert msgs[0]['_msgid'] == msgs[1]['_msgid'] == 0x1234
         assert msgs[0]['payload'] == 1
         assert msgs[1]['payload'] == 2
 
-
     # TODO the testing frame has no way to handle time-out for now
+
     @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should allow input to be discarded by returning null')
@@ -173,6 +175,49 @@ class TestFunctionNode:
         ]
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 0)
 
+    @pytest.mark.asyncio
+    @pytest.mark.it('should handle null amongst valid messages')
+    async def test_it_should_handle_null_amongst_valid_messages(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return [[msg,null,msg],null];"},
+            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "3", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
+        assert len(msgs) == 2
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should allow accessing node.id')
+    async def test_id_should_allow_accessing_node_id(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "msg.payload = node.id; return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]['payload'] == '0000000000000001'
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should allow accessing node.name')
+    async def test_id_should_allow_accessing_node_name(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+                "func": "msg.payload = node.name; return msg;", "name": "name of node"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]['payload'] == 'name of node'
 
     class TestEnvVar:
         def setup_method(self, method):
@@ -192,3 +237,45 @@ class TestFunctionNode:
             msgs = await run_with_single_node_ntimes(payload_type='str', payload='foo', node_json=node, nexpected=1, once=True, topic='bar')
             assert msgs[0]['topic'] == 'bar'
             assert msgs[0]['payload'] == 'hello'
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should execute initialization')
+    async def test_id_should_execute_initialization(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+                "func": "msg.payload = global.get('X'); return msg;", "initialize": "global.set('X','bar');"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]['payload'] == 'bar'
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should wait completion of initialization')
+    async def test_id_should_wait_completion_of_initializationn(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+             "func": "msg.payload = global.get('X'); return msg;",
+             "initialize": "global.set('X', '-'); return new Promise((resolve, reject) => setTimeout(() => { global.set('X','bar'); resolve(); }, 500));"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]['payload'] == 'bar'
+
+
+    @pytest.mark.describe('finalize function')
+    class TestFinalizeFunction:
+        pass
+
+    @pytest.mark.describe('init function')
+    class TestInitFunction:
+        pass

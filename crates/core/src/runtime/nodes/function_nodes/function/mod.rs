@@ -172,25 +172,24 @@ impl FunctionNode {
                         Ok(ele) => {
                             if let Some(subarr) = ele.as_array() {
                                 for subele in subarr.iter() {
-                                    match subele {
-                                        Ok(obj) => {
-                                            let mut msg = Msg::from_js(ctx, obj)?;
-                                            if let Some(org_id) = origin_msg_id {
-                                                msg.set_id(org_id);
-                                            }
-                                            items.push((port, msg));
-                                        }
-                                        Err(ref e) => {
-                                            log::warn!("Bad msg array item: \n{:#?}", e);
-                                        }
+                                    let obj: js::Value = subele.unwrap();
+                                    if obj.is_null() {
+                                        continue;
                                     }
+                                    let mut msg = Msg::from_js(ctx, obj)?;
+                                    if let Some(org_id) = origin_msg_id {
+                                        msg.set_id(org_id);
+                                    }
+                                    items.push((port, msg));
                                 }
-                            } else if ele.is_object() {
+                            } else if ele.is_object() && !ele.is_null() {
                                 let mut msg = Msg::from_js(ctx, ele)?;
                                 if let Some(org_id) = origin_msg_id {
                                     msg.set_id(org_id);
                                 }
                                 items.push((port, msg));
+                            } else if ele.is_null() {
+                                continue;
                             } else {
                                 log::warn!("Bad msg array item: \n{:#?}", ele);
                             }
