@@ -210,6 +210,8 @@ jobs:
 
       - name: Run Python tests with QEMU ARM
         env:
+          EDGELINK_BUILD_TARGET: ${{ matrix.target }}
+          EDGELINK_BUILD_PROFILE: ci
           EDGELINK_TOOLCHAIN_TRIPLE: ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }}
           EDGELINK_QEMU_CMD: ${{ env.EDGELINK_QEMU_CMD }}
         run: python3 -B -m pytest ./tests -v
