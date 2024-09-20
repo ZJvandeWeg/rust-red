@@ -3,9 +3,8 @@ use std::hash::Hash;
 use std::ops::BitXor;
 use std::str::FromStr;
 
-use anyhow::Context;
-
 use crate::utils;
+use crate::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ElementId(u64);

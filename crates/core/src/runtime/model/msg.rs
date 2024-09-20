@@ -155,7 +155,7 @@ impl Msg {
     }
 
     pub fn set_nav(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
-        self.body.as_object_mut().unwrap().set_nav_property(expr, value, &[PropexEnv::ThisRef("msg")], create_missing)
+        self.body.set_nav(expr, value, create_missing, &[PropexEnv::ThisRef("msg")])
     }
 
     pub fn set_nav_stripped(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
