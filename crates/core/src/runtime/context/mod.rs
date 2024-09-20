@@ -110,8 +110,18 @@ impl Context {
         store.get_keys(&self.scope).await.ok()
     }
 
-    pub async fn set_one(&self, prop: &ContextKey<'_>, value: Option<Variant>) -> Result<()> {
-        let store = if let Some(storage) = prop.store {
+    pub async fn set_one_nav(
+        &self,
+        nav_key: &str,
+        value: Option<Variant>,
+        eval_env: &[(&str, &Variant)],
+    ) -> Result<()> {
+        let ctx_key = evaluate_key(nav_key, eval_env)?;
+        self.set_one(&ctx_key, value).await
+    }
+
+    pub async fn set_one(&self, key: &ContextKey<'_>, value: Option<Variant>) -> Result<()> {
+        let store = if let Some(storage) = key.store {
             self.manager
                 .upgrade()
                 .expect("The mananger cannot be released!")
@@ -122,9 +132,9 @@ impl Context {
         };
         // TODO FIXME change it to fixed length stack-allocated string
         if let Some(value) = value {
-            store.set_one(&self.scope, prop.key, value).await
+            store.set_one(&self.scope, key.key, value).await
         } else {
-            let _ = store.remove_one(&self.scope, prop.key).await?;
+            let _ = store.remove_one(&self.scope, key.key).await?;
             Ok(())
         }
     }
@@ -269,16 +279,13 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextKey, nom::erro
 /// # Examples
 /// For example, `#:(file)::foo.bar` results in ` ContextKey { store: Some("file"), key: "foo.bar" }`.
 /// ```
-/// use edgelink_core::runtime::context::parse_key;
+/// use edgelink_core::runtime::context::evaluate_key;
 ///
-/// let res = parse_key("#:(file)::foo.bar").unwrap();
+/// let res = evaluate_key("#:(file)::foo.bar", &[]).unwrap();
 /// assert_eq!(Some("file"), res.store);
 /// assert_eq!("foo.bar", res.key);
 /// ```
-/// @param  {String} key - the context property string to parse
-/// @return {Object} The parsed property
-/// @memberof @node-red/util_util
-pub fn parse_key(key: &str) -> crate::Result<ContextKey> {
+pub fn evaluate_key<'a>(key: &'a str, eval_env: &[(&'a str, &'a Variant)]) -> crate::Result<ContextKey<'a>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
         Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),
@@ -291,15 +298,15 @@ mod tests {
 
     #[test]
     fn test_parse_context_store() {
-        let res = parse_key("#:(file1)::foo.bar").unwrap();
+        let res = evaluate_key("#:(file1)::foo.bar").unwrap();
         assert_eq!(Some("file1"), res.store);
         assert_eq!("foo.bar", res.key);
 
-        let res = parse_key("#:(memory1)::payload").unwrap();
+        let res = evaluate_key("#:(memory1)::payload").unwrap();
         assert_eq!(Some("memory1"), res.store);
         assert_eq!("payload", res.key);
 
-        let res = parse_key("foo.bar").unwrap();
+        let res = evaluate_key("foo.bar").unwrap();
         assert_eq!(None, res.store);
         assert_eq!("foo.bar", res.key);
     }

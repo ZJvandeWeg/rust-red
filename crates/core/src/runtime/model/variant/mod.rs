@@ -18,10 +18,12 @@ use super::propex::PropexSegment;
 #[cfg(feature = "js")]
 mod js_support;
 
+mod array;
 mod converts;
 mod map;
 mod ser;
 
+pub use self::array::*;
 pub use self::map::*;
 
 #[derive(Error, Clone, Debug, PartialEq, PartialOrd)]
@@ -425,7 +427,7 @@ impl Variant {
     pub fn get_seg(&self, pseg: &PropexSegment) -> Option<&Variant> {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item(*index),
-            PropexSegment::Property(prop) => self.get_object_property(prop),
+            PropexSegment::Property(prop) => self.as_object()?.get_property(prop),
             PropexSegment::Nested(_) => None,
         }
     }
@@ -433,7 +435,7 @@ impl Variant {
     pub fn get_seg_mut(&mut self, pseg: &PropexSegment) -> Option<&mut Variant> {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item_mut(*index),
-            PropexSegment::Property(prop) => self.get_object_property_mut(prop),
+            PropexSegment::Property(prop) => self.as_object_mut()?.get_property_mut(prop),
             PropexSegment::Nested(_) => None,
         }
     }
@@ -444,20 +446,6 @@ impl Variant {
 
     pub fn get_segs_mut(&mut self, psegs: &[PropexSegment]) -> Option<&mut Variant> {
         psegs.iter().try_fold(self, |prev, pseg| prev.get_seg_mut(pseg))
-    }
-
-    pub fn get_object_property(&self, prop: &str) -> Option<&Variant> {
-        match self {
-            Variant::Object(obj) => obj.get(prop),
-            _ => None,
-        }
-    }
-
-    pub fn get_object_property_mut(&mut self, prop: &str) -> Option<&mut Variant> {
-        match self {
-            Variant::Object(obj) => obj.get_mut(prop),
-            _ => None,
-        }
     }
 
     pub fn get_array_item(&self, index: usize) -> Option<&Variant> {
@@ -477,24 +465,6 @@ impl Variant {
     pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
         let prop_segs = propex::parse(expr).ok()?;
         self.get_segs(&prop_segs)
-    }
-
-    pub fn set_object_property(&mut self, prop: String, value: Variant) -> Result<(), VariantError> {
-        match self {
-            Variant::Object(ref mut this_obj) => {
-                this_obj.set_property(prop, value);
-                Ok(())
-            }
-            _ => {
-                log::warn!(
-                    "Only an object variant can be set the property '{}' to '{:?}', instead this variant is:\n{:?}",
-                    prop,
-                    value,
-                    self
-                );
-                Err(VariantError::WrongType)
-            }
-        }
     }
 
     pub fn set_array_item(&mut self, index: usize, value: Variant) -> Result<(), VariantError> {
@@ -530,8 +500,10 @@ impl Variant {
     pub fn set_seg_property(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
         match pseg {
             PropexSegment::Index(index) => self.set_array_item(*index, value),
-            PropexSegment::Property(prop) => self.set_object_property(prop.to_string(), value),
-            PropexSegment::Nested(_nested) => todo!(),
+            PropexSegment::Property(prop) => {
+                Ok(self.as_object_mut().ok_or(VariantError::BadCast)?.set_property(prop.to_string(), value))
+            }
+            PropexSegment::Nested(_nested) => unreachable!(),
         }
     }
 
