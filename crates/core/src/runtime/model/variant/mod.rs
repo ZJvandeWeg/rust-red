@@ -1,5 +1,5 @@
 use core::fmt::{self, Debug};
-use std::borrow::{BorrowMut, Cow};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde::{self, de, Deserializer};
 
 use crate::runtime::model::propex;
-use crate::EdgelinkError;
+use crate::*;
 
 use super::propex::PropexSegment;
 
@@ -468,6 +468,12 @@ impl Variant {
         self.get_segs(&prop_segs)
     }
 
+    pub fn get_nav_mut(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<&mut Variant> {
+        let mut prop_segs = propex::parse(expr).ok()?;
+        self.expand_sesg_property(&mut prop_segs, eval_env).ok()?;
+        self.get_segs_mut(&prop_segs)
+    }
+
     pub fn set_array_item(&mut self, index: usize, value: Variant) -> crate::Result<()> {
         match self {
             Variant::Array(ref mut this_arr) => {
@@ -514,57 +520,74 @@ impl Variant {
 
     pub fn set_segs_property(
         &mut self,
-        psegs: &[PropexSegment],
+        segs: &[PropexSegment],
         value: Variant,
         create_missing: bool,
     ) -> crate::Result<()> {
-        if psegs.is_empty() {
-            return Err(EdgelinkError::BadArgument("psegs is empty".into()).into());
+        if segs.is_empty() {
+            return Err(EdgelinkError::BadArgument("path".into()).into());
         }
 
-        if psegs.len() == 1 {
-            self.set_seg_property(&psegs[0], value)?;
+        if segs.len() == 1 {
+            self.set_seg_property(&segs[0], value)?;
             return Ok(());
         }
 
-        for nlevel in 0..psegs.len() - 1 {
-            let psegs_slice = &psegs[..=nlevel];
-            let pseg = &psegs[nlevel];
+        let first_prop_name = match segs.first() {
+            Some(PropexSegment::Property(name)) => name,
+            _ => return Err(EdgelinkError::BadArgument("path".into()).into()),
+        };
 
-            {
-                let cur = self.get_segs(psegs_slice);
-                if cur.is_some() {
-                    continue;
-                }
+        // If create_missing is true and first_prop doesn't exist, we should create it here.
+        // TODO FIXME
+        let first_prop = match (self.get_nav_mut(first_prop_name, &[]), create_missing, segs.len()) {
+            (Some(prop), _, _) => prop,
+            (None, true, 1) => {
+                // Only one level of the property
+                self.as_object_mut().unwrap().insert(first_prop_name.to_string(), value);
+                return Ok(());
             }
-
-            if create_missing {
-                if let Some(next_pseg) = psegs.get(nlevel + 1) {
-                    let mut prev = self.borrow_mut();
-                    if nlevel > 0 {
-                        prev = self.get_segs_mut(&psegs[0..=nlevel - 1]).ok_or(EdgelinkError::OutOfRange)?;
+            (None, true, _) => {
+                let next_seg = segs.get(1);
+                let var = match next_seg {
+                    // the next level property is an object
+                    Some(PropexSegment::Property(_)) => Variant::empty_object(),
+                    Some(PropexSegment::Index(_)) => Variant::empty_array(),
+                    _ => {
+                        return Err(crate::EdgelinkError::BadArgument(format!(
+                            "Not allowed to set first property: '{}'",
+                            first_prop_name
+                        ))
+                        .into());
                     }
-                    match next_pseg {
-                        PropexSegment::Property(_) => prev.set_seg_property(pseg, Variant::empty_object())?,
-                        PropexSegment::Index(_) => prev.set_seg_property(pseg, Variant::empty_array())?,
-                        PropexSegment::Nested(_nested) => todo!(),
-                    }
-                } else {
-                    return Err(EdgelinkError::OutOfRange.into());
                 };
-            } else {
-                return Err(EdgelinkError::OutOfRange.into());
+                self.as_object_mut().unwrap().insert(first_prop_name.to_string(), var);
+                self.get_nav_mut(first_prop_name, &[]).unwrap()
             }
+            (None, _, _) => {
+                return Err(crate::EdgelinkError::BadArgument(format!(
+                    "Failed to set first property: '{}'",
+                    first_prop_name
+                ))
+                .into());
+            }
+        };
+
+        if segs.len() == 1 {
+            *first_prop = value;
+            return Ok(());
         }
 
-        if let Some(terminal_obj) = self.get_segs_mut(psegs) {
-            *terminal_obj = value;
-            Ok(())
-        } else if let Some(parent_obj) = self.get_segs_mut(&psegs[0..=psegs.len() - 2]) {
-            parent_obj.set_seg_property(psegs.last().expect("We're so over"), value)?;
-            Ok(())
-        } else {
-            Err(EdgelinkError::OutOfRange.into())
+        match first_prop.get_segs_mut(&segs[1..]) {
+            Some(pv) => {
+                *pv = value;
+                Ok(())
+            }
+            None if create_missing => first_prop.set_segs_property(&segs[1..], value, true).map_err(Into::into),
+            None => Err(crate::EdgelinkError::InvalidOperation(
+                "Unable to set property: missing intermediate segments".into(),
+            )
+            .into()),
         }
     }
 

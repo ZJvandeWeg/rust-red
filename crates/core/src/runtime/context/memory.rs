@@ -117,3 +117,59 @@ impl ContextStore for MemoryContextStore {
         todo!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MemoryContextStore;
+    use crate::runtime::model::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_it_should_store_property() {
+        let context = MemoryContextStore::build("memory0".to_string(), None).unwrap();
+
+        assert!(context.get_one("nodeX", &propex::parse("foo").unwrap()).await.is_err());
+        assert!(context.set_one("nodeX", &propex::parse("foo").unwrap(), "test".into()).await.is_ok());
+        assert_eq!(context.get_one("nodeX", &propex::parse("foo").unwrap()).await.unwrap(), "test".into());
+    }
+
+    #[tokio::test]
+    async fn test_it_should_store_property_creates_parent_properties() {
+        let context = MemoryContextStore::build("memory0".to_string(), None).unwrap();
+
+        context.set_one("nodeX", &propex::parse("foo.bar").unwrap(), "test".into()).await.unwrap();
+
+        assert_eq!(
+            context.get_one("nodeX", &propex::parse("foo").unwrap()).await.unwrap(),
+            json!({"bar": "test"}).into()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_it_should_delete_property() {
+        let context = MemoryContextStore::build("memory0".to_string(), None).unwrap();
+
+        context.set_one("nodeX", &propex::parse("foo.abc.bar1").unwrap(), "test1".into()).await.unwrap();
+
+        context.set_one("nodeX", &propex::parse("foo.abc.bar2").unwrap(), "test2".into()).await.unwrap();
+
+        assert_eq!(
+            context.get_one("nodeX", &propex::parse("foo.abc").unwrap()).await.unwrap(),
+            json!({"bar1": "test1", "bar2": "test2"}).into()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_it_should_not_shared_context_with_other_scope() {
+        let context = MemoryContextStore::build("memory0".to_string(), None).unwrap();
+
+        assert!(context.get_one("nodeX", &propex::parse("foo").unwrap()).await.is_err());
+        assert!(context.get_one("nodeY", &propex::parse("foo").unwrap()).await.is_err());
+
+        context.set_one("nodeX", &propex::parse("foo").unwrap(), "testX".into()).await.unwrap();
+        context.set_one("nodeY", &propex::parse("foo").unwrap(), "testY".into()).await.unwrap();
+
+        assert_eq!(context.get_one("nodeX", &propex::parse("foo").unwrap()).await.unwrap(), "testX".into());
+        assert_eq!(context.get_one("nodeY", &propex::parse("foo").unwrap()).await.unwrap(), "testY".into());
+    }
+} // tests
