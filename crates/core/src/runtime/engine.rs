@@ -16,7 +16,7 @@ use crate::runtime::flow::Flow;
 use crate::runtime::model::Variant;
 use crate::runtime::nodes::{GlobalNodeBehavior, NodeFactory};
 use crate::runtime::registry::Registry;
-use crate::EdgelinkError;
+use crate::*;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct FlowEngineArgs {
@@ -203,7 +203,8 @@ impl FlowEngine {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
-            Err(EdgelinkError::BadArguments(format!("Can not found flow_id: {}", flow_id)).into())
+            Err(EdgelinkError::BadArgument("flow_id".into()))
+                .with_context(|| format!("Can not found flow_id: {}", flow_id))
         }
     }
 
@@ -218,7 +219,8 @@ impl FlowEngine {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
         } else {
-            Err(EdgelinkError::BadArguments(format!("Can not found `link id`: {}", link_in_id)).into())
+            Err(EdgelinkError::BadArgument("link_in_id".into()))
+                .with_context(|| format!("Can not found `link id`: {}", link_in_id))
         }
     }
 
@@ -270,7 +272,8 @@ impl FlowEngine {
     ) -> crate::Result<()> {
         let node = self
             .find_flow_node_by_id(flow_node_id)
-            .ok_or(EdgelinkError::BadArguments(format!("Cannot found the flow node, id='{}'", flow_node_id)))?;
+            .ok_or(EdgelinkError::BadArgument("flow_node_id".into()))
+            .with_context(|| format!("Cannot found the flow node, id='{}'", flow_node_id))?;
         node.inject_msg(msg, cancel).await
     }
 

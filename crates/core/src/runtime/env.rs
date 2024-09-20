@@ -164,7 +164,8 @@ impl EnvStoreBuilder {
                 }
             }
 
-            _ => Err(EdgelinkError::BadArguments(format!("Unsupported environment varibale type: '{}'", value)).into()),
+            _ => Err(EdgelinkError::BadArgument("type_".into()))
+                .with_context(|| format!("Unsupported environment varibale type: '{}'", value)),
         }
     }
 

@@ -78,10 +78,11 @@ pub async fn evaluate_node_property(
                 if let Some(pv) = msg.get_nav_stripped(value) {
                     Ok(pv.clone())
                 } else {
-                    Err(EdgelinkError::BadArguments(format!("Cannot get the property(s) from `msg`: {}", value)).into())
+                    Err(EdgelinkError::BadArgument("value".into()))
+                        .with_context(|| format!("Cannot get the property(s) from `msg`: {}", value))
                 }
             } else {
-                Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into())
+                Err(EdgelinkError::BadArgument("msg".into())).with_context(|| ("`msg` is not existed!".to_string()))
             }
         }
 
@@ -101,7 +102,8 @@ pub async fn evaluate_node_property(
             if let Some(ctx_value) = engine.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
-                Err(EdgelinkError::OutOfRange.into())
+                Err(EdgelinkError::BadArgument("value".into()))
+                    .with_context(|| format!("Cannot found the global context variable `{}`", value))
             }
         }
 
@@ -112,7 +114,8 @@ pub async fn evaluate_node_property(
             if let Some(ctx_value) = fe.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
-                Err(EdgelinkError::OutOfRange.into())
+                Err(EdgelinkError::BadArgument("value".into()))
+                    .with_context(|| format!("Cannot found the flow context variable `{}`", value))
             }
         }
 
@@ -122,7 +125,8 @@ pub async fn evaluate_node_property(
 
         RedPropertyType::Env => match evaluate_env_property(value, node, flow) {
             Some(ev) => Ok(ev),
-            _ => Err(EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", value)).into()),
+            _ => Err(EdgelinkError::BadArgument("value".into()))
+                .with_context(|| format!("Cannot found the environment variable `{}`", value)),
         },
     }
 }
@@ -173,14 +177,14 @@ pub fn evaluate_node_property_variant<'a>(
                 if let Some(pv) = msg.get_nav_stripped(prop.as_str()) {
                     Cow::Owned(pv.clone())
                 } else {
-                    return Err(EdgelinkError::BadArguments(format!(
+                    return Err(EdgelinkError::BadArgument(format!(
                         "Cannot get the property(s) from `msg`: {}",
                         prop.as_str()
                     ))
                     .into());
                 }
             } else {
-                return Err(EdgelinkError::BadArguments("`msg` is not existed!".to_string()).into());
+                return Err(EdgelinkError::BadArgument("`msg` is not existed!".to_string()).into());
             }
         }
 
@@ -201,7 +205,7 @@ pub fn evaluate_node_property_variant<'a>(
         },
 
         (_, _) => {
-            return Err(EdgelinkError::BadArguments(format!("Unable to evaluate property value: {:?}", value)).into());
+            return Err(EdgelinkError::BadArgument(format!("Unable to evaluate property value: {:?}", value)).into());
         }
     };
 

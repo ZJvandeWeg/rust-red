@@ -72,16 +72,16 @@ impl VariantObject for VariantObjectMap {
         create_missing: bool,
     ) -> crate::Result<()> {
         if expr.is_empty() {
-            return Err(crate::EdgelinkError::BadArguments("The argument expr cannot be empty".to_string()).into());
+            return Err(crate::EdgelinkError::BadArgument("The argument expr cannot be empty".to_string()).into());
         }
 
-        let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
+        let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArgument(e.to_string()))?;
         self.expand_segs_property(&mut segs, eval_env)?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
             _ => {
-                return Err(crate::EdgelinkError::BadArguments(format!(
+                return Err(crate::EdgelinkError::BadArgument(format!(
                     "The first property to access must be a string, but got '{}'",
                     expr
                 ))
@@ -104,7 +104,7 @@ impl VariantObject for VariantObjectMap {
                     Some(PropexSegment::Property(_)) => Variant::empty_object(),
                     Some(PropexSegment::Index(_)) => Variant::empty_array(),
                     _ => {
-                        return Err(crate::EdgelinkError::BadArguments(format!(
+                        return Err(crate::EdgelinkError::BadArgument(format!(
                             "Not allowed to set first property: '{}'",
                             first_prop_name
                         ))
@@ -115,7 +115,7 @@ impl VariantObject for VariantObjectMap {
                 self.get_property_mut(first_prop_name).unwrap()
             }
             (None, _, _) => {
-                return Err(crate::EdgelinkError::BadArguments(format!(
+                return Err(crate::EdgelinkError::BadArgument(format!(
                     "Failed to set first property: '{}'",
                     first_prop_name
                 ))

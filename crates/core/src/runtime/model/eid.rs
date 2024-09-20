@@ -3,6 +3,8 @@ use std::hash::Hash;
 use std::ops::BitXor;
 use std::str::FromStr;
 
+use anyhow::Context;
+
 use crate::utils;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -75,8 +77,10 @@ impl ElementId {
     }
 
     pub fn combine(lhs: &ElementId, rhs: &ElementId) -> crate::Result<Self> {
-        if rhs.is_empty() || lhs.is_empty() {
-            Err(crate::EdgelinkError::BadArguments("The ids cannot be zero!".into()).into())
+        if rhs.is_empty() {
+            Err(crate::EdgelinkError::BadArgument("rhs".into()).into())
+        } else if lhs.is_empty() {
+            Err(crate::EdgelinkError::BadArgument("lhs".into()).into())
         } else {
             Ok(*lhs ^ *rhs)
         }

@@ -519,7 +519,7 @@ impl Variant {
         create_missing: bool,
     ) -> crate::Result<()> {
         if psegs.is_empty() {
-            return Err(EdgelinkError::BadArguments("psegs is empty".into()).into());
+            return Err(EdgelinkError::BadArgument("psegs is empty".into()).into());
         }
 
         if psegs.len() == 1 {

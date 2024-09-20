@@ -166,7 +166,7 @@ pub trait FlowNodeBehavior: 'static + Send + Sync + FlowsElement {
             return Ok(());
         }
         if envelope.port >= self.get_node().ports.len() {
-            return Err(crate::EdgelinkError::BadArguments(format!("Invalid port index {}", envelope.port)).into());
+            return Err(crate::EdgelinkError::BadArgument(format!("Invalid port index {}", envelope.port)).into());
         }
 
         let port = &self.get_node().ports[envelope.port];

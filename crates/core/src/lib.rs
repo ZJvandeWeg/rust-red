@@ -22,6 +22,7 @@ pub trait Plugin {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum EdgelinkError {
     #[error("Permission Denied")]
     PermissionDenied,
@@ -36,7 +37,7 @@ pub enum EdgelinkError {
     NotSupported(String),
 
     #[error("Invalid arguments: {0}")]
-    BadArguments(String),
+    BadArgument(String),
 
     #[error("Task cancelled")]
     TaskCancelled,
@@ -63,3 +64,5 @@ pub enum EdgelinkError {
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub type Result<T, E = anyhow::Error> = anyhow::Result<T, E>;
+
+pub use anyhow::Context as ErrorContext;

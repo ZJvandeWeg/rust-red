@@ -185,7 +185,7 @@ impl ChangeNode {
                         )
                         .await
                 } else {
-                    Err(EdgelinkError::BadArguments("The target value is None".into()).into())
+                    Err(EdgelinkError::BadArgument("The target value is None".into()).into())
                 }
             }
 
@@ -203,7 +203,7 @@ impl ChangeNode {
                         )
                         .await
                 } else {
-                    Err(EdgelinkError::BadArguments("The target value is None".into()).into())
+                    Err(EdgelinkError::BadArgument("The target value is None".into()).into())
                 }
             }
 

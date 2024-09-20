@@ -124,7 +124,8 @@ impl Context {
                 .upgrade()
                 .expect("The mananger cannot be released!")
                 .get_context_store(storage)
-                .ok_or(EdgelinkError::BadArguments(format!("Cannot found the storage: '{}'", storage)))?
+                .ok_or(EdgelinkError::BadArgument(storage.into()))
+                .with_context(|| format!("Cannot found the storage: '{}'", storage))?
         } else {
             self.manager.upgrade().expect("The manager cannot be released!").get_default_store()
         };
@@ -287,7 +288,9 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextKey, nom::erro
 pub fn evaluate_key(key: &str) -> crate::Result<ContextKey<'_>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
-        Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),
+        Err(e) => {
+            Err(EdgelinkError::BadArgument(key.into())).with_context(|| format!("Can not parse the key: '{0}'", e))
+        }
     }
 }
 
