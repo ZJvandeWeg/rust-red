@@ -90,14 +90,14 @@ pub struct ContextManagerBuilder {
 }
 
 impl Context {
-    pub async fn get_one(&self, prop: &ContextKey<'_>, eval_env: &[PropexEnv<'_>]) -> Option<Variant> {
-        let store = if let Some(storage) = prop.store {
+    pub async fn get_one(&self, storage: Option<&str>, key: &str, eval_env: &[PropexEnv<'_>]) -> Option<Variant> {
+        let store = if let Some(storage) = storage {
             self.manager.upgrade()?.get_context_store(storage)?
         } else {
             self.manager.upgrade()?.get_default_store()
         };
         // TODO FIXME change it to fixed length stack-allocated string
-        store.get_one(&self.scope, prop.key).await.ok()
+        store.get_one(&self.scope, key).await.ok()
     }
 
     pub async fn keys(&self, store: Option<&str>) -> Option<Vec<String>> {
@@ -110,8 +110,14 @@ impl Context {
         store.get_keys(&self.scope).await.ok()
     }
 
-    pub async fn set_one(&self, key: &ContextKey<'_>, value: Option<Variant>, eval_env: &[PropexEnv<'_>]) -> Result<()> {
-        let store = if let Some(storage) = key.store {
+    pub async fn set_one(
+        &self,
+        storage: Option<&str>,
+        key: &str,
+        value: Option<Variant>,
+        eval_env: &[PropexEnv<'_>],
+    ) -> Result<()> {
+        let store = if let Some(storage) = storage {
             self.manager
                 .upgrade()
                 .expect("The mananger cannot be released!")
@@ -122,9 +128,9 @@ impl Context {
         };
         // TODO FIXME change it to fixed length stack-allocated string
         if let Some(value) = value {
-            store.set_one(&self.scope, key.key, value).await
+            store.set_one(&self.scope, key, value).await
         } else {
-            let _ = store.remove_one(&self.scope, key.key).await?;
+            let _ = store.remove_one(&self.scope, key).await?;
             Ok(())
         }
     }

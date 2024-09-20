@@ -98,7 +98,7 @@ pub async fn evaluate_node_property(
             */
             let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            if let Some(ctx_value) = engine.context().get_one(&ctx_prop, &[]).await {
+            if let Some(ctx_value) = engine.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::OutOfRange.into())
@@ -109,7 +109,7 @@ pub async fn evaluate_node_property(
             let flow = node.and_then(|n| n.get_flow().upgrade()).unwrap();
             let fe = flow as Arc<dyn FlowsElement>;
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            if let Some(ctx_value) = fe.context().get_one(&ctx_prop, &[]).await {
+            if let Some(ctx_value) = fe.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::OutOfRange.into())

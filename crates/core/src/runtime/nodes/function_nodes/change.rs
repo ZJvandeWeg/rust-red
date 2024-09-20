@@ -175,7 +175,7 @@ impl ChangeNode {
                     let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
 
                     let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                    engine.context().set_one(&ctx_prop, Some(to_value), &[]).await
+                    engine.context().set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -186,7 +186,7 @@ impl ChangeNode {
                     let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
                     let fe = flow as Arc<dyn FlowsElement>;
                     let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                    fe.context().set_one(&ctx_prop, Some(to_value), &[]).await
+                    fe.context().set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -299,7 +299,7 @@ impl ChangeNode {
                         if current == from_value =>
                     {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(to_value), &[]).await?;
+                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
                     }
 
                     (Variant::String(ref current_str), ReducedType::Regex) => {
@@ -311,7 +311,7 @@ impl ChangeNode {
                             _ => Variant::String(replaced.into()),
                         };
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(value_to_set), &[]).await?;
+                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(value_to_set), &[]).await?;
                     }
 
                     (Variant::String(ref cs), _) => {
@@ -319,17 +319,17 @@ impl ChangeNode {
                         // TODO: In the future, this string needs to be optimized.
                         let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(Variant::String(replaced)), &[]).await?;
+                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(Variant::String(replaced)), &[]).await?;
                     }
 
                     (Variant::Number(_), ReducedType::Num) if from_value == current => {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(to_value), &[]).await?;
+                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
                     }
 
                     (Variant::Bool(_), ReducedType::Bool) if from_value == current => {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(&ctx_prop, Some(to_value), &[]).await?;
+                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
                     }
 
                     _ => {
@@ -368,7 +368,7 @@ impl ChangeNode {
                 // engine.get_context().set_one("memory", csp.key, to_value).await
                 let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap();
                 let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                engine.context().set_one(&ctx_prop, None, &[]).await
+                engine.context().set_one(ctx_prop.store, ctx_prop.key, None, &[]).await
                 // Setting it to "None" means to delete.
             }
 
@@ -379,7 +379,7 @@ impl ChangeNode {
                 let flow = self.get_flow().upgrade().unwrap();
                 let fe = flow as Arc<dyn FlowsElement>;
                 let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                fe.context().set_one(&ctx_prop, None, &[]).await
+                fe.context().set_one(ctx_prop.store, ctx_prop.key, None, &[]).await
                 // Setting it to "None" means to delete.
             }
 
