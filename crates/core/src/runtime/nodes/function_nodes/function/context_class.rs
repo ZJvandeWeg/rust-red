@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rquickjs::{class::Trace, Ctx, Function, IntoJs, Value};
 use rquickjs::{prelude::*, Exception};
 
-use crate::runtime::context::{Context as RedContext, ContextKey};
+use crate::runtime::context::Context as RedContext;
 use crate::utils::async_util::SyncWaitableFuture;
 
 use super::{UndefinableVariant, Variant};

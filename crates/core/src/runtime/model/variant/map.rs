@@ -26,7 +26,7 @@ pub trait VariantObject {
 
     fn remove_property(&mut self, prop: &str) -> Option<Variant>;
     fn remove_nav_property(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<Variant>;
-    fn remove_segs_property(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<Variant>;
+    fn remove_segs_property(&mut self, segs: &[PropexSegment]) -> Option<Variant>;
 }
 
 impl VariantObject for VariantObjectMap {
@@ -173,10 +173,7 @@ impl VariantObject for VariantObjectMap {
                     _ => return Err(EdgelinkError::OutOfRange.into()),
                 };
                 if let Some(nested_var) = nested_var {
-                    *seg = match nested_var
-                        .get_segs_property(&nested_segs[1..])
-                        .ok_or(EdgelinkError::OutOfRange)?
-                    {
+                    *seg = match nested_var.get_segs_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
                         Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
                         Variant::Number(num_index)
                             if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
@@ -206,12 +203,13 @@ impl VariantObject for VariantObjectMap {
 
         // Parse the expression into segments.
         // TODO nested
-        let segs = propex::parse(expr).ok()?;
+        let mut path = propex::parse(expr).ok()?;
+        self.expand_segs_property(&mut path, eval_env).ok()?;
 
-        self.remove_segs_property(&segs, eval_env)
+        self.remove_segs_property(&path)
     }
 
-    fn remove_segs_property(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<Variant> {
+    fn remove_segs_property(&mut self, segs: &[PropexSegment]) -> Option<Variant> {
         // Return None if the expression is empty.
         if segs.is_empty() {
             return None;

@@ -175,7 +175,15 @@ impl ChangeNode {
                     let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
 
                     let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                    engine.context().set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await
+                    engine
+                        .context()
+                        .set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(to_value),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -186,7 +194,14 @@ impl ChangeNode {
                     let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
                     let fe = flow as Arc<dyn FlowsElement>;
                     let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                    fe.context().set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await
+                    fe.context()
+                        .set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(to_value),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await
                 } else {
                     Err(EdgelinkError::BadArguments("The target value is None".into()).into())
                 }
@@ -236,10 +251,6 @@ impl ChangeNode {
         };
         */
 
-        dbg!(&current);
-        dbg!(&from_value);
-        dbg!(current == from_value);
-        dbg!(&rule);
         match rule.pt {
             //FIXME unwrap
             RedPropertyType::Msg => match (&current, reduced_from_type) {
@@ -267,10 +278,6 @@ impl ChangeNode {
                     // Otherwise we search and replace
                     // TODO: In the future, this string needs to be optimized.
                     let replaced = current_str.replace(&from_value.to_string()?, &to_value.to_string()?);
-                    dbg!(current_str);
-                    dbg!(&from_value);
-                    dbg!(&to_value);
-                    dbg!(&replaced);
                     msg.set_nav_stripped(&rule.p, Variant::String(replaced), false)?;
                 }
 
@@ -299,7 +306,13 @@ impl ChangeNode {
                         if current == from_value =>
                     {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
+                        ctx.set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(to_value),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await?;
                     }
 
                     (Variant::String(ref current_str), ReducedType::Regex) => {
@@ -311,7 +324,13 @@ impl ChangeNode {
                             _ => Variant::String(replaced.into()),
                         };
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(value_to_set), &[]).await?;
+                        ctx.set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(value_to_set),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await?;
                     }
 
                     (Variant::String(ref cs), _) => {
@@ -319,17 +338,35 @@ impl ChangeNode {
                         // TODO: In the future, this string needs to be optimized.
                         let replaced = cs.replace(from_value.to_string()?.as_str(), to_value.to_string()?.as_str());
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(Variant::String(replaced)), &[]).await?;
+                        ctx.set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(Variant::String(replaced)),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await?;
                     }
 
                     (Variant::Number(_), ReducedType::Num) if from_value == current => {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
+                        ctx.set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(to_value),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await?;
                     }
 
                     (Variant::Bool(_), ReducedType::Bool) if from_value == current => {
                         let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                        ctx.set_one(ctx_prop.store, ctx_prop.key, Some(to_value), &[]).await?;
+                        ctx.set_one(
+                            ctx_prop.store,
+                            ctx_prop.key,
+                            Some(to_value),
+                            &[PropexEnv::ExtRef("msg", msg.as_variant())],
+                        )
+                        .await?;
                     }
 
                     _ => {
@@ -368,7 +405,10 @@ impl ChangeNode {
                 // engine.get_context().set_one("memory", csp.key, to_value).await
                 let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap();
                 let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                engine.context().set_one(ctx_prop.store, ctx_prop.key, None, &[]).await
+                engine
+                    .context()
+                    .set_one(ctx_prop.store, ctx_prop.key, None, &[PropexEnv::ExtRef("msg", msg.as_variant())])
+                    .await
                 // Setting it to "None" means to delete.
             }
 
@@ -379,7 +419,9 @@ impl ChangeNode {
                 let flow = self.get_flow().upgrade().unwrap();
                 let fe = flow as Arc<dyn FlowsElement>;
                 let ctx_prop = crate::runtime::context::evaluate_key(&rule.p)?;
-                fe.context().set_one(ctx_prop.store, ctx_prop.key, None, &[]).await
+                fe.context()
+                    .set_one(ctx_prop.store, ctx_prop.key, None, &[PropexEnv::ExtRef("msg", msg.as_variant())])
+                    .await
                 // Setting it to "None" means to delete.
             }
 

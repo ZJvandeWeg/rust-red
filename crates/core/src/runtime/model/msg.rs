@@ -92,6 +92,14 @@ impl Msg {
         Variant::from(uid)
     }
 
+    pub fn as_variant(&self) -> &Variant {
+        &self.body
+    }
+
+    pub fn as_variant_mut(&mut self) -> &mut Variant {
+        &mut self.body
+    }
+
     pub fn as_variant_object(&self) -> &VariantObjectMap {
         self.body.as_object().unwrap()
     }

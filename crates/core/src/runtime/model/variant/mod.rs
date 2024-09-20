@@ -33,6 +33,7 @@ pub enum PropexEnv<'a> {
 
 pub trait PropexEnvSliceExt<'a> {
     fn find(&self, seg: &str, this: &'a Variant) -> Option<&'a Variant>;
+    fn find_ext(&self, seg: &str) -> Option<&'a Variant>;
     fn find_seg(&self, seg: &str) -> Option<&PropexEnv>;
 }
 
@@ -427,7 +428,7 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item(*index),
             PropexSegment::Property(prop) => self.as_object()?.get_property(prop),
-            PropexSegment::Nested(_) => unreachable!("The propex must be expanded before"),
+            PropexSegment::Nested(_) => None, // TODO log debug
         }
     }
 
@@ -435,11 +436,11 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item_mut(*index),
             PropexSegment::Property(prop) => self.as_object_mut()?.get_property_mut(prop),
-            PropexSegment::Nested(_) => unreachable!("The propex must be expanded before"),
+            PropexSegment::Nested(_) => None, // TODO log debug
         }
     }
 
-    fn get_segs(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
+    pub fn get_segs(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
         psegs.iter().try_fold(self, |prev, pseg| prev.get_seg(pseg))
     }
 
@@ -644,6 +645,17 @@ impl<'a> PropexEnvSliceExt<'a> for &'a [PropexEnv<'a>] {
         None
     }
 
+    fn find_ext(&self, seg: &str) -> Option<&'a Variant> {
+        for s in self.iter() {
+            match s {
+                PropexEnv::ThisRef(_) => return None,
+                PropexEnv::ExtRef(sname, ext_var) if *sname == seg => return Some(ext_var),
+                _ => continue,
+            }
+        }
+        None
+    }
+
     fn find_seg(&self, seg: &str) -> Option<&PropexEnv<'a>> {
         for s in self.iter() {
             match s {
@@ -654,6 +666,32 @@ impl<'a> PropexEnvSliceExt<'a> for &'a [PropexEnv<'a>] {
         }
         None
     }
+}
+
+pub fn expand_propex_segments(segs: &mut [PropexSegment], eval_env: &[PropexEnv]) -> crate::Result<()> {
+    for seg in segs.iter_mut() {
+        if let PropexSegment::Nested(nested_segs) = seg {
+            let nested_var = match nested_segs.first() {
+                Some(PropexSegment::Property(s)) => eval_env.find_ext(s),
+                // We do not support recursion here
+                _ => return Err(EdgelinkError::OutOfRange.into()),
+            };
+            if let Some(nested_var) = nested_var {
+                *seg = match nested_var.get_segs(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                    Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
+                    Variant::Number(num_index)
+                        if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
+                    {
+                        PropexSegment::Index(num_index.as_u64().unwrap() as usize)
+                    }
+                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                };
+            } else {
+                return Err(EdgelinkError::OutOfRange.into());
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@ use std::{
 use async_trait::async_trait;
 use dashmap::DashMap;
 use nom::Parser;
+use propex::PropexSegment;
 use serde;
 
 use crate::*;
@@ -56,14 +57,14 @@ pub trait ContextStore: Send + Sync {
     async fn open(&self) -> Result<()>;
     async fn close(&self) -> Result<()>;
 
-    async fn get_one(&self, scope: &str, key: &str) -> Result<Variant>;
+    async fn get_one(&self, scope: &str, path: &[PropexSegment]) -> Result<Variant>;
     async fn get_many(&self, scope: &str, keys: &[&str]) -> Result<Vec<Variant>>;
     async fn get_keys(&self, scope: &str) -> Result<Vec<String>>;
 
-    async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()>;
+    async fn set_one(&self, scope: &str, path: &[PropexSegment], value: Variant) -> Result<()>;
     async fn set_many(&self, scope: &str, pairs: Vec<(String, Variant)>) -> Result<()>;
 
-    async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant>;
+    async fn remove_one(&self, scope: &str, path: &[PropexSegment]) -> Result<Variant>;
 
     async fn delete(&self, scope: &str) -> Result<()>;
     async fn clean(&self, active_nodes: &[ElementId]) -> Result<()>;
@@ -97,7 +98,9 @@ impl Context {
             self.manager.upgrade()?.get_default_store()
         };
         // TODO FIXME change it to fixed length stack-allocated string
-        store.get_one(&self.scope, key).await.ok()
+        let mut path = propex::parse(key).ok()?;
+        expand_propex_segments(&mut path, eval_env).ok()?;
+        store.get_one(&self.scope, &path).await.ok()
     }
 
     pub async fn keys(&self, store: Option<&str>) -> Option<Vec<String>> {
@@ -106,7 +109,6 @@ impl Context {
         } else {
             self.manager.upgrade()?.get_default_store()
         };
-        // TODO FIXME change it to fixed length stack-allocated string
         store.get_keys(&self.scope).await.ok()
     }
 
@@ -126,11 +128,12 @@ impl Context {
         } else {
             self.manager.upgrade().expect("The manager cannot be released!").get_default_store()
         };
-        // TODO FIXME change it to fixed length stack-allocated string
+        let mut path = propex::parse(key)?;
+        expand_propex_segments(&mut path, eval_env)?;
         if let Some(value) = value {
-            store.set_one(&self.scope, key, value).await
+            store.set_one(&self.scope, &path, value).await
         } else {
-            let _ = store.remove_one(&self.scope, key).await?;
+            let _ = store.remove_one(&self.scope, &path).await?;
             Ok(())
         }
     }
@@ -281,7 +284,7 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextKey, nom::erro
 /// assert_eq!(Some("file"), res.store);
 /// assert_eq!("foo.bar", res.key);
 /// ```
-pub fn evaluate_key<'a>(key: &'a str) -> crate::Result<ContextKey<'a>> {
+pub fn evaluate_key(key: &str) -> crate::Result<ContextKey<'_>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
         Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use propex::PropexSegment;
 // use itertools::Itertools;
 use tokio::sync::RwLock;
 
@@ -40,10 +41,10 @@ impl ContextStore for MemoryContextStore {
         Ok(())
     }
 
-    async fn get_one(&self, scope: &str, key: &str) -> Result<Variant> {
+    async fn get_one(&self, scope: &str, path: &[PropexSegment]) -> Result<Variant> {
         let scopes = self.scopes.read().await;
         if let Some(scope_map) = scopes.get(scope) {
-            if let Some(value) = scope_map.get_nav(key, &[]) {
+            if let Some(value) = scope_map.get_segs(path) {
                 return Ok(value.clone());
             }
         }
@@ -55,7 +56,7 @@ impl ContextStore for MemoryContextStore {
         if let Some(scope_map) = scopes.get(scope) {
             let mut result = Vec::new();
             for key in keys {
-                if let Some(value) = scope_map.get_nav(*key, &[]) {
+                if let Some(value) = scope_map.get_nav(key, &[]) {
                     result.push(value.clone());
                 }
             }
@@ -72,27 +73,26 @@ impl ContextStore for MemoryContextStore {
         Err(EdgelinkError::OutOfRange.into())
     }
 
-    async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()> {
+    async fn set_one(&self, scope: &str, path: &[PropexSegment], value: Variant) -> Result<()> {
         let mut scopes = self.scopes.write().await;
-        let scope_map =
-            scopes.entry(scope.to_string()).or_insert_with(|| Variant::empty_object()).as_object_mut().unwrap();
-        let _ = scope_map.insert(key.to_string(), value);
+        let scope_map = scopes.entry(scope.to_string()).or_insert_with(Variant::empty_object);
+        scope_map.set_segs_property(path, value, true)?;
         Ok(())
     }
 
     async fn set_many(&self, scope: &str, pairs: Vec<(String, Variant)>) -> Result<()> {
         let mut scopes = self.scopes.write().await;
-        let scope_map = scopes.entry(scope.to_string()).or_insert_with(|| Variant::empty_object());
+        let scope_map = scopes.entry(scope.to_string()).or_insert_with(Variant::empty_object);
         for (key, value) in pairs {
             let _ = scope_map.as_object_mut().unwrap().insert(key, value);
         }
         Ok(())
     }
 
-    async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant> {
+    async fn remove_one(&self, scope: &str, path: &[PropexSegment]) -> Result<Variant> {
         let mut scopes = self.scopes.write().await;
         if let Some(scope_map) = scopes.get_mut(scope) {
-            if let Some(value) = scope_map.as_object_mut().unwrap().remove(key) {
+            if let Some(value) = scope_map.as_object_mut().unwrap().remove_segs_property(path) {
                 return Ok(value);
             } else {
                 return Err(EdgelinkError::OutOfRange.into());
