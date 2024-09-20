@@ -228,7 +228,7 @@ class TestFunctionNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('should set persistable node context (w/o callback)')
-    async def test_it_should_set_persistable_node_contextr_w_o_callback(self):
+    async def test_it_should_set_persistable_node_context_w_o_callback(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
@@ -245,7 +245,7 @@ class TestFunctionNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('should set two persistable node context (w/o callback)')
-    async def test_it_should_set_two_persistable_node_contextr_w_o_callback(self):
+    async def test_it_should_set_two_persistable_node_context_w_o_callback(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
@@ -266,6 +266,289 @@ class TestFunctionNode:
         assert msgs[0]["count0"] == "0"
         assert msgs[0]["count1"] == "1"
 
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set two persistable node context (single call, w/o callback)')
+    async def test_it_should_set_two_persistable_node_context_single_call_w_o_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"""
+                context.set(['count1', 'count2'], ['0', '1'], 'memory1', err => {
+                    msg.count0 = context.get('count1', 'memory1');
+                    msg.count1 = context.get('count2', 'memory1');
+                }); 
+                return msg;
+             """},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count0"] == "0"
+        assert msgs[0]["count1"] == "1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set persistable node context (w callback)')
+    async def test_it_should_set_persistable_node_context_w_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"context.set('count','0','memory1', function (err) { msg.count=context.get('count', 'memory1'); node.send(msg); });"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set two persistable node context (w callback)')
+    async def test_it_should_set_two_persistable_node_context_w_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"""
+                context.set('count','0','memory1', function (err) { 
+                    msg.count0 = context.get('count','memory1');
+                    context.set('count', '1', 'memory2', function (err) { 
+                        msg.count1 = context.get('count','memory2');
+                        node.send(msg); 
+                    }); 
+                });
+            """},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count0"] == "0"
+        assert msgs[0]["count1"] == "1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set default persistable node context')
+    async def test_it_should_set_default_persistable_node_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"context.set('count','0'); msg.count=context.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should get node context')
+    async def test_it_should_get_node_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"context.set('count','0'); msg.payload=context.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set flow context')
+    async def test_it_should_set_flow_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"flow.set('count','0'); msg.count=flow.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set persistable flow context (w/o callback)')
+    async def test_it_should_set_persistable_flow_context_w_o_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                ["2"]], "func": "flow.set('count','0','memory1'); msg.count=flow.get('count', 'memory1'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set two persistable flow context (w/o callback)')
+    async def test_it_should_set_two_persistable_flow_context_w_o_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                ["2"]], "func": r'''
+                flow.set('count','0','memory1');
+                flow.set('count','1','memory2');
+                msg.count0 = flow.get('count','memory1');
+                msg.count1 = flow.get('count','memory2');
+                return msg;'''},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count0"] == "0"
+        assert msgs[0]["count1"] == "1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set persistable flow context (w/ callback)')
+    async def test_it_should_set_persistable_flow_context_w_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"flow.set('count','0','memory1', function (err) { msg.count=flow.get('count', 'memory1'); node.send(msg); });"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set two persistable flow context (w/ callback)')
+    async def test_it_should_set_two_persistable_flow_context_w_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"""
+                flow.set('count','0','memory1', function (err) { 
+                    msg.count0 = flow.get('count','memory1');
+                    flow.set('count', '1', 'memory2', function (err) { 
+                        msg.count1 = flow.get('count','memory2');
+                        node.send(msg); 
+                    }); 
+                });
+            """},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count0"] == "0"
+        assert msgs[0]["count1"] == "1"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should get flow context')
+    async def test_it_should_get_global_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"flow.set('count','0'); msg.payload=flow.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set global context')
+    async def test_it_should_set_global_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"global.set('count','0'); msg.count=global.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set persistable global context (w/o callback)')
+    async def test_it_should_set_persistable_global_context_w_o_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                ["2"]], "func": "global.set('count','0','memory1'); msg.count=global.get('count', 'memory1'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should set persistable global context (w/ callback)')
+    async def test_it_should_set_persistable_global_context_w_callback(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"global.set('count','0','memory1', function (err) { msg.count=global.get('count', 'memory1'); node.send(msg); });"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "foo"
+        assert msgs[0]["count"] == "0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should get global context')
+    async def test_it_should_get_global_context(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
+             r"global.set('count','0'); msg.payload=global.get('count'); return msg;"},
+            {"id": "2", "z": "100", "type": "console-json"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert msgs[0]["topic"] == "bar"
+        assert msgs[0]["payload"] == "0"
 
     @pytest.mark.asyncio
     @pytest.mark.it('should allow accessing node.id')
@@ -315,10 +598,9 @@ class TestFunctionNode:
             assert msgs[0]['topic'] == 'bar'
             assert msgs[0]['payload'] == 'hello'
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should execute initialization')
-    async def test_id_should_execute_initialization(self):
+    async def test_it_should_execute_initialization(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
@@ -331,10 +613,9 @@ class TestFunctionNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]['payload'] == 'bar'
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should wait completion of initialization')
-    async def test_id_should_wait_completion_of_initializationn(self):
+    async def test_it_should_wait_completion_of_initializationn(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],

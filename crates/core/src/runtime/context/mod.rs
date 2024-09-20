@@ -61,7 +61,7 @@ pub trait ContextStore: Send + Sync {
     async fn get_keys(&self, scope: &str) -> Result<Vec<String>>;
 
     async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()>;
-    async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()>;
+    async fn set_many(&self, scope: &str, pairs: Vec<(String, Variant)>) -> Result<()>;
 
     async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant>;
 
