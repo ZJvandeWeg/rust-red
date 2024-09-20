@@ -93,7 +93,7 @@ impl Msg {
     }
 
     pub fn as_variant_object(&self) -> &VariantObjectMap {
-        &self.body.as_object().unwrap()
+        self.body.as_object().unwrap()
     }
 
     pub fn as_variant_object_mut(&mut self) -> &mut VariantObjectMap {

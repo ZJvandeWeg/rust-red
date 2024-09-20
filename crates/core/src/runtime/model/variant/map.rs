@@ -19,8 +19,9 @@ pub trait VariantObject {
         create_missing: bool,
     ) -> crate::Result<()>;
 
-    fn get_segs_property(&self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&Variant>;
-    fn get_segs_property_mut(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&mut Variant>;
+    fn get_segs_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
+    fn get_segs_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
+
     fn expand_segs_property(&self, segs: &mut [PropexSegment], eval_env: &[PropexEnv]) -> crate::Result<()>;
 
     fn remove_property(&mut self, prop: &str) -> Option<Variant>;
@@ -48,13 +49,13 @@ impl VariantObject for VariantObjectMap {
     fn get_nav_property(&self, expr: &str, eval_env: &[PropexEnv]) -> Option<&Variant> {
         let mut segs = propex::parse(expr).ok()?;
         self.expand_segs_property(&mut segs, eval_env).ok()?;
-        self.get_segs_property(&segs, eval_env)
+        self.get_segs_property(&segs)
     }
 
     fn get_nav_property_mut(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<&mut Variant> {
         let mut segs = propex::parse(expr).ok()?;
         self.expand_segs_property(&mut segs, eval_env).ok()?;
-        self.get_segs_property_mut(&segs, eval_env)
+        self.get_segs_property_mut(&segs)
     }
 
     /// Set the value of a direct property.
@@ -140,7 +141,7 @@ impl VariantObject for VariantObjectMap {
         }
     }
 
-    fn get_segs_property(&self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&Variant> {
+    fn get_segs_property(&self, segs: &[PropexSegment]) -> Option<&Variant> {
         match segs {
             [PropexSegment::Property(first_prop_name)] => self.get(first_prop_name.as_ref()),
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
@@ -150,7 +151,7 @@ impl VariantObject for VariantObjectMap {
         }
     }
 
-    fn get_segs_property_mut(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&mut Variant> {
+    fn get_segs_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
         match segs {
             [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
@@ -173,7 +174,7 @@ impl VariantObject for VariantObjectMap {
                 };
                 if let Some(nested_var) = nested_var {
                     *seg = match nested_var
-                        .get_segs_property(&nested_segs[1..], eval_env)
+                        .get_segs_property(&nested_segs[1..])
                         .ok_or(EdgelinkError::OutOfRange)?
                     {
                         Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),

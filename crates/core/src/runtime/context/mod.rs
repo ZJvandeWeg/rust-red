@@ -90,7 +90,7 @@ pub struct ContextManagerBuilder {
 }
 
 impl Context {
-    pub async fn get_one(&self, prop: &ContextKey<'_>) -> Option<Variant> {
+    pub async fn get_one(&self, prop: &ContextKey<'_>, eval_env: &[PropexEnv<'_>]) -> Option<Variant> {
         let store = if let Some(storage) = prop.store {
             self.manager.upgrade()?.get_context_store(storage)?
         } else {
@@ -110,17 +110,7 @@ impl Context {
         store.get_keys(&self.scope).await.ok()
     }
 
-    pub async fn set_one_nav(
-        &self,
-        nav_key: &str,
-        value: Option<Variant>,
-        eval_env: &[(&str, &Variant)],
-    ) -> Result<()> {
-        let ctx_key = evaluate_key(nav_key, eval_env)?;
-        self.set_one(&ctx_key, value).await
-    }
-
-    pub async fn set_one(&self, key: &ContextKey<'_>, value: Option<Variant>) -> Result<()> {
+    pub async fn set_one(&self, key: &ContextKey<'_>, value: Option<Variant>, eval_env: &[PropexEnv<'_>]) -> Result<()> {
         let store = if let Some(storage) = key.store {
             self.manager
                 .upgrade()
@@ -281,11 +271,11 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextKey, nom::erro
 /// ```
 /// use edgelink_core::runtime::context::evaluate_key;
 ///
-/// let res = evaluate_key("#:(file)::foo.bar", &[]).unwrap();
+/// let res = evaluate_key("#:(file)::foo.bar").unwrap();
 /// assert_eq!(Some("file"), res.store);
 /// assert_eq!("foo.bar", res.key);
 /// ```
-pub fn evaluate_key<'a>(key: &'a str, eval_env: &[(&'a str, &'a Variant)]) -> crate::Result<ContextKey<'a>> {
+pub fn evaluate_key<'a>(key: &'a str) -> crate::Result<ContextKey<'a>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
         Err(e) => Err(EdgelinkError::BadArguments(format!("Can not parse the key: '{0}'", e).to_owned()).into()),

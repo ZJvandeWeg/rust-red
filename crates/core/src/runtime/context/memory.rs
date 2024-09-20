@@ -14,7 +14,7 @@ inventory::submit! {
 
 struct MemoryContextStore {
     name: String,
-    scopes: RwLock<HashMap<String, VariantObjectMap>>,
+    scopes: RwLock<HashMap<String, Variant>>,
 }
 
 impl MemoryContextStore {
@@ -43,7 +43,7 @@ impl ContextStore for MemoryContextStore {
     async fn get_one(&self, scope: &str, key: &str) -> Result<Variant> {
         let scopes = self.scopes.read().await;
         if let Some(scope_map) = scopes.get(scope) {
-            if let Some(value) = scope_map.get(key) {
+            if let Some(value) = scope_map.get_nav(key, &[]) {
                 return Ok(value.clone());
             }
         }
@@ -55,7 +55,7 @@ impl ContextStore for MemoryContextStore {
         if let Some(scope_map) = scopes.get(scope) {
             let mut result = Vec::new();
             for key in keys {
-                if let Some(value) = scope_map.get(*key) {
+                if let Some(value) = scope_map.get_nav(*key, &[]) {
                     result.push(value.clone());
                 }
             }
@@ -67,23 +67,24 @@ impl ContextStore for MemoryContextStore {
     async fn get_keys(&self, scope: &str) -> Result<Vec<String>> {
         let scopes = self.scopes.read().await;
         if let Some(scope_map) = scopes.get(scope) {
-            return Ok(scope_map.keys().cloned().collect::<Vec<_>>());
+            return Ok(scope_map.as_object().unwrap().keys().cloned().collect::<Vec<_>>());
         }
         Err(EdgelinkError::OutOfRange.into())
     }
 
     async fn set_one(&self, scope: &str, key: &str, value: Variant) -> Result<()> {
         let mut scopes = self.scopes.write().await;
-        let scope_map = scopes.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
+        let scope_map =
+            scopes.entry(scope.to_string()).or_insert_with(|| Variant::empty_object()).as_object_mut().unwrap();
         let _ = scope_map.insert(key.to_string(), value);
         Ok(())
     }
 
     async fn set_many(&self, scope: &str, pairs: Vec<(String, Variant)>) -> Result<()> {
         let mut scopes = self.scopes.write().await;
-        let scope_map = scopes.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
+        let scope_map = scopes.entry(scope.to_string()).or_insert_with(|| Variant::empty_object());
         for (key, value) in pairs {
-            let _ = scope_map.insert(key, value);
+            let _ = scope_map.as_object_mut().unwrap().insert(key, value);
         }
         Ok(())
     }
@@ -91,7 +92,7 @@ impl ContextStore for MemoryContextStore {
     async fn remove_one(&self, scope: &str, key: &str) -> Result<Variant> {
         let mut scopes = self.scopes.write().await;
         if let Some(scope_map) = scopes.get_mut(scope) {
-            if let Some(value) = scope_map.remove(key) {
+            if let Some(value) = scope_map.as_object_mut().unwrap().remove(key) {
                 return Ok(value);
             } else {
                 return Err(EdgelinkError::OutOfRange.into());

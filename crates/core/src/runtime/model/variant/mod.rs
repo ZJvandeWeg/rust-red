@@ -501,10 +501,12 @@ impl Variant {
     pub fn set_seg_property(&mut self, pseg: &PropexSegment, value: Variant) -> crate::Result<()> {
         match pseg {
             PropexSegment::Index(index) => self.set_array_item(*index, value),
-            PropexSegment::Property(prop) => Ok(self
-                .as_object_mut()
-                .ok_or(EdgelinkError::InvalidOperation("Failed to convert".into()))?
-                .set_property(prop.to_string(), value)),
+            PropexSegment::Property(prop) => {
+                self.as_object_mut()
+                    .ok_or(EdgelinkError::InvalidOperation("Failed to convert".into()))?
+                    .set_property(prop.to_string(), value);
+                Ok(())
+            }
             PropexSegment::Nested(_nested) => unreachable!(),
         }
     }
@@ -565,7 +567,7 @@ impl Variant {
         }
     }
 
-    pub fn set_nav_property(
+    pub fn set_nav(
         &mut self,
         expr: &str,
         value: Variant,
@@ -715,19 +717,46 @@ mod tests {
     fn variant_propex_set_nav_property_with_empty_object_should_be_ok() {
         let mut obj1 = Variant::empty_object();
 
-        obj1.set_nav_property("address.country", Variant::String("US".to_string()), true).unwrap();
-        obj1.set_nav_property("address.zip", Variant::String("12345".to_string()), true).unwrap();
+        obj1.set_nav("address.country", Variant::String("US".to_string()), true, &[]).unwrap();
+        obj1.set_nav("address.zip", Variant::String("12345".to_string()), true, &[]).unwrap();
 
-        obj1.set_nav_property("array_field[0]", Variant::String("11111".to_string()), true).unwrap();
-        obj1.set_nav_property("array_field[1]", Variant::String("22222".to_string()), true).unwrap();
+        obj1.set_nav("array_field[0]", Variant::String("11111".to_string()), true, &[]).unwrap();
+        obj1.set_nav("array_field[1]", Variant::String("22222".to_string()), true, &[]).unwrap();
 
-        let obj_address = obj1.get_object_property("address").unwrap();
+        let obj_address = obj1.get_nav("address", &[]).unwrap();
 
         assert!(obj_address.is_object());
-        assert_eq!(obj_address.get_object_property("country").unwrap().as_str().unwrap(), "US");
-        assert_eq!(obj_address.get_object_property("zip").unwrap().as_str().unwrap(), "12345");
+        assert_eq!(obj_address.get_nav("country", &[]).unwrap().as_str().unwrap(), "US");
+        assert_eq!(obj_address.get_nav("zip", &[]).unwrap().as_str().unwrap(), "12345");
 
         assert_eq!(obj_address.len(), 2);
+    }
+
+    #[test]
+    fn test_variant_propex_with_nested_propex() {
+        let obj1 = Variant::from([
+            ("value1", Variant::from(123)),
+            ("value2", Variant::from(123.0)),
+            (
+                "value3",
+                Variant::from(vec![Variant::from(333), Variant::from(444), Variant::from(555), Variant::from(999)]),
+            ),
+            ("value4", Variant::from(1)),
+        ]);
+
+        let obj2 = Variant::from([("value5", Variant::from("value3"))]);
+
+        assert_eq!(obj1.get_nav("['value3'][1]", &[]).unwrap().as_i64().unwrap(), 444);
+
+        let res = obj1.get_nav("['value3'][this.value4]", &[PropexEnv::ThisRef("this")]).unwrap().as_i64().unwrap();
+        assert_eq!(res, 444);
+
+        let res = obj1
+            .get_nav("[obj2.value5][me.value4]", &[PropexEnv::ThisRef("me"), PropexEnv::ExtRef("obj2", &obj2)])
+            .unwrap()
+            .as_i64()
+            .unwrap();
+        assert_eq!(res, 444);
     }
 
     #[test]

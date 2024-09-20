@@ -39,7 +39,7 @@ impl ContextClass {
             ctx.spawn(async move {
                 let store = store.0.and_then(|x| x.get::<String>().ok());
                 let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-                match self.red_ctx.get_one(&ctx_key).await {
+                match self.red_ctx.get_one(&ctx_key, &[]).await {
                     Some(ctx_value) => {
                         let args = (Value::new_undefined(async_ctx.clone()), ctx_value.into_js(&async_ctx));
                         cb.call::<_, ()>(args).unwrap();
@@ -56,7 +56,7 @@ impl ContextClass {
             let store = store.0.and_then(|x| x.get::<String>().ok());
             let ctx_value = async move {
                 let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-                self.red_ctx.get_one(&ctx_key).await
+                self.red_ctx.get_one(&ctx_key, &[]).await
             }
             .wait();
             UndefinableVariant(ctx_value).into_js(&ctx)
@@ -81,7 +81,7 @@ impl ContextClass {
             ctx.spawn(async move {
                 let store = store.0.and_then(|x| x.get::<String>().ok());
                 let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-                match self.red_ctx.set_one(&ctx_key, Some(values)).await {
+                match self.red_ctx.set_one(&ctx_key, Some(values), &[]).await {
                     Ok(()) => {
                         let args = (Value::new_undefined(async_ctx.clone()),);
                         cb.call::<_, ()>(args).unwrap();
@@ -98,7 +98,7 @@ impl ContextClass {
             let store = store.0.and_then(|x| x.get::<String>().ok());
             async move {
                 let ctx_key = ContextKey { store: store.as_deref(), key: keys.as_ref() };
-                self.red_ctx.set_one(&ctx_key, Some(values)).await
+                self.red_ctx.set_one(&ctx_key, Some(values), &[]).await
             }
             .wait()
             .map_err(|e| ctx.throw(format!("{}", e).into_js(&ctx).unwrap()))?;
