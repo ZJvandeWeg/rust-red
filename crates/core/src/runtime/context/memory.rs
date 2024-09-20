@@ -79,11 +79,11 @@ impl ContextStore for MemoryContextStore {
         Ok(())
     }
 
-    async fn set_many(&self, scope: &str, pairs: &[(&str, &Variant)]) -> Result<()> {
+    async fn set_many(&self, scope: &str, pairs: Vec<(String, Variant)>) -> Result<()> {
         let mut scopes = self.scopes.write().await;
         let scope_map = scopes.entry(scope.to_string()).or_insert_with(VariantObjectMap::new);
         for (key, value) in pairs {
-            let _ = scope_map.insert(key.to_string(), (*value).clone());
+            let _ = scope_map.insert(key, value);
         }
         Ok(())
     }

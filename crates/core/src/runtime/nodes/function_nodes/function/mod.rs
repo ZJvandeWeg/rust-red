@@ -5,6 +5,7 @@ use serde::Deserialize;
 use smallvec::SmallVec;
 
 mod js {
+    pub use rquickjs::prelude::*;
     pub use rquickjs::*;
 }
 use js::CatchResultExt;
@@ -250,6 +251,9 @@ impl FunctionNode {
 
             ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
+
+            crate::runtime::js::core_fns::register_all(&ctx)?;
+
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
             ctx.globals().set("node", node_class::NodeClass::new(self))?;
 
@@ -288,13 +292,14 @@ impl FunctionNode {
             if !self.config.initialize.trim_ascii().is_empty() {
                 let init_body = &self.config.initialize;
                 let init_script = format!(
-                    r#"
+                    "
                     async function __el_init_func() {{ 
                         var global = __edgelinkGlobalContext; 
                         var flow = __edgelinkFlowContext; 
                         var context = __edgelinkNodeContext; 
-                        {init_body} 
-                    }}"#
+                        \n{init_body}\n
+                    }}
+                    "
                 );
                 let mut eval_options = EvalOptions::default();
                 eval_options.promise = true;
@@ -319,6 +324,7 @@ impl FunctionNode {
                     }
                 }
             }
+            while ctx.execute_pending_job() {};
 
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;
