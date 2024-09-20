@@ -8,7 +8,6 @@ use rquickjs::function::Constructor;
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::Deserialize;
 use serde::{self, de, Deserializer};
-use thiserror::Error;
 
 use crate::runtime::model::propex;
 use crate::EdgelinkError;
@@ -26,18 +25,18 @@ mod ser;
 pub use self::array::*;
 pub use self::map::*;
 
-#[derive(Error, Clone, Debug, PartialEq, PartialOrd)]
-pub enum VariantError {
-    #[error("Wrong type")]
-    WrongType,
-
-    #[error("Out of range error")]
-    OutOfRange,
-
-    #[error("Casting error")]
-    BadCast,
+#[derive(Debug, Clone)]
+pub enum PropexEnv<'a> {
+    ThisRef(&'a str),
+    ExtRef(&'a str, &'a Variant),
 }
 
+pub trait PropexEnvSliceExt<'a> {
+    fn find(&self, seg: &str, this: &'a Variant) -> Option<&'a Variant>;
+    fn find_seg(&self, seg: &str) -> Option<&PropexEnv>;
+}
+
+#[derive(Debug, Clone)]
 pub struct UndefinableVariant(pub Option<Variant>);
 
 /// A versatile enum that can represent various types of data.
@@ -302,16 +301,16 @@ impl Variant {
         }
     }
 
-    pub fn to_string(&self) -> Result<String, VariantError> {
+    pub fn to_string(&self) -> crate::Result<String> {
         match self {
             Variant::String(s) => Ok(s.clone()),
             Variant::Number(f) => Ok(f.to_string()),
             Variant::Bool(b) => Ok(b.to_string()),
-            _ => Err(VariantError::WrongType),
+            _ => Err(EdgelinkError::InvalidOperation("Bad type".into()).into()),
         }
     }
 
-    pub fn to_cow_str(&self) -> Result<Cow<'_, str>, VariantError> {
+    pub fn to_cow_str(&self) -> crate::Result<Cow<'_, str>> {
         match self {
             Variant::String(s) => Ok(Cow::Borrowed(s.as_str())),
             _ => Ok(Cow::Owned(self.to_string()?)),
@@ -329,7 +328,7 @@ impl Variant {
         }
     }
 
-    pub fn into_bool(self) -> Result<bool, Self> {
+    pub fn into_bool(self) -> crate::Result<bool, Self> {
         match self {
             Variant::Bool(b) => Ok(b),
             other => Err(other),
@@ -428,7 +427,7 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item(*index),
             PropexSegment::Property(prop) => self.as_object()?.get_property(prop),
-            PropexSegment::Nested(_) => None,
+            PropexSegment::Nested(_) => unreachable!("The propex must be expanded before"),
         }
     }
 
@@ -436,11 +435,11 @@ impl Variant {
         match pseg {
             PropexSegment::Index(index) => self.get_array_item_mut(*index),
             PropexSegment::Property(prop) => self.as_object_mut()?.get_property_mut(prop),
-            PropexSegment::Nested(_) => None,
+            PropexSegment::Nested(_) => unreachable!("The propex must be expanded before"),
         }
     }
 
-    pub fn get_segs(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
+    fn get_segs(&self, psegs: &[PropexSegment]) -> Option<&Variant> {
         psegs.iter().try_fold(self, |prev, pseg| prev.get_seg(pseg))
     }
 
@@ -462,12 +461,13 @@ impl Variant {
         }
     }
 
-    pub fn get_nav_property(&self, expr: &str) -> Option<&Variant> {
-        let prop_segs = propex::parse(expr).ok()?;
+    pub fn get_nav(&self, expr: &str, eval_env: &[PropexEnv]) -> Option<&Variant> {
+        let mut prop_segs = propex::parse(expr).ok()?;
+        self.expand_sesg_property(&mut prop_segs, eval_env).ok()?;
         self.get_segs(&prop_segs)
     }
 
-    pub fn set_array_item(&mut self, index: usize, value: Variant) -> Result<(), VariantError> {
+    pub fn set_array_item(&mut self, index: usize, value: Variant) -> crate::Result<()> {
         match self {
             Variant::Array(ref mut this_arr) => {
                 if let Some(existed) = this_arr.get_mut(index) {
@@ -478,31 +478,33 @@ impl Variant {
                     this_arr.push(value);
                     Ok(())
                 } else {
-                    Err(VariantError::OutOfRange)
+                    Err(EdgelinkError::InvalidOperation("Bad array".into()).into())
                 }
             }
             Variant::Bytes(ref mut this_bytes) => {
                 if let Some(existed) = this_bytes.get_mut(index) {
-                    *existed = value.as_u8().ok_or(VariantError::BadCast)?;
+                    *existed = value.as_u8().ok_or(EdgelinkError::InvalidOperation("Bad casting".into()))?;
                     Ok(())
                 } else if index == this_bytes.len() {
                     // insert to tail
-                    this_bytes.push(value.as_u8().ok_or(VariantError::BadCast)?);
+                    let buf = value.as_u8().ok_or(EdgelinkError::InvalidOperation("Bad casting".into()))?;
+                    this_bytes.push(buf);
                     Ok(())
                 } else {
-                    Err(VariantError::OutOfRange)
+                    Err(EdgelinkError::OutOfRange.into())
                 }
             }
-            _ => Err(VariantError::WrongType),
+            _ => Err(EdgelinkError::InvalidOperation("Bad type".into()).into()),
         }
     }
 
-    pub fn set_seg_property(&mut self, pseg: &PropexSegment, value: Variant) -> Result<(), VariantError> {
+    pub fn set_seg_property(&mut self, pseg: &PropexSegment, value: Variant) -> crate::Result<()> {
         match pseg {
             PropexSegment::Index(index) => self.set_array_item(*index, value),
-            PropexSegment::Property(prop) => {
-                Ok(self.as_object_mut().ok_or(VariantError::BadCast)?.set_property(prop.to_string(), value))
-            }
+            PropexSegment::Property(prop) => Ok(self
+                .as_object_mut()
+                .ok_or(EdgelinkError::InvalidOperation("Failed to convert".into()))?
+                .set_property(prop.to_string(), value)),
             PropexSegment::Nested(_nested) => unreachable!(),
         }
     }
@@ -512,9 +514,9 @@ impl Variant {
         psegs: &[PropexSegment],
         value: Variant,
         create_missing: bool,
-    ) -> Result<(), VariantError> {
+    ) -> crate::Result<()> {
         if psegs.is_empty() {
-            return Err(VariantError::OutOfRange);
+            return Err(EdgelinkError::BadArguments("psegs is empty".into()).into());
         }
 
         if psegs.len() == 1 {
@@ -537,7 +539,7 @@ impl Variant {
                 if let Some(next_pseg) = psegs.get(nlevel + 1) {
                     let mut prev = self.borrow_mut();
                     if nlevel > 0 {
-                        prev = self.get_segs_mut(&psegs[0..=nlevel - 1]).ok_or(VariantError::OutOfRange)?;
+                        prev = self.get_segs_mut(&psegs[0..=nlevel - 1]).ok_or(EdgelinkError::OutOfRange)?;
                     }
                     match next_pseg {
                         PropexSegment::Property(_) => prev.set_seg_property(pseg, Variant::empty_object())?,
@@ -545,10 +547,10 @@ impl Variant {
                         PropexSegment::Nested(_nested) => todo!(),
                     }
                 } else {
-                    return Err(VariantError::OutOfRange);
+                    return Err(EdgelinkError::OutOfRange.into());
                 };
             } else {
-                return Err(VariantError::OutOfRange);
+                return Err(EdgelinkError::OutOfRange.into());
             }
         }
 
@@ -559,20 +561,50 @@ impl Variant {
             parent_obj.set_seg_property(psegs.last().expect("We're so over"), value)?;
             Ok(())
         } else {
-            Err(VariantError::OutOfRange)
+            Err(EdgelinkError::OutOfRange.into())
         }
     }
 
-    pub fn set_nav_property(&mut self, expr: &str, value: Variant, create_missing: bool) -> Result<(), VariantError> {
-        if let Ok(prop_segs) = propex::parse(expr) {
-            self.set_segs_property(&prop_segs, value, create_missing)
-        } else {
-            Err(VariantError::OutOfRange)
-        }
+    pub fn set_nav_property(
+        &mut self,
+        expr: &str,
+        value: Variant,
+        create_missing: bool,
+        eval_env: &[PropexEnv],
+    ) -> crate::Result<()> {
+        let mut prop_segs = propex::parse(expr)?;
+        self.expand_sesg_property(&mut prop_segs, eval_env)?;
+        self.set_segs_property(&prop_segs, value, create_missing)
     }
 
     pub fn take(&mut self) -> Variant {
         core::mem::replace(self, Variant::Null)
+    }
+
+    fn expand_sesg_property(&self, segs: &mut [PropexSegment], eval_env: &[PropexEnv]) -> crate::Result<()> {
+        for seg in segs.iter_mut() {
+            if let PropexSegment::Nested(nested_segs) = seg {
+                let nested_var = match nested_segs.first() {
+                    Some(PropexSegment::Property(s)) => eval_env.find(s, self),
+                    // We do not support recursion here
+                    _ => return Err(EdgelinkError::OutOfRange.into()),
+                };
+                if let Some(nested_var) = nested_var {
+                    *seg = match nested_var.get_segs(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
+                        Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
+                        Variant::Number(num_index)
+                            if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
+                        {
+                            PropexSegment::Index(num_index.as_u64().unwrap() as usize)
+                        }
+                        _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                    };
+                } else {
+                    return Err(EdgelinkError::OutOfRange.into());
+                }
+            }
+        }
+        Ok(())
     }
 } // struct Variant
 
@@ -595,6 +627,30 @@ impl Debug for Variant {
                 Debug::fmt(map, formatter)
             }
         }
+    }
+}
+
+impl<'a> PropexEnvSliceExt<'a> for &'a [PropexEnv<'a>] {
+    fn find(&self, seg: &str, this: &'a Variant) -> Option<&'a Variant> {
+        for s in self.iter() {
+            match s {
+                PropexEnv::ThisRef(sname) if *sname == seg => return Some(this),
+                PropexEnv::ExtRef(sname, ext_var) if *sname == seg => return Some(ext_var),
+                _ => continue,
+            }
+        }
+        None
+    }
+
+    fn find_seg(&self, seg: &str) -> Option<&PropexEnv<'a>> {
+        for s in self.iter() {
+            match s {
+                PropexEnv::ThisRef(sname) if *sname == seg => return Some(s),
+                PropexEnv::ExtRef(sname, _) if *sname == seg => return Some(s),
+                _ => continue,
+            }
+        }
+        None
     }
 }
 
@@ -639,19 +695,19 @@ mod tests {
             ),
         ]);
 
-        let value1 = obj1.get_nav_property("value1").unwrap().as_i64().unwrap();
+        let value1 = obj1.get_nav("value1", &[]).unwrap().as_i64().unwrap();
         assert_eq!(value1, 123);
 
-        let ccc_1 = obj1.get_nav_property("value3.ccc").unwrap().as_i64().unwrap();
+        let ccc_1 = obj1.get_nav("value3.ccc", &[]).unwrap().as_i64().unwrap();
         assert_eq!(ccc_1, 555);
 
-        let ccc_2 = obj1.get_nav_property("['value3'].ccc").unwrap().as_i64().unwrap();
+        let ccc_2 = obj1.get_nav("['value3'].ccc", &[]).unwrap().as_i64().unwrap();
         assert_eq!(ccc_2, 555);
 
-        let ccc_3 = obj1.get_nav_property("['value3'][\"ccc\"]").unwrap().as_i64().unwrap();
+        let ccc_3 = obj1.get_nav("['value3'][\"ccc\"]", &[]).unwrap().as_i64().unwrap();
         assert_eq!(ccc_3, 555);
 
-        let ddd_1 = obj1.get_nav_property("value3.ddd").unwrap().as_i64().unwrap();
+        let ddd_1 = obj1.get_nav("value3.ddd", &[]).unwrap().as_i64().unwrap();
         assert_eq!(ddd_1, 999);
     }
 

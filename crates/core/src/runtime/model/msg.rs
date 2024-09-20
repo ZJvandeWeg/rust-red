@@ -37,7 +37,7 @@ pub struct LinkCallStackEntry {
 
 #[derive(Debug)]
 pub struct Msg {
-    body: BTreeMap<String, Variant>,
+    body: Variant,
     pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
 }
 
@@ -45,37 +45,42 @@ impl Msg {
     pub fn new_default() -> Arc<RwLock<Self>> {
         let msg = Msg {
             link_call_stack: None,
-            body: BTreeMap::from([
+            body: Variant::Object(BTreeMap::from([
                 (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
                 ("payload".to_string(), Variant::Null),
-            ]),
+            ])),
         };
         Arc::new(RwLock::new(msg))
     }
 
     pub fn new_with_body(body: BTreeMap<String, Variant>) -> Arc<RwLock<Self>> {
-        let msg = Msg { link_call_stack: None, body };
+        let msg = Msg { link_call_stack: None, body: Variant::Object(body) };
         Arc::new(RwLock::new(msg))
     }
 
     pub fn new_with_payload(payload: Variant) -> Arc<RwLock<Self>> {
         let msg = Msg {
             link_call_stack: None,
-            body: BTreeMap::from([
+            body: Variant::Object(BTreeMap::from([
                 (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
                 ("payload".to_string(), payload),
-            ]),
+            ])),
         };
         Arc::new(RwLock::new(msg))
     }
 
     pub fn id(&self) -> Option<ElementId> {
-        self.body.get(wellknown::MSG_ID_PROPERTY).and_then(|x| x.as_str()).and_then(parse_red_id_str)
+        self.body
+            .as_object()
+            .unwrap()
+            .get(wellknown::MSG_ID_PROPERTY)
+            .and_then(|x| x.as_str())
+            .and_then(parse_red_id_str)
     }
 
     pub fn set_id(&mut self, id: ElementId) {
         let uid: u64 = id.into();
-        self.body.insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::from(uid));
+        self.body.as_object_mut().unwrap().insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::from(uid));
     }
 
     pub fn generate_id() -> ElementId {
@@ -88,23 +93,23 @@ impl Msg {
     }
 
     pub fn as_variant_object(&self) -> &VariantObjectMap {
-        &self.body
+        &self.body.as_object().unwrap()
     }
 
     pub fn as_variant_object_mut(&mut self) -> &mut VariantObjectMap {
-        &mut self.body
+        self.body.as_object_mut().unwrap()
     }
 
     pub fn contains(&self, prop: &str) -> bool {
-        self.body.contains_property(prop)
+        self.body.as_object().unwrap().contains_property(prop)
     }
 
     pub fn get(&self, prop: &str) -> Option<&Variant> {
-        self.body.get_property(prop)
+        self.body.as_object().unwrap().get_property(prop)
     }
 
     pub fn get_mut(&mut self, prop: &str) -> Option<&mut Variant> {
-        self.body.get_property_mut(prop)
+        self.body.as_object_mut().unwrap().get_property_mut(prop)
     }
 
     /// Get the value of a navigation property
@@ -112,11 +117,11 @@ impl Msg {
     /// The first level of the property expression for 'msg' must be a string, which means it must be
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
     pub fn get_nav(&self, expr: &str) -> Option<&Variant> {
-        self.body.get_nav_property("msg", expr)
+        self.body.as_object().unwrap().get_nav_property(expr, &[PropexEnv::ThisRef("msg")])
     }
 
     pub fn get_nav_mut(&mut self, expr: &str) -> Option<&mut Variant> {
-        self.body.get_nav_property_mut("msg", expr)
+        self.body.as_object_mut().unwrap().get_nav_property_mut(expr, &[PropexEnv::ThisRef("msg")])
     }
 
     pub fn get_nav_stripped_mut(&mut self, expr: &str) -> Option<&mut Variant> {
@@ -138,11 +143,11 @@ impl Msg {
     }
 
     pub fn set(&mut self, prop: String, value: Variant) {
-        self.body.set_property(prop, value)
+        self.body.as_object_mut().unwrap().set_property(prop, value)
     }
 
     pub fn set_nav(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
-        self.body.set_nav_property("msg", expr, value, create_missing)
+        self.body.as_object_mut().unwrap().set_nav_property(expr, value, &[PropexEnv::ThisRef("msg")], create_missing)
     }
 
     pub fn set_nav_stripped(&mut self, expr: &str, value: Variant, create_missing: bool) -> crate::Result<()> {
@@ -155,11 +160,11 @@ impl Msg {
     }
 
     pub fn remove(&mut self, prop: &str) -> Option<Variant> {
-        self.body.remove_property(prop)
+        self.body.as_object_mut().unwrap().remove_property(prop)
     }
 
     pub fn remove_nav(&mut self, prop: &str) -> Option<Variant> {
-        self.body.remove_nav_property(prop)
+        self.body.as_object_mut().unwrap().remove_nav_property(prop, &[PropexEnv::ThisRef("msg")])
     }
 }
 
@@ -195,13 +200,13 @@ impl Index<&str> for Msg {
     type Output = Variant;
 
     fn index(&self, key: &str) -> &Self::Output {
-        &self.body[key]
+        &self.body.as_object().unwrap()[key]
     }
 }
 
 impl IndexMut<&str> for Msg {
     fn index_mut(&mut self, key: &str) -> &mut Self::Output {
-        self.body.entry(key.to_string()).or_default()
+        self.body.as_object_mut().unwrap().entry(key.to_string()).or_default()
     }
 }
 
@@ -212,7 +217,7 @@ impl serde::Serialize for Msg {
     {
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry(wellknown::LINK_SOURCE_PROPERTY, &self.link_call_stack)?;
-        for (k, v) in self.body.iter() {
+        for (k, v) in self.body.as_object().unwrap().iter() {
             map.serialize_entry(k, v)?;
         }
         map.end()
@@ -255,7 +260,7 @@ impl<'de> serde::Deserialize<'de> for Msg {
                     }
                 }
 
-                Ok(Msg { body, link_call_stack })
+                Ok(Msg { body: Variant::Object(body), link_call_stack })
             }
         }
 
@@ -312,7 +317,7 @@ impl<'js> js::FromJs<'js> for Msg {
                             }
                         }
                     }
-                    Ok(Msg { link_call_stack, body })
+                    Ok(Msg { link_call_stack, body: Variant::Object(body) })
                 } else {
                     Err(js::Error::FromJs { from: "JS object", to: "Variant::Object", message: None })
                 }

@@ -8,24 +8,24 @@ pub trait VariantObject {
     fn contains_property(&self, prop: &str) -> bool;
     fn get_property(&self, prop: &str) -> Option<&Variant>;
     fn get_property_mut(&mut self, prop: &str) -> Option<&mut Variant>;
-    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant>;
-    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant>;
+    fn get_nav_property(&self, expr: &str, eval_env: &[PropexEnv]) -> Option<&Variant>;
+    fn get_nav_property_mut(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<&mut Variant>;
     fn set_property(&mut self, prop: String, value: Variant);
     fn set_nav_property(
         &mut self,
-        self_name: &str,
         expr: &str,
         value: Variant,
+        eval_env: &[PropexEnv],
         create_missing: bool,
     ) -> crate::Result<()>;
 
-    fn get_segs_property(&self, segs: &[PropexSegment]) -> Option<&Variant>;
-    fn get_segs_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant>;
-    fn evaluate_sesg_property(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()>;
+    fn get_segs_property(&self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&Variant>;
+    fn get_segs_property_mut(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&mut Variant>;
+    fn expand_segs_property(&self, segs: &mut [PropexSegment], eval_env: &[PropexEnv]) -> crate::Result<()>;
 
     fn remove_property(&mut self, prop: &str) -> Option<Variant>;
-    fn remove_nav_property(&mut self, expr: &str) -> Option<Variant>;
-    fn remove_segs_property(&mut self, segs: &[PropexSegment]) -> Option<Variant>;
+    fn remove_nav_property(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<Variant>;
+    fn remove_segs_property(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<Variant>;
 }
 
 impl VariantObject for VariantObjectMap {
@@ -45,16 +45,16 @@ impl VariantObject for VariantObjectMap {
     ///
     /// The first level of the property expression for 'msg' must be a string, which means it must be
     /// `msg[msg.topic]` `msg['aaa']` or `msg.aaa`, and not `msg[12]`
-    fn get_nav_property(&self, self_name: &str, expr: &str) -> Option<&Variant> {
+    fn get_nav_property(&self, expr: &str, eval_env: &[PropexEnv]) -> Option<&Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        self.evaluate_sesg_property(self_name, &mut segs).ok()?;
-        self.get_segs_property(&segs)
+        self.expand_segs_property(&mut segs, eval_env).ok()?;
+        self.get_segs_property(&segs, eval_env)
     }
 
-    fn get_nav_property_mut(&mut self, self_name: &str, expr: &str) -> Option<&mut Variant> {
+    fn get_nav_property_mut(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<&mut Variant> {
         let mut segs = propex::parse(expr).ok()?;
-        self.evaluate_sesg_property(self_name, &mut segs).ok()?;
-        self.get_segs_property_mut(&segs)
+        self.expand_segs_property(&mut segs, eval_env).ok()?;
+        self.get_segs_property_mut(&segs, eval_env)
     }
 
     /// Set the value of a direct property.
@@ -65,9 +65,9 @@ impl VariantObject for VariantObjectMap {
     /// Set the value of a navigation property.
     fn set_nav_property(
         &mut self,
-        self_name: &str,
         expr: &str,
         value: Variant,
+        eval_env: &[PropexEnv],
         create_missing: bool,
     ) -> crate::Result<()> {
         if expr.is_empty() {
@@ -75,7 +75,7 @@ impl VariantObject for VariantObjectMap {
         }
 
         let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArguments(e.to_string()))?;
-        self.evaluate_sesg_property(self_name, &mut segs)?;
+        self.expand_segs_property(&mut segs, eval_env)?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
@@ -140,7 +140,7 @@ impl VariantObject for VariantObjectMap {
         }
     }
 
-    fn get_segs_property(&self, segs: &[PropexSegment]) -> Option<&Variant> {
+    fn get_segs_property(&self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&Variant> {
         match segs {
             [PropexSegment::Property(first_prop_name)] => self.get(first_prop_name.as_ref()),
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
@@ -150,7 +150,7 @@ impl VariantObject for VariantObjectMap {
         }
     }
 
-    fn get_segs_property_mut(&mut self, segs: &[PropexSegment]) -> Option<&mut Variant> {
+    fn get_segs_property_mut(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<&mut Variant> {
         match segs {
             [PropexSegment::Property(first_prop_name)] => self.get_property_mut(first_prop_name),
             [PropexSegment::Property(first_prop_name), ref rest @ ..] => {
@@ -160,23 +160,33 @@ impl VariantObject for VariantObjectMap {
         }
     }
 
-    fn evaluate_sesg_property(&self, self_name: &str, segs: &mut [PropexSegment]) -> crate::Result<()> {
+    fn expand_segs_property(&self, segs: &mut [PropexSegment], eval_env: &[PropexEnv]) -> crate::Result<()> {
         for seg in segs.iter_mut() {
             if let PropexSegment::Nested(nested_segs) = seg {
-                if nested_segs.first() != Some(&PropexSegment::Property(Cow::Borrowed(self_name))) {
-                    return Err(
-                        EdgelinkError::BadArguments(format!("The expression must contains `{}.`", self_name)).into()
-                    );
-                }
-                *seg = match self.get_segs_property(&nested_segs[1..]).ok_or(EdgelinkError::OutOfRange)? {
-                    Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
-                    Variant::Number(num_index)
-                        if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
-                    {
-                        PropexSegment::Index(num_index.as_u64().unwrap() as usize)
-                    }
-                    _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                let nested_var = match nested_segs.first() {
+                    Some(PropexSegment::Property(s)) => eval_env.find_seg(s).and_then(|x| match x {
+                        PropexEnv::ThisRef(_) => Some(self),
+                        PropexEnv::ExtRef(_, _) => None,
+                    }),
+                    // 不支持递归
+                    _ => return Err(EdgelinkError::OutOfRange.into()),
                 };
+                if let Some(nested_var) = nested_var {
+                    *seg = match nested_var
+                        .get_segs_property(&nested_segs[1..], eval_env)
+                        .ok_or(EdgelinkError::OutOfRange)?
+                    {
+                        Variant::String(str_index) => PropexSegment::Property(Cow::Owned(str_index.clone())),
+                        Variant::Number(num_index)
+                            if (num_index.is_u64() || num_index.is_i64()) && num_index.as_u64() >= Some(0) =>
+                        {
+                            PropexSegment::Index(num_index.as_u64().unwrap() as usize)
+                        }
+                        _ => return Err(EdgelinkError::OutOfRange.into()), // We cannot found the nested property
+                    };
+                } else {
+                    return Err(EdgelinkError::OutOfRange.into());
+                }
             }
         }
         Ok(())
@@ -187,7 +197,7 @@ impl VariantObject for VariantObjectMap {
     }
 
     /// Remove the value of a navigation property.
-    fn remove_nav_property(&mut self, expr: &str) -> Option<Variant> {
+    fn remove_nav_property(&mut self, expr: &str, eval_env: &[PropexEnv]) -> Option<Variant> {
         // Return None if the expression is empty.
         if expr.is_empty() {
             return None;
@@ -197,10 +207,10 @@ impl VariantObject for VariantObjectMap {
         // TODO nested
         let segs = propex::parse(expr).ok()?;
 
-        self.remove_segs_property(&segs)
+        self.remove_segs_property(&segs, eval_env)
     }
 
-    fn remove_segs_property(&mut self, segs: &[PropexSegment]) -> Option<Variant> {
+    fn remove_segs_property(&mut self, segs: &[PropexSegment], eval_env: &[PropexEnv]) -> Option<Variant> {
         // Return None if the expression is empty.
         if segs.is_empty() {
             return None;
@@ -256,12 +266,12 @@ mod tests {
         .unwrap();
 
         assert!(obj1.get("value3").unwrap().as_object().unwrap().contains_key("aaa"));
-        let _ = obj1.remove_nav_property("value3.aaa").unwrap();
+        let _ = obj1.remove_nav_property("value3.aaa", &[]).unwrap();
         assert!(!obj1.get("value3").unwrap().as_object().unwrap().contains_key("aaa"));
 
         assert!(obj1.get("value4").unwrap().as_array().unwrap().contains(&Variant::String("foobar".into())));
         assert_eq!(obj1.get("value4").unwrap().as_array().unwrap().len(), 3);
-        let _ = obj1.remove_nav_property("value4[1]").unwrap();
+        let _ = obj1.remove_nav_property("value4[1]", &[]).unwrap();
         assert!(!obj1.get("value4").unwrap().as_array().unwrap().contains(&Variant::String("foobar".into())));
         assert_eq!(obj1.get("value4").unwrap().as_array().unwrap().len(), 2);
     }

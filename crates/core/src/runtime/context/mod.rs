@@ -298,15 +298,15 @@ mod tests {
 
     #[test]
     fn test_parse_context_store() {
-        let res = evaluate_key("#:(file1)::foo.bar").unwrap();
+        let res = evaluate_key("#:(file1)::foo.bar", &[]).unwrap();
         assert_eq!(Some("file1"), res.store);
         assert_eq!("foo.bar", res.key);
 
-        let res = evaluate_key("#:(memory1)::payload").unwrap();
+        let res = evaluate_key("#:(memory1)::payload", &[]).unwrap();
         assert_eq!(Some("memory1"), res.store);
         assert_eq!("payload", res.key);
 
-        let res = evaluate_key("foo.bar").unwrap();
+        let res = evaluate_key("foo.bar", &[]).unwrap();
         assert_eq!(None, res.store);
         assert_eq!("foo.bar", res.key);
     }
