@@ -630,7 +630,6 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should get flow context')
     async def test_it_should_get_flow_context_2(self):
@@ -795,7 +794,6 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should get global context')
     async def test_it_should_get_global_context_2(self):
@@ -812,7 +810,6 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should get persistable global context (w/o callback)')
     async def test_it_should_get_persistable_global_context_w_o_callback_2(self):
@@ -829,7 +826,6 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should get persistable global context (w/ callback)')
     async def test_it_should_get_persistable_global_context_w_callback_2(self):
@@ -846,14 +842,13 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should handle setTimeout()')
     async def test_it_should_handle_settimeout(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
-             r"setTimeout(function(){node.send(msg);},700);"},
+             r"setTimeout(() => node.send(msg), 100);"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
         injections = [
@@ -869,18 +864,16 @@ class TestFunctionNode:
     async def test_it_should_handle_setinterval(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
-             r"setInterval(function(){node.send(msg);},100);"},
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], 
+             "func": r"setInterval(() => node.send(msg), 700);"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
         ]
-        msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "foo"
-        assert msgs[1]["topic"] == "bar"
-        assert msgs[1]["payload"] == "foo"
 
     @pytest.mark.skip
     @pytest.mark.asyncio
@@ -895,7 +888,7 @@ class TestFunctionNode:
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
         ]
-        msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "foo"
 

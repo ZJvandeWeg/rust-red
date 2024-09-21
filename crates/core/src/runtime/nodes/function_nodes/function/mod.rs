@@ -239,6 +239,8 @@ impl FunctionNode {
                 var flow = __edgelinkFlowContext; 
                 var context = __edgelinkNodeContext; 
                 var __msgid__ = msg._msgid; 
+                context.flow = flow;
+                context.global = global;
                 {user_func} 
             }}"#
         );
@@ -297,14 +299,13 @@ impl FunctionNode {
                         var global = __edgelinkGlobalContext; 
                         var flow = __edgelinkFlowContext; 
                         var context = __edgelinkNodeContext; 
+                        context.flow = flow;
+                        context.global = global;
                         \n{init_body}\n
                     }}
                     "
                 );
-                let mut eval_options = EvalOptions::default();
-                eval_options.promise = true;
-                eval_options.strict = true;
-                match ctx.eval_with_options::<(), _>(init_script.as_bytes(), eval_options) {
+                match ctx.eval_with_options::<(), _>(init_script.as_bytes(), self.make_eval_options()) {
                     Err(e) => {
                         log::error!("Failed to evaluate the `initialize` script: {:?}", e);
                         return Err(EdgelinkError::InvalidData(e.to_string()).into());
@@ -326,10 +327,7 @@ impl FunctionNode {
             }
             while ctx.execute_pending_job() {};
 
-            let mut eval_options = EvalOptions::default();
-            eval_options.promise = true;
-            eval_options.strict = true;
-            match ctx.eval::<(),_>(user_script_ref.as_bytes()) {
+            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()) {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     log::error!("Failed to evaluate the user function definition code: {}", e);
@@ -342,19 +340,46 @@ impl FunctionNode {
 
     async fn finalize_async(&self, js_ctx: &js::AsyncContext) -> crate::Result<()> {
         js::async_with!(js_ctx => |ctx| {
-            if !self.config.finalize.is_empty() {
-                match ctx.eval::<(),_>(self.config.finalize.as_bytes()) {
-                    Ok(()) => Ok(()),
-                    Err(e) => {
-                        log::error!("Failed to evaluate the finalization script code: {}", e);
-                        Err(EdgelinkError::InvalidData(e.to_string()).into())
-                    }
+            let final_body = &self.config.finalize;
+            let final_script = format!(
+                "
+                async function __el_finalize_func() {{ 
+                    var global = __edgelinkGlobalContext; 
+                    var flow = __edgelinkFlowContext; 
+                    var context = __edgelinkNodeContext; 
+                    context.flow = flow;
+                    context.global = global;
+                    \n{final_body}\n
+                }}
+                "
+            );
+            match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
+                Err(e) => {
+                    log::error!("Failed to evaluate the `finialize` script: {:?}", e);
+                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                }
+                _ =>{
+                    log::debug!("[FUNCTION_NODE] The evulation of the `finalize` script has been succeed.");
                 }
             }
-            else {
-                Ok(())
+
+            let final_func : js::Function = ctx.globals().get("__el_finalize_func")?;
+            let promised = final_func.call::<_, rquickjs::Promise>(())?;
+            match promised.into_future().await {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    log::error!("Failed to invoke the `finialize` script code: {}", e);
+                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                }
             }
         })
         .await
+    }
+
+    fn make_eval_options(&self) -> EvalOptions {
+        let mut eval_options = EvalOptions::default();
+        eval_options.promise = true;
+        eval_options.strict = true;
+        eval_options
     }
 }
