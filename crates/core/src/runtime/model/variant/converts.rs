@@ -9,7 +9,6 @@ impl From<&Variant> for String {
             Variant::Number(f) => f.to_string(),
             Variant::String(s) => s.clone(),
             Variant::Regexp(s) => s.to_string(),
-            Variant::Number(s) => s.to_string(),
             Variant::Bool(b) => b.to_string(),
             Variant::Date(d) => {
                 let dt_now_utc: chrono::DateTime<chrono::Local> = d.clone().into();
