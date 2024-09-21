@@ -43,6 +43,11 @@ impl NodeClass {
         Ok(node.config.output_count)
     }
 
+    #[qjs(rename = "done")]
+    fn done(self) {
+        // do nothing...
+    }
+
     #[qjs(rename = "send")]
     fn send<'js>(self, msgs: Value<'js>, cloning: Opt<bool>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
         let cloning = cloning.unwrap_or(true);
@@ -121,6 +126,62 @@ impl NodeClass {
             _ => {
                 return Err(EdgelinkError::InvalidOperation(format!("Unsupported: {:?}", msgs.type_of())).into());
             }
+        }
+        Ok(())
+    }
+
+    fn log<'js>(&self, text: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        let node = self.node.upgrade().ok_or(rquickjs::Error::Exception)?;
+        let name = &node.get_node().name;
+        if text.type_of() == rquickjs::Type::String {
+            log::info!("[function:{}] {}", name, text.get::<String>()?);
+        } else {
+            log::info!("[function:{}] {:?}", name, ctx.json_stringify(text)?);
+        }
+        Ok(())
+    }
+
+    fn warn<'js>(&self, text: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        let node = self.node.upgrade().ok_or(rquickjs::Error::Exception)?;
+        let name = &node.get_node().name;
+        if text.type_of() == rquickjs::Type::String {
+            log::warn!("[function:{}] {}", name, text.get::<String>()?);
+        } else {
+            log::warn!("[function:{}] {:?}", name, ctx.json_stringify(text)?);
+        }
+        Ok(())
+    }
+
+    fn error<'js>(&self, text: Value<'js>, _msg: Opt<rquickjs::Value<'js>>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        // TODO
+        let node = self.node.upgrade().ok_or(rquickjs::Error::Exception)?;
+        let name = &node.get_node().name;
+        if text.type_of() == rquickjs::Type::String {
+            log::error!("[function:{}] {}", name, text.get::<String>()?);
+        } else {
+            log::error!("[function:{}] {:?}", name, ctx.json_stringify(text)?);
+        }
+        Ok(())
+    }
+
+    fn debug<'js>(&self, text: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        let node = self.node.upgrade().ok_or(rquickjs::Error::Exception)?;
+        let name = &node.get_node().name;
+        if text.type_of() == rquickjs::Type::String {
+            log::debug!("[function:{}] {}", name, text.get::<String>()?);
+        } else {
+            log::debug!("[function:{}] {:?}", name, ctx.json_stringify(text)?);
+        }
+        Ok(())
+    }
+
+    fn trace<'js>(&self, text: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        let node = self.node.upgrade().ok_or(rquickjs::Error::Exception)?;
+        let name = &node.get_node().name;
+        if text.type_of() == rquickjs::Type::String {
+            log::trace!("[function:{}] {}", name, text.get::<String>()?);
+        } else {
+            log::trace!("[function:{}] {:?}", name, ctx.json_stringify(text)?);
         }
         Ok(())
     }
