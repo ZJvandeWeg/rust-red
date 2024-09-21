@@ -8,6 +8,13 @@ impl From<&Variant> for String {
         match var {
             Variant::Number(f) => f.to_string(),
             Variant::String(s) => s.clone(),
+            Variant::Regexp(s) => s.to_string(),
+            Variant::Number(s) => s.to_string(),
+            Variant::Bool(b) => b.to_string(),
+            Variant::Date(d) => {
+                let dt_now_utc: chrono::DateTime<chrono::Local> = d.clone().into();
+                dt_now_utc.to_string()
+            }
             _ => "".to_string(),
         }
     }
@@ -135,6 +142,38 @@ where
         match opt {
             None => Variant::Null,
             Some(value) => Into::into(value),
+        }
+    }
+}
+
+impl From<serde_json::Value> for Variant {
+    fn from(jv: serde_json::Value) -> Self {
+        match jv {
+            serde_json::Value::Null => Variant::Null,
+            serde_json::Value::Bool(boolean) => Variant::from(boolean),
+            serde_json::Value::Number(number) => Variant::Number(number),
+            serde_json::Value::String(string) => Variant::String(string.to_owned()),
+            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
+            serde_json::Value::Object(object) => {
+                let new_map: VariantObjectMap = object.iter().map(|(k, v)| (k.to_owned(), Variant::from(v))).collect();
+                Variant::Object(new_map)
+            }
+        }
+    }
+}
+
+impl From<&serde_json::Value> for Variant {
+    fn from(jv: &serde_json::Value) -> Self {
+        match jv {
+            serde_json::Value::Null => Variant::Null,
+            serde_json::Value::Bool(boolean) => Variant::from(*boolean),
+            serde_json::Value::Number(number) => Variant::Number(number.clone()),
+            serde_json::Value::String(string) => Variant::String(string.clone()),
+            serde_json::Value::Array(array) => Variant::Array(array.iter().map(Variant::from).collect()),
+            serde_json::Value::Object(object) => {
+                let new_map: VariantObjectMap = object.iter().map(|(k, v)| (k.clone(), Variant::from(v))).collect();
+                Variant::Object(new_map)
+            }
         }
     }
 }
