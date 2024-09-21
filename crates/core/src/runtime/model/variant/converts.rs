@@ -11,7 +11,7 @@ impl From<&Variant> for String {
             Variant::Regexp(s) => s.to_string(),
             Variant::Bool(b) => b.to_string(),
             Variant::Date(d) => {
-                let dt_now_utc: chrono::DateTime<chrono::Local> = d.clone().into();
+                let dt_now_utc: chrono::DateTime<chrono::Local> = (*d).into();
                 dt_now_utc.to_string()
             }
             _ => "".to_string(),
