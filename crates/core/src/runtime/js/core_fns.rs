@@ -11,6 +11,14 @@ pub struct CancellationTokenWrapper {
     token: tokio_util::sync::CancellationToken,
 }
 
+impl Drop for CancellationTokenWrapper {
+    fn drop(&mut self) {
+        if !self.token.is_cancelled() {
+            self.token.cancel();
+        }
+    }
+}
+
 pub fn register_all(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
     ctx.globals().set("setTimeout", Func::from(self::set_timeout))?;
     ctx.globals().set("clearTimeout", Func::from(self::clear_timeout))?;
