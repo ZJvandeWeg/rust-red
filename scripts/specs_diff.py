@@ -55,7 +55,7 @@ def extract_it_strings_py(file_path) -> list[str]:
     with tempfile.NamedTemporaryFile(delete=True) as report_file:
         output_capture = io.StringIO()
         with contextlib.redirect_stdout(output_capture), contextlib.redirect_stderr(output_capture):
-            pytest.main(["-q", "--co", "--json-report", f"--json-report-file={report_file.name}", file_path])
+            pytest.main(["-q", "--co", "--disable-warnings", "-p", "no:skip", "--json-report", f"--json-report-file={report_file.name}", file_path])
         report = load_json(report_file.name)
         for coll in report['collectors']:
             for result in coll['result']:
@@ -102,9 +102,9 @@ if __name__ == "__main__":
         py_specs = extract_it_strings_py(py_path)
 
         diff = difflib.Differ().compare(js_specs, py_specs)
-        differences = [line for line in diff if line.startswith(
-            '-') or line.startswith('+')]
-        # differences = [line for line in diff]
+        #differences = [line for line in diff if line.startswith(
+        #    '-') or line.startswith('+')]
+        differences = [line for line in diff]
         total_js_count += len(js_specs)
         total_py_count += len(py_specs)
         if len(py_specs) >= len(js_specs):
@@ -118,8 +118,10 @@ if __name__ == "__main__":
                 print(f'\t{Fore.RED}{s[0]} It: {Style.RESET_ALL}{s[2:]}')
             elif s[0] == '+':
                 print(f'\t{Fore.GREEN}{s[0]} It: {Style.RESET_ALL}{s[2:]}')
+            elif s[0] == '?':
+                print(f'\t{Fore.YELLOW}{s[0]} It: {Style.RESET_ALL}{s[2:]}')
             else:
-                print(f'\t{Style.DIM}{s}{Style.RESET_ALL}')
+                print(f'\t{Style.DIM}{s[0]} It: {s[2:]}{Style.RESET_ALL}')
 
     print_sep("")
     print("Total:")

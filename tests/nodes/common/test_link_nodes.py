@@ -8,9 +8,21 @@ from tests import *
 @pytest.mark.describe('link Node')
 class TestInjectNode:
 
+    @pytest.mark.skip
     @pytest.mark.asyncio
-    @pytest.mark.it('''should be linked''')
-    async def test_0001(self):
+    @pytest.mark.it('should be loaded (link in)')
+    async def test_it_should_be_loaded_link_in(self):
+        pass
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should be loaded (link out)')
+    async def test_it_should_be_loaded_link_out(self):
+        pass
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('should be linked')
+    async def test_it_should_be_linked(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "link out",
@@ -73,7 +85,7 @@ class TestInjectNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('should call static link-in node and get response')
-        async def test_0004(self):
+        async def test_id_should_call_static_link_in_node_and_get_response(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "200", "type": "tab"},  # flow 2

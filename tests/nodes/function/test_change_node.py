@@ -4,20 +4,31 @@ import time
 
 from tests import *
 
-
-# 0001 should load node with defaults
-# 0002 should load defaults if set to replace
-# 0003 should load defaults if set to change
-# 0004 should no-op if there are no rules
-
 @pytest.mark.describe('change Node')
 class TestChangeNode:
-
 
     @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should load node with defaults')
     async def test_it_should_load_node_with_defaults(self):
+        pass
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should load defaults if set to replace')
+    async def test_it_should_load_defaults_if_set_to_replace(self):
+        pass
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should load defaults if set to change')
+    async def test_it_should_load_defaults_if_set_to_change(self):
+        pass
+
+    @pytest.mark.skip
+    @pytest.mark.asyncio
+    @pytest.mark.it('should no-op if there are no rules')
+    async def test_it_should_no_op_if_there_are_no_rules(self):
         pass
 
     @pytest.mark.describe('#set')
@@ -529,6 +540,7 @@ class TestChangeNode:
 # 0039 sets the value of a message property using a nested property in flow context
 # 0040 sets the value of a nested flow context property using a message property
 # 0041 deep copies the property if selected
+
 
     @pytest.mark.describe('#change')
     class TestChange:
