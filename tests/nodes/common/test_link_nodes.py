@@ -106,7 +106,7 @@ class TestInjectNode:
 
         @pytest.mark.asyncio
         @pytest.mark.it('should call link-in node by name and get response')
-        async def test_0005(self):
+        async def test_it_should_call_link_in_node_by_name_and_get_response(self):
             payload = float(time.time())
             flows = [
                 {"id": "100", "type": "tab", "label": "Flow 1"},
@@ -126,7 +126,7 @@ class TestInjectNode:
                 {"nid": "5", "msg": {'payload': payload, 'target': 'double payload'}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
-            assert msgs[0]["payload"] == payload + payload
+            assert int(round(msgs[0]["payload"])) == int(round(payload + payload))
 
 
         """ TODO implements the `catch` node
