@@ -116,7 +116,7 @@ class TestInjectNode:
                 {"id": "2", "z": "200", "type": "link in",
                     "name": "double payload", "wires": [["3"]]},
                 {"id": "3", "z": "100", "type": "function",
-                    "func": 'msg.payload = msg.payload + msg.payload; return msg;', "wires": [["4"]]},
+                    "func": 'msg.payload += msg.payload; return msg;', "wires": [["4"]]},
                 {"id": "4", "z": "100", "type": "link out", "mode": "return"},
                 {"id": "5", "z": "100", "type": "link call",
                     "linkType": "dynamic", "links": [], "wires": [["6"]]},
@@ -126,6 +126,7 @@ class TestInjectNode:
                 {"nid": "5", "msg": {'payload': payload, 'target': 'double payload'}},
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            print(msgs)
             assert int(round(msgs[0]["payload"])) == int(round(payload + payload))
 
 

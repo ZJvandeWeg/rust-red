@@ -117,8 +117,7 @@ impl LinkCallNode {
             let timeout_handle = mut_state.timeout_tasks.spawn(async move { node.timeout_task(entry_id).await });
             mut_state.msg_events.insert(entry_id, MsgEvent { _msg: cloned_msg, timeout_handle });
         }
-        self.fan_out_linked_msg(msg, cancel.clone()).await?;
-        Ok(())
+        self.fan_out_linked_msg(msg, cancel.clone()).await
     }
 
     async fn fan_out_linked_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {

@@ -139,7 +139,7 @@ impl FunctionNode {
         let origin_msg_id = msg.id();
         let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-            let js_msg = msg.into_js(&ctx).unwrap(); // FIXME
+            let js_msg = msg.into_js(&ctx)?; // FIXME
             let args = (js_msg,);
             let promised = user_func.call::<_, rquickjs::Promise>(args)?;
             let js_res_value: js::Result<js::Value> = promised.into_future().await;

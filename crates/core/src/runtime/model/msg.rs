@@ -21,7 +21,7 @@ pub mod wellknown {
     pub const LINK_SOURCE_PROPERTY: &str = "_linkSource";
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Envelope {
     pub port: usize,
     pub msg: Arc<RwLock<Msg>>,
@@ -35,7 +35,7 @@ pub struct LinkCallStackEntry {
     pub link_call_node_id: ElementId,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Msg {
     body: Variant,
     pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
@@ -198,12 +198,6 @@ impl Msg {
     }
 }
 
-impl Clone for Msg {
-    fn clone(&self) -> Self {
-        Self { link_call_stack: self.link_call_stack.clone(), body: self.body.clone() }
-    }
-}
-
 impl Index<&str> for Msg {
     type Output = Variant;
 
@@ -303,7 +297,7 @@ impl<'js> js::FromJs<'js> for Msg {
                                 }
                                 wellknown::LINK_SOURCE_PROPERTY => {
                                     if let Some(bytes) =
-                                        v.as_object().and_then(|x| x.as_array_buffer()).and_then(|x| x.as_bytes())
+                                        v.as_object().and_then(|x| x.as_typed_array::<u8>()).and_then(|x| x.as_bytes())
                                     {
                                         link_call_stack =
                                             bincode::deserialize(bytes).map_err(|_| js::Error::FromJs {
@@ -352,9 +346,8 @@ impl<'js> js::IntoJs<'js> for Msg {
                 to: "js._linkSource",
                 message: Some(e.to_string()),
             })?;
-            let link_source_buffer = js::ArrayBuffer::new(ctx.clone(), link_source_bytes)?;
-            let link_source_value = link_source_buffer.into_js(ctx)?;
-            obj.set(link_source_atom, link_source_value)?
+            let link_source_buffer = js::TypedArray::<u8>::new(ctx.clone(), link_source_bytes)?;
+            obj.set(link_source_atom, link_source_buffer)?;
         }
         Ok(jsv)
     }
