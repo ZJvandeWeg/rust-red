@@ -1,4 +1,4 @@
-#!/bin/python
+#!/bin/python3
 
 import re
 import argparse
@@ -7,6 +7,11 @@ import difflib
 import os
 import json
 import shutil
+import subprocess
+import tempfile
+import pytest
+import io
+import contextlib
 
 from colorama import init as colorama_init
 from colorama import Fore
@@ -20,44 +25,42 @@ TESTS_DIR = os.path.join(_SCRIPT_DIR, '..', "tests")
 JS_IT_PATTERN = re.compile(r"""^\s*it\s*\(\s*(['"].*?['"]+)\s*,\s*""")
 PY_IT_PATTERN = re.compile(r"""\@.*it\s*\(\s*(['"].*?['"]+)\s*\)\s*""")
 
+def load_json(json_path): 
+    with open(json_path, 'r') as fp:
+        return json.load(fp)
 
-def extract_it_strings_js(file_path):
-    counter = 1
+
+def extract_it_strings_js(red_dir, file_path) -> list[str]:
     specs = []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            matches = JS_IT_PATTERN.findall(line)
-            for match in matches:
-                try:
-                    try:
-                        escaped_string = ast.literal_eval(match).strip()
-                    except ValueError as e:
-                        print(f"\t\t{Fore.YELLOW}Warning: unable to parse string: '{match}'{Style.RESET_ALL}")
-                        continue
-                    specs.append(escaped_string)
-                    # print(f"{counter:04d}|\"{escaped_string}\"")
-                    counter += 1
-                except SyntaxError as e:
-                    print(f"Unable to parse JS string: '{match}'")
-                    raise e
+    with tempfile.NamedTemporaryFile(delete=True) as report_file:
+        original_cwd = os.getcwd()
+        os.chdir(red_dir)
+        try:
+            result = subprocess.run([
+                'mocha', 
+                file_path, "--dry-run", "--reporter=json", "--exit", 
+                "--reporter-options", f"output={report_file.name}"
+            ])
+            report = load_json(report_file.name)
+            for test in report['tests']:
+                specs.append(test['fullTitle'].rstrip())
+        finally:
+            os.chdir(original_cwd)
+
     return specs
 
 
-def extract_it_strings_py(file_path):
-    counter = 1
+def extract_it_strings_py(file_path) -> list[str]:
     specs = []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            matches = PY_IT_PATTERN.findall(line)
-            for match in matches:
-                try:
-                    escaped_string = ast.literal_eval(match).strip()
-                    specs.append(escaped_string)
-                    # print(f"{counter:04d}|\"{escaped_string}\"")
-                    counter += 1
-                except SyntaxError as e:
-                    print(f"Unable to parse Python string: {match}")
-                    raise e
+    with tempfile.NamedTemporaryFile(delete=True) as report_file:
+        output_capture = io.StringIO()
+        with contextlib.redirect_stdout(output_capture), contextlib.redirect_stderr(output_capture):
+            pytest.main(["-q", "--co", "--json-report", f"--json-report-file={report_file.name}", file_path])
+        report = load_json(report_file.name)
+        for coll in report['collectors']:
+            for result in coll['result']:
+                if "title" in result:
+                    specs.append(result['fullTitle'].rstrip())
     return specs
 
 
@@ -95,7 +98,7 @@ if __name__ == "__main__":
     for p in pairs:
         js_path = os.path.join(args.NR_PATH, p[1])
         py_path = os.path.join(os.path.normpath(os.path.join(TESTS_DIR, p[0])))
-        js_specs = extract_it_strings_js(js_path)
+        js_specs = extract_it_strings_js(args.NR_PATH, js_path)
         py_specs = extract_it_strings_py(py_path)
 
         diff = difflib.Differ().compare(js_specs, py_specs)
@@ -112,11 +115,11 @@ if __name__ == "__main__":
                 f'''{Fore.RED}* [×]{Style.RESET_ALL} "{p[0]}" {Fore.RED}({len(py_specs)}/{len(js_specs)}){Style.RESET_ALL} ''')
         for s in differences:
             if s[0] == '-':
-                print(f'''\t{Fore.RED}{s[0]} It: {Style.RESET_ALL}{s[2:]}''')
+                print(f'\t{Fore.RED}{s[0]} It: {Style.RESET_ALL}{s[2:]}')
             elif s[0] == '+':
-                print(f'''\t{Fore.GREEN}{s[0]} It: {Style.RESET_ALL}{s[2:]}''')
+                print(f'\t{Fore.GREEN}{s[0]} It: {Style.RESET_ALL}{s[2:]}')
             else:
-                print(f'''\t{Style.DIM}{s}{Style.RESET_ALL}''')
+                print(f'\t{Style.DIM}{s}{Style.RESET_ALL}')
 
     print_sep("")
     print("Total:")

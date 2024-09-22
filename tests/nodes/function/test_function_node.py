@@ -5,7 +5,7 @@ from tests import *
 
 # 0001 should do something with the catch node
 
-@pytest.mark.describe('function Node')
+@pytest.mark.describe('function node')
 class TestFunctionNode:
 
     @pytest.mark.asyncio

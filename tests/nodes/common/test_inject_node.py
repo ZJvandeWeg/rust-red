@@ -34,18 +34,34 @@ async def basic_test(type: str, val, rval=None):
 class TestInjectNode:
 
     @pytest.mark.asyncio
-    @pytest.mark.it('should works with simple payload')
-    async def test_0001(self):
+    @pytest.mark.it('inject value (num)')
+    async def test_it_inject_value_num(self):
         await basic_test("num", 10)
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('inject value (str)')
+    async def test_it_inject_value_str(self):
         await basic_test("str", "10")
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('inject value (bool)')
+    async def test_it_inject_value_bool(self):
         await basic_test("bool", True)
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('inject value (json)')
+    async def test_it_inject_value_json(self):
         val_json = '{ "x":"vx", "y":"vy", "z":"vz" }'
         await basic_test("json", val_json, json.loads(val_json))
+
+    @pytest.mark.asyncio
+    @pytest.mark.it('inject value (bin)')
+    async def test_it_inject_value_bin(self):
         val_buf = '[1,2,3,4,5]'
         await basic_test("bin", val_buf, json.loads(val_buf))
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject value of environment variable')
+    @pytest.mark.it('inject value of environment variable ')
     async def test_0002(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -61,7 +77,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "foo"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject name of node as environment variable')
+    @pytest.mark.it('inject name of node as environment variable ')
     async def test_0003(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -75,7 +91,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "NAME"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject id of node as environment variable')
+    @pytest.mark.it('inject id of node as environment variable ')
     async def test_0004(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -220,7 +236,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "FLOW"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject id of flow as environment variable')
+    @pytest.mark.it('inject id of flow as environment variable ')
     async def test_0014(self):
         flows = [
             {"id": "100", "type": "tab", "label": "FLOW"},  # flow 1

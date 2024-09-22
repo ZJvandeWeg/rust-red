@@ -6,7 +6,7 @@ import os
 
 from tests import *
 
-@pytest.mark.describe('rbe Node')
+@pytest.mark.describe('rbe node')
 class TestRbeNode:
 
     @pytest.mark.asyncio
