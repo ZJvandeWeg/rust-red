@@ -21,7 +21,7 @@ path = "src/main.rs"
 opt-level = 0
 
 [profile.ci]
-inherits = "dev"
+inherits = "release"
 debug = false
 incremental = false
 
