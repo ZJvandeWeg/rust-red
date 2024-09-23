@@ -12,6 +12,18 @@ pub struct RedPortConfig {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+pub struct RedSubflowInstanceNodeType {
+    pub type_name: String,
+    pub subflow_id: ElementId,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub enum RedNodeType {
+    Normal(String),
+    SubflowInstance(RedSubflowInstanceNodeType),
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct RedGroupConfig {
     #[serde(deserialize_with = "deser::deser_red_id")]
     pub id: ElementId,
@@ -28,8 +40,8 @@ pub struct RedGroupConfig {
     #[serde(default, deserialize_with = "deser::deser_red_optional_id")]
     pub g: Option<ElementId>,
 
-    #[serde(skip)]
-    pub json: JsonValue,
+    #[serde(flatten)]
+    pub rest: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -50,9 +62,6 @@ pub struct RedFlowConfig {
     pub type_name: String,
 
     #[serde(skip)]
-    pub json: JsonValue,
-
-    #[serde(skip)]
     pub nodes: Vec<RedFlowNodeConfig>,
 
     #[serde(skip)]
@@ -69,6 +78,9 @@ pub struct RedFlowConfig {
 
     #[serde(skip, default)]
     pub ordering: usize,
+
+    #[serde(flatten)]
+    pub rest: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -100,8 +112,8 @@ pub struct RedFlowNodeConfig {
     #[serde(skip, default)]
     pub ordering: usize,
 
-    #[serde(skip)]
-    pub json: JsonValue,
+    #[serde(flatten)]
+    pub rest: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -121,8 +133,8 @@ pub struct RedGlobalNodeConfig {
     #[serde(default)]
     pub disabled: bool,
 
-    #[serde(skip)]
-    pub json: serde_json::Map<String, JsonValue>,
+    #[serde(flatten)]
+    pub rest: JsonValue,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

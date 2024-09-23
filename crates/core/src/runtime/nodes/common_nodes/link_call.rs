@@ -67,7 +67,7 @@ pub(crate) struct LinkCallNode {
 
 impl LinkCallNode {
     fn build(flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let link_call_config = LinkCallNodeConfig::deserialize(&config.json)?;
+        let link_call_config = LinkCallNodeConfig::deserialize(&config.rest)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
         let mut linked_nodes = Vec::new();

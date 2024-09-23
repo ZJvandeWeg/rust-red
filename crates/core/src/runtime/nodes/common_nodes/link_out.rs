@@ -36,7 +36,7 @@ struct LinkOutNode {
 
 impl LinkOutNode {
     fn build(flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let link_out_config = LinkOutNodeConfig::deserialize(&_config.json)?;
+        let link_out_config = LinkOutNodeConfig::deserialize(&_config.rest)?;
         let engine = flow.engine.upgrade().expect("The engine must be created!");
 
         let mut linked_nodes = Vec::new();

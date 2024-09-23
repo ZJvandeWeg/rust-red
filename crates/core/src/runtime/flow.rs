@@ -258,7 +258,7 @@ impl Flow {
                 }
             }
         };
-        if let Some(env_json) = flow_config.json.get("env") {
+        if let Some(env_json) = flow_config.rest.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }
         envs_builder = match flow_kind {
@@ -442,7 +442,7 @@ impl Flow {
                         }
                         Err(err) => {
                             log::error!("Failed to build node from {}: {}", node_config, err);
-                            log::debug!("Node JSON:\n{}", node_config.json);
+                            log::debug!("Node JSON:\n{}", node_config.rest);
                             return Err(err);
                         }
                     }
@@ -488,7 +488,7 @@ impl Flow {
         node: Arc<dyn FlowNodeBehavior>,
         node_config: &RedFlowNodeConfig,
     ) -> crate::Result<()> {
-        if let Some(scope) = node_config.json.get("scope").and_then(|x| x.as_array()) {
+        if let Some(scope) = node_config.rest.get("scope").and_then(|x| x.as_array()) {
             for src_id in scope {
                 if let Some(src_id) = helpers::parse_red_id_value(src_id) {
                     if let Some(ref mut complete_nodes) = self.state.complete_nodes_map.get_mut(&src_id) {
@@ -761,7 +761,7 @@ impl Flow {
         } else {
             envs_builder = envs_builder.with_parent(&self.get_envs());
         }
-        if let Some(env_json) = node_config.json.get("env") {
+        if let Some(env_json) = node_config.rest.get("env") {
             envs_builder = envs_builder.load_json(env_json);
         }
         let envs = envs_builder

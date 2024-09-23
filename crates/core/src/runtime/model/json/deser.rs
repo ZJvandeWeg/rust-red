@@ -71,8 +71,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
 
                     "group" => match obj.get("z") {
                         Some(_) => {
-                            let mut g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
-                            g.json = jobject.clone();
+                            let g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
                             if let Some(parent_id) = &g.g {
                                 group_topo_sort.add_dep(ele_id, *parent_id);
                             } else {
@@ -103,8 +102,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             flow_nodes.insert(ele_id, jobject.clone());
                         }
                         None => {
-                            let mut global_config: RedGlobalNodeConfig = serde_json::from_value(jobject.clone())?;
-                            global_config.json = obj.clone();
+                            let global_config: RedGlobalNodeConfig = serde_json::from_value(jobject.clone())?;
                             global_nodes.push(global_config);
                         }
                     },
@@ -161,7 +159,6 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
             None
         };
 
-        flow_config.json = flow.clone();
         flow_config.groups = sorted_flow_groups.iter().filter(|x| x.z == flow_config.id).cloned().collect();
 
         let owned_node_jvs = sorted_flow_nodes
@@ -171,7 +168,6 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
         for (i, flow_node_jv) in owned_node_jvs.into_iter().enumerate() {
             let mut node_config: RedFlowNodeConfig = serde_json::from_value(flow_node_jv.clone())?;
             node_config.ordering = i;
-            node_config.json = flow_node_jv.clone();
             flow_config.nodes.push(node_config);
         }
 

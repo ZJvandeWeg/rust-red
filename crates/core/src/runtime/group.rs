@@ -58,7 +58,7 @@ impl Group {
 }
 
 fn build_envs(mut envs_builder: EnvStoreBuilder, config: &RedGroupConfig) -> Arc<EnvStore> {
-    if let Some(env_json) = config.json.get("env") {
+    if let Some(env_json) = config.rest.get("env") {
         envs_builder = envs_builder.load_json(env_json);
     }
     envs_builder

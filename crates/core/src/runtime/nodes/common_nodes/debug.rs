@@ -29,7 +29,7 @@ struct DebugNode {
 
 impl DebugNode {
     fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.json)?;
+        let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.rest)?;
         if debug_config.complete.is_empty() {
             debug_config.complete = "payload".to_string();
         }

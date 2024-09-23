@@ -156,9 +156,9 @@ impl RbeNode {
         base_node: FlowNode,
         config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let mut rbe_config = RbeNodeConfig::deserialize(&config.json)?;
+        let mut rbe_config = RbeNodeConfig::deserialize(&config.rest)?;
         rbe_config.is_percent =
-            config.json.get("gap").and_then(|x| x.as_str()).is_some_and(|x| x.trim().ends_with('%'));
+            config.rest.get("gap").and_then(|x| x.as_str()).is_some_and(|x| x.trim().ends_with('%'));
 
         let node = RbeNode { base: base_node, config: rbe_config, state: Mutex::new(RbeNodeState::default()) };
 

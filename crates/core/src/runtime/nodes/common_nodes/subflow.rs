@@ -14,15 +14,11 @@ struct SubflowNode {
 
 impl SubflowNode {
     fn build(_flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let subflow_id = config
-            .json
-            .get("type")
-            .and_then(|s| s.as_str())
-            .and_then(|s| s.split_once(':'))
-            .and_then(|p| helpers::parse_red_id_str(p.1))
-            .ok_or(EdgelinkError::BadFlowsJson(
+        let subflow_id = config.type_name.split_once(':').and_then(|p| helpers::parse_red_id_str(p.1)).ok_or(
+            EdgelinkError::BadFlowsJson(
                 "Cannot get or parse the `type` property with the format `subflow:xxx`".to_string(),
-            ))?;
+            ),
+        )?;
 
         //let subflow = flow.engine.upgrade().unwrap().flows
         let node = SubflowNode { base: state, subflow_id };

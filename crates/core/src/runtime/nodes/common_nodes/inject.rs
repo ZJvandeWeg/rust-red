@@ -55,7 +55,7 @@ impl InjectNode {
         base_node: FlowNode,
         _config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let json = handle_legacy_json(&_config.json);
+        let json = handle_legacy_json(&_config.rest);
         let mut inject_node_config = InjectNodeConfig::deserialize(&json)?;
 
         // fix the `crontab`
