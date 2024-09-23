@@ -30,7 +30,7 @@ impl<N: Eq + Ord + Clone> TopologicalSorter<N> {
 
     pub fn add_deps(&mut self, from: N, tos: impl IntoIterator<Item = N>) {
         for to in tos {
-            let _ = self.add_dep(from.clone(), to);
+            self.add_dep(from.clone(), to);
         }
     }
 
