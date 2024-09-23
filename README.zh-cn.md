@@ -82,7 +82,7 @@ cargo test --all
 运行集成测试需要首先安装 Python 3.9+ 和对应的 Pytest 依赖库：
 
 ```bash
-pip install -U -r ./tests/requirements.txt
+pip install -r ./tests/requirements.txt
 ```
 
 然后执行以下命令即可：
@@ -103,7 +103,7 @@ py.test
 
 ## 开发路线图
 
-请参见项目的里程碑页面 [milestones](https://github.com/oldrev/edgelink/milestones)。
+请参见项目的[里程碑页面](https://github.com/oldrev/edgelink/milestones)。
 
 ## 贡献
 
@@ -117,7 +117,7 @@ py.test
 
 ## 反馈与技术支持
 
-我们欢迎任何反馈！如果你遇到任何技术问题或者 bug，请提交 [issue](https://github.com/edge-link/edgelink.rs/issues)。
+我们欢迎任何反馈！如果你遇到任何技术问题或者 bug，请提交 [issue](https://github.com/edge-link/edgelink/issues)。
 
 ### 社交网络聊天群：
 

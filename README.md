@@ -86,7 +86,7 @@ cargo test --all
 Running integration tests requires first installing Python 3.9+ and the corresponding Pytest dependencies:
 
 ```bash
-pip install -U -r ./tests/requirements.txt
+pip install -r ./tests/requirements.txt
 ```
 
 Then execute the following command:
@@ -216,7 +216,7 @@ Please refer to [ISSUES.md](docs/ISSUES.md) for a list of known issues and worka
 
 ## Feedback and Support
 
-We welcome your feedback! If you encounter any issues or have suggestions, please open an [issue](https://github.com/edge-link/edgelink.rs/issues).
+We welcome your feedback! If you encounter any issues or have suggestions, please open an [issue](https://github.com/edge-link/edgelink/issues).
 
 E-mail: oldrev(at)gmail.com
 
