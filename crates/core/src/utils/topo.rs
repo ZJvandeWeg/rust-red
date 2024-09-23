@@ -24,13 +24,8 @@ impl<N: Eq + Ord + Clone> TopologicalSorter<N> {
     }
 
     pub fn add_dep(&mut self, from: N, to: N) {
-        let _ = self.graph.link(to.clone(), from.clone());
-        if !self.graph.contains(&from) {
-            self.graph.add(from);
-        }
-        if !self.graph.contains(&to) {
-            self.graph.add(to);
-        }
+        self.graph.add(from.clone());
+        let _ = self.graph.link(to, from.clone());
     }
 
     pub fn add_deps(&mut self, from: N, tos: impl IntoIterator<Item = N>) {
