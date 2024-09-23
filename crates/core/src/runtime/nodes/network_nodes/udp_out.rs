@@ -52,7 +52,7 @@ struct UdpOutNode {
 
 impl UdpOutNode {
     fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let udp_config = UdpOutNodeConfig::deserialize(&_config.json)?;
+        let udp_config = UdpOutNodeConfig::deserialize(&_config.rest)?;
 
         let node = UdpOutNode { base: state, config: udp_config };
         Ok(Box::new(node))

@@ -1,52 +1,50 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::EdgelinkError;
 
-#[derive(Clone)]
-struct Vertex<Item> {
-    item: Item,
+#[derive(Debug, Clone)]
+struct Vertex<N> {
+    item: N,
     in_degree: usize,
 }
 
-pub struct TopologicalSorter<Item> {
-    vertices: HashMap<Item, Vertex<Item>>,
-    edges: HashMap<Item, HashSet<Item>>,
+#[derive(Debug, Clone)]
+pub struct TopologicalSorter<N> {
+    vertices: BTreeMap<N, Vertex<N>>,
+    edges: BTreeMap<N, BTreeSet<N>>,
 }
 
 impl<Item> Default for TopologicalSorter<Item>
 where
-    Item: Clone + Eq + Hash,
+    Item: Clone + Eq + Ord,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Item> TopologicalSorter<Item>
+impl<N> TopologicalSorter<N>
 where
-    Item: Clone + Eq + Hash,
+    N: Clone + Eq + Ord,
 {
     pub fn new() -> Self {
-        TopologicalSorter { vertices: HashMap::new(), edges: HashMap::new() }
+        TopologicalSorter { vertices: BTreeMap::new(), edges: BTreeMap::new() }
     }
 
-    pub fn add_vertex(&mut self, item: Item) {
+    pub fn add_vertex(&mut self, item: N) {
         if !self.vertices.contains_key(&item) {
             self.vertices.insert(item.clone(), Vertex { item: item.clone(), in_degree: 0 });
         }
     }
 
-    pub fn add_dep(&mut self, from: Item, to: Item) {
+    pub fn add_dep(&mut self, from: N, to: N) {
         self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
         let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
         self.edges.entry(from.clone()).or_default().insert(to.clone());
         to_vertex.in_degree += 1;
     }
 
-    pub fn add_deps(&mut self, from: Item, tos: impl IntoIterator<Item = Item>) {
+    pub fn add_deps(&mut self, from: N, tos: impl IntoIterator<Item = N>) {
         for to in tos {
             self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
             let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
@@ -55,11 +53,11 @@ where
         }
     }
 
-    pub fn topological_sort(&self) -> crate::Result<Vec<Item>> {
-        let mut in_degree = self.vertices.values().map(|v| (v.item.clone(), v.in_degree)).collect::<HashMap<_, _>>();
+    pub fn topological_sort(&self) -> crate::Result<Vec<N>> {
+        let mut in_degree = self.vertices.values().map(|v| (v.item.clone(), v.in_degree)).collect::<BTreeMap<_, _>>();
 
         let mut sorted = Vec::with_capacity(self.vertices.len());
-        let mut sources: Vec<Item> =
+        let mut sources: Vec<N> =
             in_degree.iter().filter(|&(_, &degree)| degree == 0).map(|(item, _)| item.clone()).collect();
 
         while let Some(source) = sources.pop() {
@@ -85,7 +83,7 @@ where
         Ok(sorted)
     }
 
-    pub fn dependency_sort(&self) -> crate::Result<Vec<Item>> {
+    pub fn dependency_sort(&self) -> crate::Result<Vec<N>> {
         let mut result = self.topological_sort()?;
         result.reverse();
         Ok(result)
