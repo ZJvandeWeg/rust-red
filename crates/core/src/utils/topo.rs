@@ -46,10 +46,7 @@ where
         to_vertex.in_degree += 1;
     }
 
-    pub fn add_deps<I>(&mut self, from: Item, tos: I)
-    where
-        I: IntoIterator<Item = Item>,
-    {
+    pub fn add_deps(&mut self, from: Item, tos: impl IntoIterator<Item = Item>) {
         for to in tos {
             self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
             let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
