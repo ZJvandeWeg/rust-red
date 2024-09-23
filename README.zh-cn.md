@@ -89,7 +89,7 @@ pip install -U -r ./tests/requirements.txt
 
 ```bash
 cargo build
-python -B -m pytest tests
+py.test
 ```
 
 
@@ -100,6 +100,10 @@ python -B -m pytest tests
 ## 项目状态
 
 **Pre-Alpha**：项目当前处于发布前活跃开发阶段，不保证任何稳定性。
+
+## 开发路线图
+
+请参见项目的里程碑页面 [milestones](https://github.com/oldrev/edgelink/milestones)。
 
 ## 贡献
 

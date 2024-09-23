@@ -93,7 +93,7 @@ Then execute the following command:
 
 ```bash
 cargo build
-python -B -m pytest tests
+py.test
 ```
 
 ## Configuration
@@ -196,7 +196,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 
 ## Roadmap
 
-Check out our [roadmap](docs/ROADMAP.md) to get a glimpse of the upcoming features and milestones.
+Check out our [milestones](https://github.com/oldrev/edgelink/milestones) to get a glimpse of the upcoming features and milestones.
 
 ## Contribution
 
