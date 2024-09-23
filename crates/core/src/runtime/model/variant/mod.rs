@@ -525,7 +525,7 @@ impl Variant {
         create_missing: bool,
     ) -> crate::Result<()> {
         if segs.is_empty() {
-            return Err(EdgelinkError::BadArgument("path".into()).into());
+            return Err(EdgelinkError::BadArgument("path").into());
         }
 
         if segs.len() == 1 {
@@ -535,7 +535,7 @@ impl Variant {
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
-            _ => return Err(EdgelinkError::BadArgument("path".into()).into()),
+            _ => return Err(EdgelinkError::BadArgument("path").into()),
         };
 
         // If create_missing is true and first_prop doesn't exist, we should create it here.

@@ -78,11 +78,11 @@ pub async fn evaluate_node_property(
                 if let Some(pv) = msg.get_nav_stripped(value) {
                     Ok(pv.clone())
                 } else {
-                    Err(EdgelinkError::BadArgument("value".into()))
+                    Err(EdgelinkError::BadArgument("value"))
                         .with_context(|| format!("Cannot get the property(s) from `msg`: {}", value))
                 }
             } else {
-                Err(EdgelinkError::BadArgument("msg".into())).with_context(|| ("`msg` is not existed!".to_string()))
+                Err(EdgelinkError::BadArgument("msg")).with_context(|| ("`msg` is not existed!".to_string()))
             }
         }
 
@@ -102,7 +102,7 @@ pub async fn evaluate_node_property(
             if let Some(ctx_value) = engine.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
-                Err(EdgelinkError::BadArgument("value".into()))
+                Err(EdgelinkError::BadArgument("value"))
                     .with_context(|| format!("Cannot found the global context variable `{}`", value))
             }
         }
@@ -114,7 +114,7 @@ pub async fn evaluate_node_property(
             if let Some(ctx_value) = fe.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
                 Ok(ctx_value)
             } else {
-                Err(EdgelinkError::BadArgument("value".into()))
+                Err(EdgelinkError::BadArgument("value"))
                     .with_context(|| format!("Cannot found the flow context variable `{}`", value))
             }
         }
@@ -125,7 +125,7 @@ pub async fn evaluate_node_property(
 
         RedPropertyType::Env => match evaluate_env_property(value, node, flow) {
             Some(ev) => Ok(ev),
-            _ => Err(EdgelinkError::BadArgument("value".into()))
+            _ => Err(EdgelinkError::BadArgument("value"))
                 .with_context(|| format!("Cannot found the environment variable `{}`", value)),
         },
     }
@@ -181,7 +181,7 @@ pub fn evaluate_node_property_variant<'a>(
                         .with_context(|| format!("Cannot get the property(s) from `msg`: {}", prop.as_str()));
                 }
             } else {
-                return Err(EdgelinkError::BadArgument("msg")).with_context(|| format!("`msg` is required"));
+                return Err(EdgelinkError::BadArgument("msg")).with_context(|| "`msg` is required".to_string());
             }
         }
 

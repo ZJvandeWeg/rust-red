@@ -185,7 +185,7 @@ impl ChangeNode {
                         )
                         .await
                 } else {
-                    Err(EdgelinkError::BadArgument("The target value is None".into()).into())
+                    Err(EdgelinkError::BadArgument("to_value")).with_context(|| "The target value is None".to_string())
                 }
             }
 
@@ -203,7 +203,7 @@ impl ChangeNode {
                         )
                         .await
                 } else {
-                    Err(EdgelinkError::BadArgument("The target value is None".into()).into())
+                    Err(EdgelinkError::BadArgument("to_value")).with_context(|| "The target value is None".to_string())
                 }
             }
 

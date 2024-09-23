@@ -16,6 +16,15 @@ pub struct TopologicalSorter<Item> {
     edges: HashMap<Item, HashSet<Item>>,
 }
 
+impl<Item> Default for TopologicalSorter<Item>
+where
+    Item: Clone + Eq + Hash,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Item> TopologicalSorter<Item>
 where
     Item: Clone + Eq + Hash,
@@ -33,7 +42,7 @@ where
     pub fn add_dep(&mut self, from: Item, to: Item) {
         self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
         let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
-        self.edges.entry(from.clone()).or_insert_with(HashSet::new).insert(to.clone());
+        self.edges.entry(from.clone()).or_default().insert(to.clone());
         to_vertex.in_degree += 1;
     }
 
@@ -44,7 +53,7 @@ where
         for to in tos {
             self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
             let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
-            self.edges.entry(from.clone()).or_insert_with(HashSet::new).insert(to.clone());
+            self.edges.entry(from.clone()).or_default().insert(to.clone());
             to_vertex.in_degree += 1;
         }
     }

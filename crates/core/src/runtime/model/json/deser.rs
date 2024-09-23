@@ -118,7 +118,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut sorted_flows = Vec::new();
     for flow_id in flow_topo_sort.dependency_sort()?.iter() {
         let flow = flows
-            .remove(&flow_id)
+            .remove(flow_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the flow_id('{}') in flows", flow_id)))?;
         sorted_flows.push(flow);
     }
@@ -126,7 +126,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut sorted_flow_groups = Vec::new();
     for group_id in group_topo_sort.dependency_sort()?.iter() {
         let group = groups
-            .remove(&group_id)
+            .remove(group_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the group_id('{}') in flows", group_id)))?;
         sorted_flow_groups.push(group);
     }
@@ -134,7 +134,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut sorted_flow_nodes = Vec::new();
     for node_id in node_topo_sort.dependency_sort()?.iter() {
         // We check for cycle errors before usage
-        if let Some(node) = flow_nodes.get(&node_id).cloned() {
+        if let Some(node) = flow_nodes.get(node_id).cloned() {
             log::debug!(
                 "SORTED_NODES: node.id='{}', node.name='{}', node.type='{}'",
                 node_id,
