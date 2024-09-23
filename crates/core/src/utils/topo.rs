@@ -1,92 +1,52 @@
-use std::collections::{BTreeMap, BTreeSet};
+use crate::utils::graph::Graph;
 
-use crate::EdgelinkError;
-
-#[derive(Debug, Clone)]
-struct Vertex<N> {
-    item: N,
-    in_degree: usize,
+#[derive(Clone)]
+pub struct TopologicalSorter<N: Clone + Eq + Ord> {
+    graph: Graph<N, ()>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TopologicalSorter<N> {
-    vertices: BTreeMap<N, Vertex<N>>,
-    edges: BTreeMap<N, BTreeSet<N>>,
-}
-
-impl<Item> Default for TopologicalSorter<Item>
+impl<N> Default for TopologicalSorter<N>
 where
-    Item: Clone + Eq + Ord,
+    N: Clone + Eq + Ord,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N> TopologicalSorter<N>
-where
-    N: Clone + Eq + Ord,
-{
+impl<N: Eq + Ord + Clone> TopologicalSorter<N> {
     pub fn new() -> Self {
-        TopologicalSorter { vertices: BTreeMap::new(), edges: BTreeMap::new() }
+        TopologicalSorter { graph: Graph::new() }
     }
 
     pub fn add_vertex(&mut self, item: N) {
-        if !self.vertices.contains_key(&item) {
-            self.vertices.insert(item.clone(), Vertex { item: item.clone(), in_degree: 0 });
-        }
+        self.graph.add(item)
     }
 
     pub fn add_dep(&mut self, from: N, to: N) {
-        self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
-        let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
-        self.edges.entry(from.clone()).or_default().insert(to.clone());
-        to_vertex.in_degree += 1;
+        let _ = self.graph.link(to.clone(), from.clone());
+        if !self.graph.contains(&from) {
+            self.graph.add(from);
+        }
+        if !self.graph.contains(&to) {
+            self.graph.add(to);
+        }
     }
 
     pub fn add_deps(&mut self, from: N, tos: impl IntoIterator<Item = N>) {
         for to in tos {
-            self.vertices.entry(from.clone()).or_insert(Vertex { item: from.clone(), in_degree: 0 });
-            let to_vertex = self.vertices.entry(to.clone()).or_insert(Vertex { item: to.clone(), in_degree: 0 });
-            self.edges.entry(from.clone()).or_default().insert(to.clone());
-            to_vertex.in_degree += 1;
+            let _ = self.add_dep(from.clone(), to);
         }
     }
 
-    pub fn topological_sort(&self) -> crate::Result<Vec<N>> {
-        let mut in_degree = self.vertices.values().map(|v| (v.item.clone(), v.in_degree)).collect::<BTreeMap<_, _>>();
-
-        let mut sorted = Vec::with_capacity(self.vertices.len());
-        let mut sources: Vec<N> =
-            in_degree.iter().filter(|&(_, &degree)| degree == 0).map(|(item, _)| item.clone()).collect();
-
-        while let Some(source) = sources.pop() {
-            sorted.push(source.clone());
-
-            if let Some(neighbors) = self.edges.get(&source) {
-                for neighbor in neighbors {
-                    if let Some(degree) = in_degree.get_mut(neighbor) {
-                        *degree -= 1;
-                        if *degree == 0 {
-                            sources.push(neighbor.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for cycles
-        if sorted.len() != self.vertices.len() {
-            return Err(EdgelinkError::InvalidOperation("Graph has cycles".to_string()).into());
-        }
-
-        Ok(sorted)
+    pub fn topological_sort(&self) -> Vec<N> {
+        self.graph.sort()
     }
 
-    pub fn dependency_sort(&self) -> crate::Result<Vec<N>> {
-        let mut result = self.topological_sort()?;
+    pub fn dependency_sort(&self) -> Vec<N> {
+        let mut result = self.topological_sort();
         result.reverse();
-        Ok(result)
+        result
     }
 }
 
@@ -100,7 +60,8 @@ mod graph_tests {
         graph.add_dep("A", "B");
         graph.add_dep("B", "C");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
+        dbg!(&sorted);
         assert_eq!(sorted, vec!["A", "B", "C"]);
     }
 
@@ -110,7 +71,7 @@ mod graph_tests {
         graph.add_dep("A", "C");
         graph.add_dep("B", "C");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         assert!(sorted == vec!["A", "B", "C"] || sorted == vec!["B", "A", "C"]);
     }
 
@@ -122,7 +83,7 @@ mod graph_tests {
         graph.add_dep("C", "D");
         graph.add_dep("D", "E");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         assert!(sorted.contains(&"A"));
         assert!(sorted.contains(&"B"));
         assert!(sorted.contains(&"C"));
@@ -151,21 +112,22 @@ mod graph_tests {
         graph.add_dep("D", "E");
         graph.add_dep("E", "F");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         assert!(sorted == vec!["A", "B", "C", "D", "E", "F"] || sorted == vec!["B", "A", "C", "D", "E", "F"]);
     }
 
     #[test]
-    fn test_cycle_detection() {
+    fn test_cycle_processing() {
         let mut graph = TopologicalSorter::new();
         graph.add_dep("A", "B");
         graph.add_dep("B", "C");
         graph.add_dep("C", "A");
 
-        let result = std::panic::catch_unwind(|| {
-            graph.topological_sort().unwrap();
-        });
-        assert!(result.is_err());
+        let sorted = graph.dependency_sort();
+        assert!(sorted.len() == 3);
+        assert!(sorted.contains(&"A"));
+        assert!(sorted.contains(&"B"));
+        assert!(sorted.contains(&"C"));
     }
 
     #[test]
@@ -177,10 +139,13 @@ mod graph_tests {
         graph.add_dep("D", "E");
         graph.add_dep("E", "D");
 
-        let result = std::panic::catch_unwind(|| {
-            graph.topological_sort().unwrap();
-        });
-        assert!(result.is_err());
+        let sorted = graph.dependency_sort();
+        assert!(sorted.len() == 5);
+        assert!(sorted.contains(&"A"));
+        assert!(sorted.contains(&"B"));
+        assert!(sorted.contains(&"C"));
+        assert!(sorted.contains(&"D"));
+        assert!(sorted.contains(&"E"));
     }
 
     #[test]
@@ -189,7 +154,7 @@ mod graph_tests {
         graph.add_dep("A", "B");
         graph.add_dep("C", "D");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         assert!(
             sorted == vec!["A", "B", "C", "D"]
                 || sorted == vec!["A", "C", "B", "D"]
@@ -206,7 +171,7 @@ mod graph_tests {
             }
         }
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         for i in 0..100 {
             for j in (i + 1)..100 {
                 assert!(
@@ -220,11 +185,9 @@ mod graph_tests {
     fn test_single_node() {
         let mut graph = TopologicalSorter::new();
         graph.add_dep("A", "A");
+        let sorted = graph.topological_sort();
 
-        let result = std::panic::catch_unwind(|| {
-            graph.topological_sort().unwrap();
-        });
-        assert!(result.is_err());
+        assert_eq!(sorted, &["A"])
     }
 
     #[test]
@@ -234,7 +197,7 @@ mod graph_tests {
         graph.add_dep("C", "D");
         graph.add_dep("E", "F");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph.topological_sort();
         assert!(sorted.len() == 6);
         assert!(sorted.contains(&"A"));
         assert!(sorted.contains(&"B"));
@@ -253,7 +216,7 @@ mod graph_tests {
         graph.add_dep("D", "E");
         graph.add_vertex("F");
 
-        let sorted = graph.dependency_sort().unwrap();
+        let sorted = graph.dependency_sort();
         assert_eq!(sorted.len(), 6);
         assert!(sorted.contains(&"A"));
         assert!(sorted.contains(&"B"));

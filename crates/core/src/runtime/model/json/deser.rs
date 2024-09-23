@@ -39,11 +39,8 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                 match type_value.red_type {
                     "tab" => {
                         let deps = obj.get_flow_dependencies(all_values);
-                        if deps.is_empty() {
-                            flow_topo_sort.add_vertex(ele_id);
-                        } else {
-                            deps.iter().for_each(|d| flow_topo_sort.add_dep(ele_id, *d));
-                        }
+                        flow_topo_sort.add_vertex(ele_id);
+                        flow_topo_sort.add_deps(ele_id, deps);
                         flows.insert(ele_id, jobject.clone());
                     }
 
@@ -51,20 +48,14 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                         if type_value.id.is_some() {
                             // "subflow:aabbccddee" We got a node that links to the subflow
                             let deps = obj.get_flow_node_dependencies();
-                            if deps.is_empty() {
-                                node_topo_sort.add_vertex(ele_id);
-                            } else {
-                                deps.iter().for_each(|d| node_topo_sort.add_dep(ele_id, *d));
-                            }
+                            node_topo_sort.add_vertex(ele_id);
+                            node_topo_sort.add_deps(ele_id, deps);
                             flow_nodes.insert(ele_id, jobject.clone());
                         } else {
                             // We got the "subflow" itself
                             let deps = obj.get_subflow_dependencies(all_values);
-                            if deps.is_empty() {
-                                flow_topo_sort.add_vertex(ele_id);
-                            } else {
-                                deps.iter().for_each(|d| flow_topo_sort.add_dep(ele_id, *d));
-                            }
+                            flow_topo_sort.add_vertex(ele_id);
+                            flow_topo_sort.add_deps(ele_id, deps);
                             flows.insert(ele_id, jobject.clone());
                         }
                     }
@@ -72,10 +63,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                     "group" => match obj.get("z") {
                         Some(_) => {
                             let g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
+                            group_topo_sort.add_vertex(ele_id);
                             if let Some(parent_id) = &g.g {
                                 group_topo_sort.add_dep(ele_id, *parent_id);
-                            } else {
-                                group_topo_sort.add_vertex(ele_id);
                             }
                             groups.insert(ele_id, g);
                         }
@@ -92,13 +82,8 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                     _ => match obj.get("z") {
                         Some(_) => {
                             let deps = obj.get_flow_node_dependencies();
-                            if deps.is_empty() {
-                                node_topo_sort.add_vertex(ele_id);
-                            } else {
-                                for &dep in deps.iter() {
-                                    node_topo_sort.add_dep(ele_id, dep);
-                                }
-                            }
+                            node_topo_sort.add_vertex(ele_id);
+                            node_topo_sort.add_deps(ele_id, deps);
                             flow_nodes.insert(ele_id, jobject.clone());
                         }
                         None => {
@@ -114,7 +99,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flows = Vec::new();
-    for flow_id in flow_topo_sort.dependency_sort()?.iter() {
+    for flow_id in flow_topo_sort.dependency_sort().iter() {
         let flow = flows
             .remove(flow_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the flow_id('{}') in flows", flow_id)))?;
@@ -122,7 +107,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flow_groups = Vec::new();
-    for group_id in group_topo_sort.dependency_sort()?.iter() {
+    for group_id in group_topo_sort.dependency_sort().iter() {
         let group = groups
             .remove(group_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the group_id('{}') in flows", group_id)))?;
@@ -130,7 +115,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flow_nodes = Vec::new();
-    for node_id in node_topo_sort.dependency_sort()?.iter() {
+    for node_id in node_topo_sort.dependency_sort().iter() {
         // We check for cycle errors before usage
         if let Some(node) = flow_nodes.get(node_id).cloned() {
             log::debug!(

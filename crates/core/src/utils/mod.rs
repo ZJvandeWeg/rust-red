@@ -2,6 +2,7 @@ use rand::Rng;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod async_util;
+pub mod graph;
 pub mod time;
 pub mod topo;
 
