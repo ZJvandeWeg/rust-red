@@ -2,15 +2,15 @@ use core::f64;
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+use crate::utils::topo::TopologicalSorter;
 use serde::de;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde_json::Map as JsonMap;
 use serde_json::Value as JsonValue;
-use topological_sort::TopologicalSort;
 
 use crate::runtime::model::ElementId;
-use crate::text::json::option_value_equals_str;
+use crate::text::json::{option_value_equals_str, EMPTY_ARRAY};
 use crate::EdgelinkError;
 
 use super::*;
@@ -26,9 +26,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut flow_nodes = HashMap::new();
     let mut global_nodes = Vec::new();
 
-    let mut flow_topo_sort = TopologicalSort::<ElementId>::new();
-    let mut group_topo_sort = TopologicalSort::<ElementId>::new();
-    let mut node_topo_sort = TopologicalSort::<ElementId>::new();
+    let mut flow_topo_sort = TopologicalSorter::<ElementId>::new();
+    let mut group_topo_sort = TopologicalSorter::<ElementId>::new();
+    let mut node_topo_sort = TopologicalSorter::<ElementId>::new();
 
     for jobject in all_values.iter() {
         if let Some(obj) = jobject.as_object() {
@@ -40,9 +40,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                     "tab" => {
                         let deps = obj.get_flow_dependencies(all_values);
                         if deps.is_empty() {
-                            flow_topo_sort.insert(ele_id);
+                            flow_topo_sort.add_vertex(ele_id);
                         } else {
-                            deps.iter().for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
+                            deps.iter().for_each(|d| flow_topo_sort.add_dep(ele_id, *d));
                         }
                         flows.insert(ele_id, jobject.clone());
                     }
@@ -52,18 +52,18 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             // "subflow:aabbccddee" We got a node that links to the subflow
                             let deps = obj.get_flow_node_dependencies();
                             if deps.is_empty() {
-                                node_topo_sort.insert(ele_id);
+                                node_topo_sort.add_vertex(ele_id);
                             } else {
-                                deps.iter().for_each(|d| node_topo_sort.add_dependency(*d, ele_id));
+                                deps.iter().for_each(|d| node_topo_sort.add_dep(ele_id, *d));
                             }
                             flow_nodes.insert(ele_id, jobject.clone());
                         } else {
                             // We got the "subflow" itself
                             let deps = obj.get_subflow_dependencies(all_values);
                             if deps.is_empty() {
-                                flow_topo_sort.insert(ele_id);
+                                flow_topo_sort.add_vertex(ele_id);
                             } else {
-                                deps.iter().for_each(|d| flow_topo_sort.add_dependency(*d, ele_id));
+                                deps.iter().for_each(|d| flow_topo_sort.add_dep(ele_id, *d));
                             }
                             flows.insert(ele_id, jobject.clone());
                         }
@@ -74,9 +74,9 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                             let mut g: RedGroupConfig = serde_json::from_value(jobject.clone())?;
                             g.json = jobject.clone();
                             if let Some(parent_id) = &g.g {
-                                group_topo_sort.add_dependency(*parent_id, ele_id);
+                                group_topo_sort.add_dep(ele_id, *parent_id);
                             } else {
-                                group_topo_sort.insert(ele_id);
+                                group_topo_sort.add_vertex(ele_id);
                             }
                             groups.insert(ele_id, g);
                         }
@@ -94,10 +94,10 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
                         Some(_) => {
                             let deps = obj.get_flow_node_dependencies();
                             if deps.is_empty() {
-                                node_topo_sort.insert(ele_id);
+                                node_topo_sort.add_vertex(ele_id);
                             } else {
                                 for &dep in deps.iter() {
-                                    node_topo_sort.add_dependency(dep, ele_id);
+                                    node_topo_sort.add_dep(ele_id, dep);
                                 }
                             }
                             flow_nodes.insert(ele_id, jobject.clone());
@@ -116,7 +116,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flows = Vec::new();
-    while let Some(flow_id) = flow_topo_sort.pop() {
+    for flow_id in flow_topo_sort.dependency_sort()?.iter() {
         let flow = flows
             .remove(&flow_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the flow_id('{}') in flows", flow_id)))?;
@@ -124,7 +124,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flow_groups = Vec::new();
-    while let Some(group_id) = group_topo_sort.pop() {
+    for group_id in group_topo_sort.dependency_sort()?.iter() {
         let group = groups
             .remove(&group_id)
             .ok_or(EdgelinkError::BadFlowsJson(format!("Cannot find the group_id('{}') in flows", group_id)))?;
@@ -132,7 +132,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut sorted_flow_nodes = Vec::new();
-    while let Some(node_id) = node_topo_sort.pop() {
+    for node_id in node_topo_sort.dependency_sort()?.iter() {
         // We check for cycle errors before usage
         if let Some(node) = flow_nodes.get(&node_id).cloned() {
             log::debug!(
@@ -377,6 +377,11 @@ pub trait RedFlowJsonObject {
 impl RedFlowJsonObject for JsonMap<String, JsonValue> {
     fn get_flow_dependencies(&self, elements: &[JsonValue]) -> HashSet<ElementId> {
         let this_id = self.get("id");
+        let child_nodes = elements.iter().filter(|x| x.get("z") == this_id);
+
+        // `wires`` connects to other flow nodes, and in the Node-RED GUI editor,
+        // this situation will not occur. However, in manually written test JSON, it will appear.
+        let wires_ids = child_nodes.flat_map(|x| flatten_wires(x)).collect::<HashSet<&JsonValue>>();
 
         let related_link_in_ids = elements
             .iter()
@@ -396,8 +401,12 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
         elements
             .iter()
             .filter(|x| {
-                option_value_equals_str(&x.get("type"), "link in")
-                    && x.get("id").map_or(false, |id| related_link_in_ids.contains(id))
+                if let Some(flow_id) = x.get("id") {
+                    wires_ids.contains(flow_id)
+                        || (option_value_equals_str(&x.get("type"), "link in") && related_link_in_ids.contains(flow_id))
+                } else {
+                    false
+                }
             })
             .filter(|x| x.get("z") != this_id) // Remove itself!
             .filter_map(|x| x.get("z"))
@@ -421,6 +430,15 @@ impl RedFlowJsonObject for JsonMap<String, JsonValue> {
             .filter_map(parse_red_id_value)
             .collect::<HashSet<ElementId>>()
     }
+}
+
+fn flatten_wires<'a>(json_map: &'a serde_json::Value) -> Vec<&'a serde_json::Value> {
+    let wires = json_map.get("wires").and_then(serde_json::Value::as_array).unwrap_or(&EMPTY_ARRAY);
+
+    let flattened_wires: Vec<&'a serde_json::Value> =
+        wires.iter().flat_map(|sublist| sublist.as_array().unwrap_or(&EMPTY_ARRAY).iter()).collect();
+
+    flattened_wires
 }
 
 pub trait RedFlowNodeJsonObject {

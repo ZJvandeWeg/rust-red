@@ -1,5 +1,3 @@
-use thiserror::Error;
-
 pub mod runtime;
 pub mod text;
 pub mod utils;
@@ -21,7 +19,7 @@ pub trait Plugin {
     fn callback2(&self, i: i32) -> i32;
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
 pub enum EdgelinkError {
     #[error("Permission Denied")]
@@ -37,7 +35,7 @@ pub enum EdgelinkError {
     NotSupported(String),
 
     #[error("Invalid arguments: {0}")]
-    BadArgument(String),
+    BadArgument(&'static str),
 
     #[error("Task cancelled")]
     TaskCancelled,
@@ -54,6 +52,9 @@ pub enum EdgelinkError {
     #[error("Invalid configuration")]
     Configuration,
 
+    #[error("Timed out")]
+    Timeout,
+
     #[error("IO error")]
     Io(#[from] std::io::Error),
 
@@ -66,3 +67,9 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T, E = anyhow::Error> = anyhow::Result<T, E>;
 
 pub use anyhow::Context as ErrorContext;
+
+impl EdgelinkError {
+    pub fn invalid_operation(msg: &str) -> anyhow::Error {
+        EdgelinkError::InvalidOperation(msg.into()).into()
+    }
+}

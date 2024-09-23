@@ -16,6 +16,7 @@ use crate::runtime::flow::*;
 use crate::runtime::model::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
 use crate::runtime::model::*;
 use crate::EdgelinkError;
+use crate::*;
 
 pub(crate) mod common_nodes;
 mod function_nodes;
@@ -166,7 +167,8 @@ pub trait FlowNodeBehavior: 'static + Send + Sync + FlowsElement {
             return Ok(());
         }
         if envelope.port >= self.get_node().ports.len() {
-            return Err(crate::EdgelinkError::BadArgument(format!("Invalid port index {}", envelope.port)).into());
+            return Err(crate::EdgelinkError::BadArgument("envelope"))
+                .with_context(|| format!("Invalid port index {}", envelope.port));
         }
 
         let port = &self.get_node().ports[envelope.port];

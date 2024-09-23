@@ -39,7 +39,7 @@ pub struct ContextStorageSettings {
 pub struct ContextStoreOptions {
     pub provider: String,
 
-    #[serde(flatten)]
+    #[serde(flatten, default)]
     pub options: HashMap<String, config::Value>,
 }
 
@@ -124,7 +124,7 @@ impl Context {
                 .upgrade()
                 .expect("The mananger cannot be released!")
                 .get_context_store(storage)
-                .ok_or(EdgelinkError::BadArgument(storage.into()))
+                .ok_or(EdgelinkError::BadArgument("storage"))
                 .with_context(|| format!("Cannot found the storage: '{}'", storage))?
         } else {
             self.manager.upgrade().expect("The manager cannot be released!").get_default_store()
@@ -288,9 +288,7 @@ fn context_store_parser(input: &str) -> nom::IResult<&str, ContextKey, nom::erro
 pub fn evaluate_key(key: &str) -> crate::Result<ContextKey<'_>> {
     match context_store_parser(key) {
         Ok(res) => Ok(res.1),
-        Err(e) => {
-            Err(EdgelinkError::BadArgument(key.into())).with_context(|| format!("Can not parse the key: '{0}'", e))
-        }
+        Err(e) => Err(EdgelinkError::BadArgument("key")).with_context(|| format!("Can not parse the key: '{0}'", e)),
     }
 }
 
@@ -311,5 +309,15 @@ mod tests {
         let res = evaluate_key("foo.bar").unwrap();
         assert_eq!(None, res.store);
         assert_eq!("foo.bar", res.key);
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_can_load_default_config() {
+        let ctxman = ContextManagerBuilder::new().load_default().build().unwrap();
+        let global = ctxman.new_global_context();
+        global.set_one(None, "foo", Some(Variant::from("bar")), &[]).await.unwrap();
+
+        let foo = global.get_one(None, "foo", &[]).await.unwrap();
+        assert_eq!(foo, "bar".into());
     }
 }

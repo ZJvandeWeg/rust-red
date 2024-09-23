@@ -29,7 +29,6 @@ thiserror.workspace = true
 nom.workspace = true
 bumpalo.workspace = true
 regex.workspace = true
-topological-sort.workspace = true
 tokio-cron-scheduler.workspace = true
 chrono.workspace = true
 semver.workspace = true

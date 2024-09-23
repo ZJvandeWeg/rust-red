@@ -1,5 +1,7 @@
 use serde_json::Value;
 
+pub static EMPTY_ARRAY: Vec<serde_json::Value> = Vec::new();
+
 pub fn value_equals_str(jv: &Value, target_string: &str) -> bool {
     match jv.as_str() {
         Some(s) => s == target_string,

@@ -52,6 +52,12 @@ pub struct FlowEngine {
     envs: Arc<EnvStore>,
     context_manager: Arc<ContextManager>,
     context: Arc<Context>,
+
+    #[cfg(test)]
+    final_msgs_rx: MsgUnboundedReceiverHolder,
+
+    #[cfg(test)]
+    final_msgs_tx: MsgUnboundedSender,
 }
 
 impl FlowEngine {
@@ -78,6 +84,9 @@ impl FlowEngine {
         // let context_manager = Arc::new(ContextManager::default());
         let context = context_manager.new_global_context();
 
+        #[cfg(test)]
+        let final_msgs_channel = tokio::sync::mpsc::unbounded_channel();
+
         let engine = Arc::new(FlowEngine {
             stop_token: CancellationToken::new(),
             state: FlowEngineState {
@@ -91,6 +100,12 @@ impl FlowEngine {
             _args: FlowEngineArgs::load(elcfg)?,
             context_manager,
             context,
+
+            #[cfg(test)]
+            final_msgs_rx: MsgUnboundedReceiverHolder::new(final_msgs_channel.1),
+
+            #[cfg(test)]
+            final_msgs_tx: final_msgs_channel.0,
         });
 
         engine.clone().load_flows(&json_values.flows, reg.clone(), elcfg)?;
@@ -225,6 +240,9 @@ impl FlowEngine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
+        if self.state.flows.is_empty() {
+            return Err(EdgelinkError::invalid_operation("No flows loaded in the engine."));
+        }
         for f in self.state.flows.iter() {
             f.value().start().await?;
         }
@@ -247,6 +265,46 @@ impl FlowEngine {
         //drop(self.stopped_tx);
         log::info!("-- All flows stopped.");
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub async fn run_once(&self, expected_msgs: usize, timeout: std::time::Duration) -> crate::Result<Vec<Msg>> {
+        self.start().await?;
+
+        let mut count = 0;
+        let mut received = Vec::new();
+
+        let result = tokio::time::timeout(timeout, async {
+            let cancel = CancellationToken::new();
+            while !cancel.is_cancelled() && count < expected_msgs {
+                let msg = self.final_msgs_rx.recv_msg(cancel.clone()).await?;
+                count += 1;
+                if let Ok(msg) = Arc::try_unwrap(msg) {
+                    let msg = msg.into_inner();
+                    received.push(msg);
+                }
+            }
+            cancel.cancel();
+            cancel.cancelled().await;
+            Ok(())
+        })
+        .await;
+
+        match result {
+            Ok(Ok(())) => {
+                self.stop().await?;
+                Ok(received)
+            }
+            Ok(Err(e)) => {
+                self.stop().await?;
+                Err(e)
+            }
+            Err(_) => {
+                // timed out
+                self.stop().await?;
+                Err(EdgelinkError::Timeout.into())
+            }
+        }
     }
 
     pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
@@ -292,11 +350,99 @@ impl FlowEngine {
     pub fn context(&self) -> Arc<Context> {
         self.context.clone()
     }
+
+    #[cfg(test)]
+    pub fn recv_final_msg(&self, msg: Arc<RwLock<Msg>>) -> crate::Result<()> {
+        self.final_msgs_tx.send(msg)?;
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for FlowEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
         f.debug_struct("FlowEngine").finish()
+    }
+}
+
+#[cfg(test)]
+pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Arc<FlowEngine>> {
+    let registry = crate::runtime::registry::RegistryBuilder::default().build().unwrap();
+    FlowEngine::new_with_json(registry, &flows_json, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+
+    fn make_simple_flows_json() -> serde_json::Value {
+        let flows_json = json!([
+        { "id": "100", "type": "tab", "label": "Flow 1" },
+        { "id": "1", "type": "inject", "z": "100", "name": "", "props": [
+                { "p": "payload" },
+                { "p": "topic", "vt": "str" },
+                { "p": "target", "vt": "str", "v": "double payload" }
+            ],
+            "once": true, "onceDelay": 0, "repeat": "", "topic": "",
+            "payload": "foo", "payloadType": "str",
+            "wires": [ [ "2" ] ]
+        },
+        { "id": "2", "z": "100", "type": "test-once" }
+        ]);
+        flows_json
+    }
+
+    fn make_flows_json_that_contains_subflows() -> serde_json::Value {
+        let flows_json = json!([
+        { "id": "999", "type": "inject", "z": "100", "name": "", "props": [
+                { "p": "payload" },
+                { "p": "topic", "vt": "str" },
+                { "p": "target", "vt": "str", "v": "double payload" }
+            ],
+            "repeat": "", "once": true, "onceDelay": 0, "topic": "",
+            "payload": "123", "payloadType": "num",
+            "wires": [ [ "5" ] ]
+        },
+        { "id": "100", "type": "tab", "label": "Flow 1" },
+        { "id": "200", "type": "tab", "label": "Flow 2" },
+        { "id": "1", "z": "100", "type": "link in", "name": "double payload", "wires": [ [ "3" ] ] },
+        { "id": "2", "z": "200", "type": "link in", "name": "double payload", "wires": [ [ "3" ] ] },
+        { "id": "3", "z": "100", "type": "function", "func": "msg.payload+=msg.payload;return msg;", "wires": [["4"]]},
+        { "id": "4", "z": "100", "type": "link out", "mode": "return" },
+        { "id": "5", "z": "100", "type": "link call", "linkType": "dynamic", "links": [], "wires": [ [ "6" ] ] },
+        { "id": "6", "z": "100", "type": "test-once" }
+        ]);
+        flows_json
+    }
+
+    #[tokio::test]
+    async fn test_it_should_load_and_run_simple_json_without_configuration() {
+        let flows_json = make_simple_flows_json();
+        let engine = build_test_engine(flows_json).unwrap();
+        let msgs = engine.run_once(1, Duration::from_millis(200)).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        let msg = msgs[0].as_variant_object();
+        assert_eq!(msg.get("payload").unwrap(), &Variant::from("foo"));
+    }
+
+    #[tokio::test]
+    async fn test_it_should_load_and_run_complex_json_without_configuration() {
+        let flows_json = make_flows_json_that_contains_subflows();
+        let engine = build_test_engine(flows_json).unwrap();
+        let msgs = engine.run_once(1, Duration::from_millis(200)).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        let msg = msgs[0].as_variant_object();
+        assert_eq!(msg.get("payload").unwrap(), &Variant::from(123 * 2));
+    }
+
+    #[tokio::test]
+    async fn test_it_should_json_flows_multiple_times() {
+        let flows_json = make_flows_json_that_contains_subflows();
+        for _ in 0..10 {
+            let res = build_test_engine(flows_json.clone());
+            assert!(res.is_ok());
+        }
     }
 }

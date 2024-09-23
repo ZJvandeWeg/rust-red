@@ -177,14 +177,11 @@ pub fn evaluate_node_property_variant<'a>(
                 if let Some(pv) = msg.get_nav_stripped(prop.as_str()) {
                     Cow::Owned(pv.clone())
                 } else {
-                    return Err(EdgelinkError::BadArgument(format!(
-                        "Cannot get the property(s) from `msg`: {}",
-                        prop.as_str()
-                    ))
-                    .into());
+                    return Err(EdgelinkError::BadArgument("value"))
+                        .with_context(|| format!("Cannot get the property(s) from `msg`: {}", prop.as_str()));
                 }
             } else {
-                return Err(EdgelinkError::BadArgument("`msg` is not existed!".to_string()).into());
+                return Err(EdgelinkError::BadArgument("msg")).with_context(|| format!("`msg` is required"));
             }
         }
 
@@ -205,7 +202,7 @@ pub fn evaluate_node_property_variant<'a>(
         },
 
         (_, _) => {
-            return Err(EdgelinkError::BadArgument(format!("Unable to evaluate property value: {:?}", value)).into());
+            return Err(EdgelinkError::BadArgument("value")).with_context(|| "cannot parse the expr".to_string());
         }
     };
 

@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod async_util;
 pub mod time;
+pub mod topo;
 
 pub fn generate_uid() -> u64 {
     let mut rng = rand::thread_rng();

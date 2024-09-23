@@ -726,8 +726,8 @@ impl Flow {
                 // Next we find the node in the entire engine, otherwise there is an error
                 let node_in_engine = engine.find_flow_node_by_id(nid);
                 let node_entry = node_in_flow.or(node_in_engine).ok_or(EdgelinkError::InvalidData(format!(
-                    "Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
-                    node_config.id, node_config.name, nid
+                    "[flow:{}] Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
+                    self.name(), node_config.id, node_config.name, nid
                 )))?;
                 let tx = node_entry.get_node().msg_tx.to_owned();
                 let pw = PortWire {

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use propex::PropexSegment;
-// use itertools::Itertools;
 use tokio::sync::RwLock;
 
 use super::{EdgelinkError, ElementId, Variant};

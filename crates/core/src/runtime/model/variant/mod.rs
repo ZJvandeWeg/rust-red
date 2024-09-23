@@ -554,22 +554,16 @@ impl Variant {
                     Some(PropexSegment::Property(_)) => Variant::empty_object(),
                     Some(PropexSegment::Index(_)) => Variant::empty_array(),
                     _ => {
-                        return Err(crate::EdgelinkError::BadArgument(format!(
-                            "Not allowed to set first property: '{}'",
-                            first_prop_name
-                        ))
-                        .into());
+                        return Err(crate::EdgelinkError::BadArgument("segs"))
+                            .with_context(|| format!("Not allowed to set first property: '{}'", first_prop_name));
                     }
                 };
                 self.as_object_mut().unwrap().insert(first_prop_name.to_string(), var);
                 self.get_nav_mut(first_prop_name, &[]).unwrap()
             }
             (None, _, _) => {
-                return Err(crate::EdgelinkError::BadArgument(format!(
-                    "Failed to set first property: '{}'",
-                    first_prop_name
-                ))
-                .into());
+                return Err(crate::EdgelinkError::BadArgument("segs"))
+                    .with_context(|| format!("Failed to set first property: '{}'", first_prop_name))
             }
         };
 

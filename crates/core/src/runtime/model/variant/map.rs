@@ -72,20 +72,18 @@ impl VariantObject for VariantObjectMap {
         create_missing: bool,
     ) -> crate::Result<()> {
         if expr.is_empty() {
-            return Err(crate::EdgelinkError::BadArgument("The argument expr cannot be empty".to_string()).into());
+            return Err(crate::EdgelinkError::BadArgument("expr"))
+                .with_context(|| "The argument expr cannot be empty".to_string());
         }
 
-        let mut segs = propex::parse(expr).map_err(|e| crate::EdgelinkError::BadArgument(e.to_string()))?;
+        let mut segs = propex::parse(expr).map_err(|_| crate::EdgelinkError::BadArgument("expr"))?;
         self.expand_segs_property(&mut segs, eval_env)?;
 
         let first_prop_name = match segs.first() {
             Some(PropexSegment::Property(name)) => name,
             _ => {
-                return Err(crate::EdgelinkError::BadArgument(format!(
-                    "The first property to access must be a string, but got '{}'",
-                    expr
-                ))
-                .into())
+                return Err(crate::EdgelinkError::BadArgument("expr"))
+                    .with_context(|| format!("The first property to access must be a string, but got '{}'", expr));
             }
         };
 
@@ -104,22 +102,16 @@ impl VariantObject for VariantObjectMap {
                     Some(PropexSegment::Property(_)) => Variant::empty_object(),
                     Some(PropexSegment::Index(_)) => Variant::empty_array(),
                     _ => {
-                        return Err(crate::EdgelinkError::BadArgument(format!(
-                            "Not allowed to set first property: '{}'",
-                            first_prop_name
-                        ))
-                        .into());
+                        return Err(crate::EdgelinkError::BadArgument("expr"))
+                            .with_context(|| format!("Not allowed to set first property: '{}'", first_prop_name));
                     }
                 };
                 self.insert(first_prop_name.to_string(), var);
                 self.get_property_mut(first_prop_name).unwrap()
             }
             (None, _, _) => {
-                return Err(crate::EdgelinkError::BadArgument(format!(
-                    "Failed to set first property: '{}'",
-                    first_prop_name
-                ))
-                .into());
+                return Err(crate::EdgelinkError::BadArgument("expr"))
+                    .with_context(|| format!("Failed to set first property: '{}'", first_prop_name));
             }
         };
 

@@ -89,7 +89,45 @@ impl MsgReceiverHolder {
             Some(msg) => Ok(msg),
             None => {
                 log::error!("Failed to receive message");
+                Err(EdgelinkError::InvalidOperation("No message in the bounded channel!".to_string()).into())
+            }
+        }
+    }
+
+    pub async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
+        tokio::select! {
+            result = self.recv_msg_forever() => {
+                result
+            }
+
+            _ = stop_token.cancelled() => {
+                // The token was cancelled
                 Err(EdgelinkError::TaskCancelled.into())
+            }
+        }
+    }
+}
+
+pub type MsgUnboundedSender = mpsc::UnboundedSender<Arc<RwLock<Msg>>>;
+pub type MsgUnboundedReceiver = mpsc::UnboundedReceiver<Arc<RwLock<Msg>>>;
+
+#[derive(Debug)]
+pub struct MsgUnboundedReceiverHolder {
+    pub rx: Mutex<MsgUnboundedReceiver>,
+}
+
+impl MsgUnboundedReceiverHolder {
+    pub fn new(rx: MsgUnboundedReceiver) -> Self {
+        MsgUnboundedReceiverHolder { rx: Mutex::new(rx) }
+    }
+
+    pub async fn recv_msg_forever(&self) -> crate::Result<Arc<RwLock<Msg>>> {
+        let rx = &mut self.rx.lock().await;
+        match rx.recv().await {
+            Some(msg) => Ok(msg),
+            None => {
+                log::error!("Failed to receive message");
+                Err(EdgelinkError::InvalidOperation("No message in the unbounded channel!".to_string()).into())
             }
         }
     }

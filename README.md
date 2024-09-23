@@ -143,14 +143,18 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
     - Function nodes:
         - [x] Function (WIP)
             - [x] Basic functions
-            - [ ] `node` object
-            - [ ] `context` object
-            - [ ] `flow` object
-            - [ ] `global` object
+            - [x] `node` object (WIP)
+            - [x] `context` object
+            - [x] `flow` object
+            - [x] `global` object
             - [x] `RED.util` object
             - [x] `env` object
         - [ ] Switch
         - [ ] Change
+            - [x] Set
+            - [x] Change
+            - [ ] Move
+            - [x] Delete
         - [x] :heavy_check_mark: Range
         - [ ] Template
         - [ ] Delay
