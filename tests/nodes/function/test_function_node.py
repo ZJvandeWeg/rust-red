@@ -1002,8 +1002,6 @@ class TestFunctionNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]['payload'] == 'bar'
 
-    # TODO FIXME
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should wait completion of initialization')
     async def test_it_should_wait_completion_of_initializationn(self):

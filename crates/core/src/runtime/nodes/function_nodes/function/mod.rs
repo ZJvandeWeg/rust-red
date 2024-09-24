@@ -251,10 +251,10 @@ impl FunctionNode {
 
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
 
-            ctx.globals().set("console", crate::runtime::js::console::Console::new())?;
+            ::rquickjs_extra::console::init(&ctx)?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
 
-            crate::runtime::js::core_fns::register_all(&ctx)?;
+            ::rquickjs_extra::timers::init(&ctx)?;
 
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
             ctx.globals().set("node", node_class::NodeClass::new(self))?;

@@ -490,6 +490,7 @@ dependencies = [
  "rand",
  "regex",
  "rquickjs",
+ "rquickjs-extra",
  "semver",
  "serde",
  "serde_json",
@@ -1175,6 +1176,17 @@ dependencies = [
  "phf",
  "relative-path",
  "rquickjs-sys",
+]
+
+[[package]]
+name = "rquickjs-extra"
+version = "0.0.1"
+source = "git+https://github.com/rquickjs/rquickjs-extra.git#c838e608838734632783a565be87731d7fcff6bb"
+dependencies = [
+ "either",
+ "log",
+ "rquickjs",
+ "tokio",
 ]
 
 [[package]]

@@ -21,7 +21,8 @@
             },
             "args": [
                 "-v",
-                "4"
+                "4",
+                "/home/oldrev/tmp/debug.json"
             ],
             "env": {
                 "EDGELINK_HOME": "${workspaceFolder}"
