@@ -108,6 +108,7 @@ edgelink-dummy-node = { path = "node-plugins/edgelink-dummy-node" }
 
 [dev-dependencies]
 serde_json_path.workspace = true
+edgelink-pymod = { path = "crates/pymod" }
 
 [workspace]
 members = ["crates/*", "node-plugins/*"]
