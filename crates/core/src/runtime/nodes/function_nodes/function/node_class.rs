@@ -44,7 +44,7 @@ impl NodeClass {
     }
 
     #[qjs(rename = "status")]
-    fn status<'js>(self, msgs: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+    fn status<'js>(self, _status_obj: Value<'js>, _ctx: Ctx<'js>) -> rquickjs::Result<()> {
         // do nothing...
         Ok(())
     }

@@ -146,11 +146,8 @@ impl ChangeNode {
         match rule.t {
             RuleKind::Set => self.apply_rule_set(rule, msg, to_value).await,
             RuleKind::Change => self.apply_rule_change(rule, msg, to_value).await,
-            RuleKind::Delete => {
-                self.apply_rule_delete(rule, msg).await?;
-                Ok(())
-            }
-            RuleKind::Move => Ok(()),
+            RuleKind::Delete => self.apply_rule_delete(rule, msg).await,
+            RuleKind::Move => self.apply_rule_move(rule, msg).await,
         }
     }
 
@@ -213,6 +210,7 @@ impl ChangeNode {
             .into()),
         }
     }
+
     async fn apply_rule_change(&self, rule: &Rule, msg: &mut Msg, to_value: Option<Variant>) -> crate::Result<()> {
         assert!(rule.t == RuleKind::Change);
 
@@ -431,6 +429,49 @@ impl ChangeNode {
             .into()),
         }
     } // apply_rule_delete
+
+    async fn apply_rule_move(&self, rule: &Rule, msg: &mut Msg) -> crate::Result<()> {
+        // TODO check recursive
+        assert!(rule.t == RuleKind::Move);
+        let target_prop = rule.to.as_ref().unwrap().as_str();
+        let current = match eval::evaluate_node_property(&rule.p, rule.pt, Some(self), None, Some(msg)).await {
+            Ok(v) => v,
+            Err(_) => return Ok(()),
+        };
+        match rule.pt {
+            RedPropertyType::Msg => {
+                msg.set_nav_stripped(target_prop, current, true)?;
+            }
+
+            RedPropertyType::Global => {
+                let engine = self.get_flow().upgrade().and_then(|flow| flow.engine.upgrade()).unwrap(); // FIXME TODO
+                let ctx_prop = crate::runtime::context::evaluate_key(target_prop)?;
+                engine
+                    .context()
+                    .set_one(ctx_prop.store, ctx_prop.key, Some(current), &[PropexEnv::ExtRef("msg", msg.as_variant())])
+                    .await?;
+            }
+
+            RedPropertyType::Flow => {
+                let flow = self.get_flow().upgrade().unwrap(); // FIXME TODO
+                let fe = flow as Arc<dyn FlowsElement>;
+                let ctx_prop = crate::runtime::context::evaluate_key(target_prop)?;
+                fe.context()
+                    .set_one(ctx_prop.store, ctx_prop.key, Some(current), &[PropexEnv::ExtRef("msg", msg.as_variant())])
+                    .await?;
+            }
+
+            _ => {
+                return Err(EdgelinkError::NotSupported(
+                    "We only support to move message property and flow/global context variables".into(),
+                )
+                .into())
+            }
+        }
+
+        msg.remove_nav(&rule.p);
+        Ok(())
+    } // apply_rule_move
 }
 
 fn handle_legacy_json(n: Value) -> crate::Result<Value> {

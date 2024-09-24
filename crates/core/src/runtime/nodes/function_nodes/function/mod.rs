@@ -254,7 +254,7 @@ impl FunctionNode {
             ::rquickjs_extra::console::init(&ctx)?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
 
-            /* 
+            /*
             {
                 ::llrt_modules::timers::init_timers(&ctx)?;
                 let (_module, module_eval) = js::Module::evaluate_def::<llrt_modules::timers::TimersModule, _>(ctx.clone(), "timers")?;
@@ -299,7 +299,9 @@ impl FunctionNode {
                     Ok(())
                 }
             }
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
         JS_RUMTIME.get().unwrap().idle().await;
 
         js::async_with!(js_ctx => |ctx| {

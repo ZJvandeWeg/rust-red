@@ -276,7 +276,8 @@ class TestChangeNode:
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "rules": [
-                    {"t": "set", "p": "payload", "to": "#:(memory1)::flowValue", "tot": "flow"}
+                    {"t": "set", "p": "#:(memory1)::flowValue", "pt": "flow",
+                        "to": "Hello World!", "tot": "str"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
                 {"id": "2", "type": "change", "z": "100", "rules": [
@@ -508,8 +509,8 @@ class TestChangeNode:
             assert msgs[0]["payload"] == 2
 
         @pytest.mark.asyncio
-        @pytest.mark.it('''sets the value of a nested message property using a message property''')
-        async def test_set_29(self):
+        @pytest.mark.it('sets the value of a nested message property using a message property')
+        async def test_it_sets_the_value_of_a_nested_message_property_using_a_message_property(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "name": "", "Z": "100", "rules": [
@@ -1342,8 +1343,112 @@ class TestChangeNode:
             assert 'foo' not in msgs[0]
             assert 'foo.bar' not in msgs[0]
 
+    @pytest.mark.describe('#move')
+    class TestMove:
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('moves the value of the message property')
+        async def test_it_moves_the_value_of_the_message_property(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "name": "changeNode", "wires": [["2"]],
+                "rules": [
+                    {"t": "move", "p": "topic", "pt": "msg", "to": "payload", "tot": "msg"}
+                ]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"topic": "You've got to move it move it.", "payload": {"foo":"bar"}}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            msg = msgs[0]
+            assert "topic" not in msg
+            assert "payload" in msg
+            assert msg["payload"] == "You've got to move it move it."
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('moves the value of a message property object')
+        async def test_it_moves_the_value_of_a_message_property_object(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "name": "changeNode", "wires": [["2"]],
+                "rules": [
+                    {"t": "move", "p": "topic", "pt": "msg", "to": "payload", "tot": "msg"}
+                ]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "String", "topic": {"foo": {"bar": 1}}}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            msg = msgs[0]
+            assert "topic" not in msg
+            assert "payload" in msg
+            assert "foo" in msg["payload"]
+            assert "bar" in msg["payload"]["foo"]
+            assert msg["payload"]["foo"]["bar"] == 1
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('moves the value of a message property object to itself')
+        async def test_it_moves_the_value_of_a_message_property_object_to_itself(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "name": "changeNode", "wires": [["2"]],
+                "rules": [
+                    {"t":"move","p":"payload","pt":"msg","to":"payload","tot":"msg"}
+                ]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "bar"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            msg = msgs[0]
+            assert "payload" in msg
+            assert msg["payload"] == "bar"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('moves the value of a message property object to a sub-property')
+        async def test_it_moves_the_value_of_a_message_property_object_to_a_sub_property(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "name": "changeNode", "wires": [["2"]],
+                "rules": [
+                    {"t":"move","p":"payload","pt":"msg","to":"payload.foo","tot":"msg"}
+                ]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": "bar"}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            msg = msgs[0]
+            assert "payload" in msg
+            assert "foo" in msg["payload"]
+            assert msg["payload"]["foo"] == "bar"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('moves the value of a message sub-property object to a property')
+        async def test_it_moves_the_value_of_a_message_sub_property_object_to_a_property(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "z": "100", "name": "changeNode", "wires": [["2"]],
+                "rules": [
+                    {"t":"move","p":"payload.foo","pt":"msg","to":"payload","tot":"msg"}
+                ]},
+                {"id": "2", "z": "100", "type": "console-json"}
+            ]
+            injections = [
+                {"nid": "1", "msg": {"payload": {"foo": "bar"}}},
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            msg = msgs[0]
+            assert "payload" in msg
+            assert msg["payload"] == "bar"
+
+
     @pytest.mark.describe('- multiple rules')
-    class TestSet:
+    class TestMultipleRules:
 
         @pytest.mark.asyncio
         @pytest.mark.it('handles multiple rules')
