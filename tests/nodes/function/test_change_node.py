@@ -513,7 +513,7 @@ class TestChangeNode:
         async def test_it_sets_the_value_of_a_nested_message_property_using_a_message_property(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
-                {"id": "1", "type": "change", "name": "", "Z": "100", "rules": [
+                {"id": "1", "type": "change", "name": "", "z": "100", "rules": [
                     {"t": "set", "p": "lookup[msg.topic]",
                         "pt": "msg", "to": "payload", "tot": "msg"}],
                  "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["2"]]},
