@@ -99,7 +99,9 @@ if __name__ == "__main__":
         js_path = os.path.join(args.NR_PATH, p[1])
         py_path = os.path.join(os.path.normpath(os.path.join(TESTS_DIR, p[0])))
         js_specs = extract_it_strings_js(args.NR_PATH, js_path)
+        js_specs.sort()
         py_specs = extract_it_strings_py(py_path)
+        py_specs.sort()
 
         diff = difflib.Differ().compare(js_specs, py_specs)
         #differences = [line for line in diff if line.startswith(
