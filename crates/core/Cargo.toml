@@ -34,6 +34,7 @@ chrono.workspace = true
 semver.workspace = true
 rquickjs = { optional = true, workspace = true }
 rquickjs-extra = { optional = true, workspace = true }
+#llrt_modules = { optional = true, workspace = true }
 rand.workspace = true
 base64.workspace = true
 # Serialization stuff
@@ -58,6 +59,7 @@ tokio = { version = "1", features = ["test-util"] }
 [features]
 default = ["core", "js", "net"]
 core = []
+#js = ["rquickjs", "rquickjs-extra", "llrt_modules"]
 js = ["rquickjs", "rquickjs-extra"]
 rqjs_bindgen = ["rquickjs/bindgen"]
 net = ["nodes_mqtt", "nodes_udp"]

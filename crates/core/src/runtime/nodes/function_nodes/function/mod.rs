@@ -254,6 +254,13 @@ impl FunctionNode {
             ::rquickjs_extra::console::init(&ctx)?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
 
+            /* 
+            {
+                ::llrt_modules::timers::init_timers(&ctx)?;
+                let (_module, module_eval) = js::Module::evaluate_def::<llrt_modules::timers::TimersModule, _>(ctx.clone(), "timers")?;
+                module_eval.into_future().await?;
+            }
+            */
             ::rquickjs_extra::timers::init(&ctx)?;
 
             ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
@@ -264,7 +271,8 @@ impl FunctionNode {
                 ctx.globals().set("__edgelinkGlobalContext", context_class::ContextClass::new(global_context))?;
             }
             else {
-                return Err(EdgelinkError::InvalidData("Failed to get global context".into()).into());
+                return Err(EdgelinkError::InvalidOperation("Failed to get global context".into()))
+                    .with_context(|| "The engine cannot be released!");
             }
 
             // Register the flow-scoped context
@@ -272,7 +280,7 @@ impl FunctionNode {
                 ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
             }
             else {
-                return Err(EdgelinkError::InvalidData("Failed to get flow context".into()).into());
+                return Err(EdgelinkError::InvalidOperation("Failed to get flow context".into()).into());
             }
 
             // Register the node-scoped context
@@ -284,13 +292,17 @@ impl FunctionNode {
             match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options) {
                 Err(e) => {
                     log::error!("Failed to evaluate the prelude script: {}", e);
-                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                    Err(EdgelinkError::InvalidData(e.to_string()).into())
                 }
                 _ =>{
                     log::debug!("[FUNCTION_NODE] The evulation of the prelude script has been succeed.");
+                    Ok(())
                 }
             }
+        }).await.unwrap();
+        JS_RUMTIME.get().unwrap().idle().await;
 
+        js::async_with!(js_ctx => |ctx| {
             if !self.config.initialize.trim_ascii().is_empty() {
                 let init_body = &self.config.initialize;
                 let init_script = format!(

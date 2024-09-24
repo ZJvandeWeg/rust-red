@@ -23,7 +23,6 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "foo"
 
-
     @pytest.mark.asyncio
     @pytest.mark.it('''should send returned message''')
     async def test_it_should_send_returned_message(self):
@@ -236,10 +235,10 @@ class TestFunctionNode:
             {"nid": "1", "msg": {}}
         ]
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
-        #assert msgs[0]["level"] == "ERROR"
-        #assert msgs[0]["id"] == '0000000000000001'
-        #assert msgs[0]["type"] == 'function'
-        #assert msgs[0]["msg"] == 'function.error.non-message-returned'
+        # assert msgs[0]["level"] == "ERROR"
+        # assert msgs[0]["id"] == '0000000000000001'
+        # assert msgs[0]["type"] == 'function'
+        # assert msgs[0]["msg"] == 'function.error.non-message-returned'
 
     @pytest.mark.skip
     @pytest.mark.asyncio
@@ -516,7 +515,7 @@ class TestFunctionNode:
         # n1.context().set("number","1","memory2");
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": #FIXME TODO
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":  # FIXME TODO
              r"context.set('count','0'); context.set('number','1','memory2'); msg.payload=context.keys();return msg;"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
@@ -526,7 +525,7 @@ class TestFunctionNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == ["count"]
-    # 
+    #
 
     @pytest.mark.asyncio
     @pytest.mark.it('should set flow context')
@@ -691,7 +690,6 @@ class TestFunctionNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
-
 
     @pytest.mark.asyncio
     @pytest.mark.it('should get keys in flow context')
@@ -888,14 +886,15 @@ class TestFunctionNode:
         assert msgs[0]["topic"] == "bar"
         assert msgs[0]["payload"] == "0"
 
+    # Not finished, yet
     @pytest.mark.skip
     @pytest.mark.asyncio
     @pytest.mark.it('should handle setTimeout()')
     async def test_it_should_handle_settimeout(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
-             r"setTimeout(() => node.send(msg), 100);"},
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+             "func": r"setTimeout(() => node.send(msg), 100);"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
         injections = [
@@ -911,8 +910,8 @@ class TestFunctionNode:
     async def test_it_should_handle_setinterval(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], 
-             "func": r"setInterval(() => node.send(msg), 700);"},
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+             "func": r"setInterval(() => node.send(msg), 100);"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
         injections = [
@@ -928,8 +927,8 @@ class TestFunctionNode:
     async def test_it_should_handle_clearinterval(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
-             r"var id=setInterval(null,100);setTimeout(function(){clearInterval(id);node.send(msg);},500);"},
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
+             "func": r"var id=setInterval(null,100);setTimeout(()=>{clearInterval(id);node.send(msg);},500);"},
             {"id": "2", "z": "100", "type": "console-json"},
         ]
         injections = [

@@ -43,6 +43,12 @@ impl NodeClass {
         Ok(node.config.output_count)
     }
 
+    #[qjs(rename = "status")]
+    fn status<'js>(self, msgs: Value<'js>, ctx: Ctx<'js>) -> rquickjs::Result<()> {
+        // do nothing...
+        Ok(())
+    }
+
     #[qjs(rename = "done")]
     fn done(self) {
         // do nothing...
