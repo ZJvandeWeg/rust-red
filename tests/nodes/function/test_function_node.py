@@ -14,7 +14,7 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "node.send(msg);"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
@@ -24,13 +24,17 @@ class TestFunctionNode:
         assert msgs[0]["payload"] == "foo"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should send returned message''')
+    @pytest.mark.it('should send returned message')
     async def test_it_should_send_returned_message(self):
-        node = {
-            "type": "function",
-            "func": "return msg;",
-        }
-        msgs = await run_with_single_node_ntimes('str', 'foo', node, 1, once=True, topic='bar')
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return msg;"},
+            {"id": "2", "z": "100", "type": "test-once"}
+        ]
+        injections = [
+            {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]['topic'] == 'bar'
         assert msgs[0]['payload'] == 'foo'
 
@@ -40,7 +44,7 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "node.send(msg);"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
@@ -57,7 +61,7 @@ class TestFunctionNode:
             {"id": "1", "type": "function", "z": "100", "name": "test-function", "wires": [["2"]], "outputs": 2,
                 "func": "return [{ topic: node.name, payload:node.id, outputCount: node.outputCount }];",
              },
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': ''}},
@@ -72,7 +76,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"], ["2"]],
                 "func": f"node.send({args}); msg.payload = 'changed';"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
@@ -97,7 +101,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "node.send(msg,false); msg.payload = 'changed';"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
@@ -132,7 +136,7 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar', '_topic': 'barz'}},
@@ -163,7 +167,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "return [[{payload: 1},{payload: 2}]];"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             # TODO FIXME, MSGID SHOULD ALLOWED i64/u64
@@ -183,7 +187,7 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return null;"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}},
@@ -196,8 +200,8 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "return [[msg,null,msg],null];"},
-            {"id": "2", "z": "100", "type": "console-json"},
-            {"id": "3", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
+            {"id": "3", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -215,7 +219,7 @@ class TestFunctionNode:
             ], "reg": False, "name": "changeNode", "wires": [["2"]]},
             {"id": "2", "type": "function", "z": "100", "wires": [
                 ["3"]], "func": "msg.payload=global.keys();return msg;"},
-            {"id": "3", "z": "100", "type": "console-json"},
+            {"id": "3", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -229,7 +233,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "2", "type": "function", "z": "100", "wires": [
                 ["3"]], "func": function_text},
-            {"id": "3", "z": "100", "type": "console-json"},
+            {"id": "3", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {}}
@@ -277,7 +281,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "context.set('count','0'); msg.count=context.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -294,7 +298,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "context.set('count','0','memory1'); msg.count=context.get('count', 'memory1'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -316,7 +320,7 @@ class TestFunctionNode:
                 msg.count0 = context.get('count','memory1');
                 msg.count1 = context.get('count','memory2');
                 return msg;'''},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -341,7 +345,7 @@ class TestFunctionNode:
                 }); 
                 return msg;
              """},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -359,7 +363,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0','memory1', function (err) { msg.count=context.get('count', 'memory1'); node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -384,7 +388,7 @@ class TestFunctionNode:
                     }); 
                 });
             """},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -402,7 +406,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0'); msg.count=context.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -419,7 +423,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0'); msg.payload=context.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -435,7 +439,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0','memory1'); msg.payload=context.get('count','memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -451,7 +455,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0','memory1'); context.get('count','memory1',function (err, val) { msg.payload=val; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -467,7 +471,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0'); msg.payload=context.keys();return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -483,7 +487,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0','memory1'); msg.payload=context.keys('memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -499,7 +503,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"context.set('count','0','memory1'); context.keys('memory1', function(err, keys) { msg.payload=keys; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -517,7 +521,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":  # FIXME TODO
              r"context.set('count','0'); context.set('number','1','memory2'); msg.payload=context.keys();return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -534,7 +538,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0'); msg.count=flow.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -551,7 +555,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "flow.set('count','0','memory1'); msg.count=flow.get('count', 'memory1'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -573,7 +577,7 @@ class TestFunctionNode:
                 msg.count0 = flow.get('count','memory1');
                 msg.count1 = flow.get('count','memory2');
                 return msg;'''},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -591,7 +595,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0','memory1', function (err) { msg.count=flow.get('count', 'memory1'); node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -616,7 +620,7 @@ class TestFunctionNode:
                     }); 
                 });
             """},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -634,7 +638,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0'); msg.payload=flow.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -650,7 +654,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0','memory1'); msg.payload=flow.get('count','memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -666,7 +670,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0','memory1'); flow.get('count','memory1',function (err, val) { msg.payload=val; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -682,7 +686,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0'); msg.payload=context.flow.get('count');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -698,7 +702,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0'); msg.payload=flow.keys();return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -714,7 +718,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0','memory1'); msg.payload=flow.keys('memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -730,7 +734,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"flow.set('count','0','memory1'); flow.keys('memory1', function(err, keys) { msg.payload=keys; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -746,7 +750,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0'); msg.count=global.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -763,7 +767,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [
                 ["2"]], "func": "global.set('count','0','memory1'); msg.count=global.get('count', 'memory1'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -780,7 +784,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0','memory1', function (err) { msg.count=global.get('count', 'memory1'); node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -797,7 +801,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0'); msg.payload=global.get('count'); return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -813,7 +817,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0', 'memory1'); msg.payload=global.get('count', 'memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -829,7 +833,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0', 'memory1'); global.get('count', 'memory1', function (err, val) { msg.payload=val; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -845,7 +849,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0'); msg.payload=context.global.get('count');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -861,7 +865,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0', 'memory1'); msg.payload=context.global.get('count','memory1');return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -877,7 +881,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func":
              r"global.set('count','0', 'memory1'); context.global.get('count','memory1', function (err, val) { msg.payload = val; node.send(msg); });"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -895,7 +899,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
              "func": r"setTimeout(() => node.send(msg), 100);"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -912,7 +916,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
              "func": r"setInterval(() => node.send(msg), 100);"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -929,7 +933,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
              "func": r"var id=setInterval(null,100);setTimeout(()=>{clearInterval(id);node.send(msg);},500);"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -944,7 +948,7 @@ class TestFunctionNode:
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]], "func": "msg.payload = node.id; return msg;"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -959,7 +963,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
                 "func": "msg.payload = node.name; return msg;", "name": "name of node"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo', 'topic': 'bar'}}
@@ -993,7 +997,7 @@ class TestFunctionNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
                 "func": "msg.payload = global.get('X'); return msg;", "initialize": "global.set('X','bar');"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo'}}
@@ -1009,7 +1013,7 @@ class TestFunctionNode:
             {"id": "1", "type": "function", "z": "100", "wires": [["2"]],
              "func": "msg.payload = global.get('X'); return msg;",
              "initialize": "global.set('X', '-'); return new Promise((resolve, reject) => setTimeout(() => { global.set('X','bar'); resolve(); }, 500));"},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'foo'}}

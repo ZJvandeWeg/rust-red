@@ -26,11 +26,12 @@ pub struct FlowEngineArgs {
 impl FlowEngineArgs {
     pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
         match cfg {
-            Some(cfg) => {
-                let res = cfg.get::<Self>("runtime.engine")?;
-                Ok(res)
-            }
-            _ => Ok(FlowEngineArgs::default()),
+            Some(cfg) => match cfg.get::<Self>("runtime.engine") {
+                Ok(res) => Ok(res),
+                Err(config::ConfigError::NotFound(_)) => Ok(Self::default()),
+                Err(e) => Err(e.into()),
+            },
+            _ => Ok(Self::default()),
         }
     }
 }
@@ -53,10 +54,10 @@ pub struct FlowEngine {
     context_manager: Arc<ContextManager>,
     context: Arc<Context>,
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "pymod"))]
     final_msgs_rx: MsgUnboundedReceiverHolder,
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "pymod"))]
     final_msgs_tx: MsgUnboundedSender,
 }
 
@@ -84,7 +85,7 @@ impl FlowEngine {
         // let context_manager = Arc::new(ContextManager::default());
         let context = context_manager.new_global_context();
 
-        #[cfg(test)]
+        #[cfg(any(test, feature = "pymod"))]
         let final_msgs_channel = tokio::sync::mpsc::unbounded_channel();
 
         let engine = Arc::new(FlowEngine {
@@ -101,10 +102,10 @@ impl FlowEngine {
             context_manager,
             context,
 
-            #[cfg(test)]
+            #[cfg(any(test, feature = "pymod"))]
             final_msgs_rx: MsgUnboundedReceiverHolder::new(final_msgs_channel.1),
 
-            #[cfg(test)]
+            #[cfg(any(test, feature = "pymod"))]
             final_msgs_tx: final_msgs_channel.0,
         });
 
@@ -266,8 +267,13 @@ impl FlowEngine {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub async fn run_once(&self, expected_msgs: usize, timeout: std::time::Duration) -> crate::Result<Vec<Msg>> {
+    #[cfg(any(test, feature = "pymod"))]
+    pub async fn run_once_with_inject(
+        &self,
+        expected_msgs: usize,
+        timeout: std::time::Duration,
+        mut msgs_to_inject: Vec<(ElementId, Msg)>,
+    ) -> crate::Result<Vec<Msg>> {
         self.start().await?;
 
         let mut count = 0;
@@ -275,6 +281,11 @@ impl FlowEngine {
 
         let result = tokio::time::timeout(timeout, async {
             let cancel = CancellationToken::new();
+
+            for msg in msgs_to_inject.drain(..) {
+                self.inject_msg(&msg.0, Arc::new(RwLock::new(msg.1)), cancel.clone()).await?;
+            }
+
             while !cancel.is_cancelled() && count < expected_msgs {
                 let msg = self.final_msgs_rx.recv_msg(cancel.clone()).await?;
                 count += 1;
@@ -304,6 +315,11 @@ impl FlowEngine {
                 Err(EdgelinkError::Timeout.into())
             }
         }
+    }
+
+    #[cfg(any(test, feature = "pymod"))]
+    pub async fn run_once(&self, expected_msgs: usize, timeout: std::time::Duration) -> crate::Result<Vec<Msg>> {
+        self.run_once_with_inject(expected_msgs, timeout, Vec::with_capacity(0)).await
     }
 
     pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
@@ -350,7 +366,7 @@ impl FlowEngine {
         self.context.clone()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "pymod"))]
     pub fn recv_final_msg(&self, msg: Arc<RwLock<Msg>>) -> crate::Result<()> {
         self.final_msgs_tx.send(msg)?;
         Ok(())
@@ -414,6 +430,31 @@ mod tests {
         { "id": "6", "z": "100", "type": "test-once" }
         ]);
         flows_json
+    }
+
+    #[tokio::test]
+    async fn test_it_should_able_to_inject_msgs() {
+        let flows_json = serde_json::json!([
+            { "id": "100", "type": "tab", "label": "Flow 1" },
+            { "id": "1", "z": "100", "type": "test-once" }
+        ]);
+        let engine = build_test_engine(flows_json).unwrap();
+        let msgs_to_inject_json = serde_json::json!([
+            ["1", {"payload": "foo"}],
+            ["1", {"payload": "bar"}],
+        ]);
+        let msgs_to_inject = Vec::<(ElementId, Msg)>::deserialize(msgs_to_inject_json).unwrap();
+        let msgs = engine.run_once_with_inject(2, Duration::from_millis(200), msgs_to_inject).await.unwrap();
+
+        assert_eq!(msgs.len(), 2);
+        {
+            let msg0 = msgs[0].as_variant_object();
+            assert_eq!(msg0.get("payload").unwrap(), &Variant::from("foo"));
+        }
+        {
+            let msg1 = msgs[1].as_variant_object();
+            assert_eq!(msg1.get("payload").unwrap(), &Variant::from("bar"));
+        }
     }
 
     #[tokio::test]

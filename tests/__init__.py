@@ -6,7 +6,21 @@ import subprocess
 import signal
 import copy
 import pytest
+import importlib.util
 
+TEST_EDGELINLKD_CONFIG = {
+    "runtime": {
+        "context": {
+            "default": "memory",
+            "stores": {
+                "memory": {"provider": "memory"},
+                "memory0": {"provider": "memory"},
+                "memory1": {"provider": "memory"},
+                "memory2": {"provider": "memory"},
+            }
+        }
+    }
+}
 
 class EdgelinkError(Exception):
     def __init__(self, message: str, output: bytes):
@@ -17,6 +31,35 @@ class EdgelinkError(Exception):
         return f'EdgeLink Error: {self.message}, output: \n{self.output}'
 
 
+def load_edgelink_mod():
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Determine the operating system and choose the appropriate executable name
+    if platform.system() == 'Windows':
+        createion_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        mymod_name = 'libedgelink_pymod.dll'
+    else:
+        createion_flags = 0
+        mymod_name = 'libedgelink_pymod.so'
+
+    target = os.getenv('EDGELINK_BUILD_TARGET', '')
+    profile = os.getenv('EDGELINK_BUILD_PROFILE', 'debug')
+
+    target_directory = os.path.join(
+        script_dir, '..', 'target', target, profile)
+
+    current_script_path = os.path.abspath(__file__)
+    current_directory = os.path.dirname(current_script_path)
+    module_path = os.path.join(target_directory, mymod_name)
+    spec = importlib.util.spec_from_file_location("edgelink_pymod", module_path)
+    edgelink = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(edgelink)
+    return edgelink
+
+
+edgelink = load_edgelink_mod()
+
+"""
 async def start_edgelink_process(el_args: list[str]):
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,7 +70,6 @@ async def start_edgelink_process(el_args: list[str]):
     else:
         createion_flags = 0
         myprog_name = 'edgelinkd'
-
 
     target = os.getenv('EDGELINK_BUILD_TARGET', '')
     profile = os.getenv('EDGELINK_BUILD_PROFILE', 'debug')
@@ -140,9 +182,10 @@ async def run_edgelink(flows_path: str, nexpected: int, timeout: float = 5) -> l
     finally:
         await process.wait()
 
+"""
 
 async def run_with_single_node_ntimes(payload_type: str | None, payload, node_json: object,
-                                      nexpected: int, once: bool = False, topic: str | None = None):
+                                      nexpected: int, once: bool = True, topic: str | None = None):
     inject = {
         "id": "1",
         "type": "inject",
@@ -167,41 +210,26 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
     user_node["z"] = "0"
     if 'wires' not in node_json:
         user_node["wires"] = [["3"]]
-    console_node = {"id": "3", "type": "console-json", "z": "0"}
+    console_node = {"id": "3", "type": "test-once", "z": "0"}
     final_flows_json = [{"id": "0", "type": "tab"},
                         inject, user_node, console_node]
-    flows_text = json.dumps(final_flows_json, ensure_ascii=False)
-    print("INPUT_JSON:\n", flows_text)
-    flow_bytes = flows_text.encode('utf-8')
-
-    return await run_edgelink_with_stdin(flow_bytes, nexpected)
+    msgs = await edgelink.run_flows_once(nexpected, 3.0, final_flows_json, [], TEST_EDGELINLKD_CONFIG)
+    return msgs
 
 
 async def run_flow_with_msgs_ntimes(flows_obj: list[object],
                                     msgs: list[object] | None,
-                                    nexpected: int, injectee_node_id: str = '1', timeout=5):
-    flow_bytes = json.dumps(flows_obj, ensure_ascii=False).encode('utf-8')
-
-    input_bytes = bytearray()
-    input_bytes.append(0x1E)
-    input_bytes.extend(flow_bytes)
-    input_bytes.append(0x0A)  # \n
+                                    nexpected: int, injectee_node_id: str = '1', timeout=3) -> list[object]:
+    msgs_to_inject = []
     for msg in msgs:
         msg_injection = None
         if 'nid' in msg and 'msg' in msg:  # We got a raw injection
-            msg_injection = msg
+            msg_injection = (msg['nid'], msg['msg'])
         else:
-            msg_injection = {'nid': injectee_node_id, 'msg': msg}
-        inj_bytes = json.dumps(
-            msg_injection, ensure_ascii=False).encode('utf-8')
-        input_bytes.append(0x1E)
-        input_bytes.extend(inj_bytes)
-        input_bytes.append(0x0A)  # \n
-
-    print("INPUT_JSON_SEQ:\n", input_bytes)
-    # with open("c:\\tmp\\hello.dat", "wb") as f:
-    #    f.write(input_bytes)
-    return await run_edgelink_with_stdin(bytes(input_bytes), nexpected, timeout)
+            msg_injection = (injectee_node_id, msg)
+        msgs_to_inject.append(msg_injection)
+    msgs = await edgelink.run_flows_once(nexpected, timeout, flows_obj, msgs_to_inject, TEST_EDGELINLKD_CONFIG)
+    return msgs
 
 
 async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object] | None,
@@ -211,6 +239,6 @@ async def run_single_node_with_msgs_ntimes(node_json: object, msgs: list[object]
     user_node["z"] = "0"
     if 'wires' not in node_json:
         user_node["wires"] = [["2"]]
-    console_node = {"id": "2", "type": "console-json", "z": "0"}
+    console_node = {"id": "2", "type": "test-once", "z": "0"}
     final_flows_json = [{"id": "0", "type": "tab"}, user_node, console_node]
     return await run_flow_with_msgs_ntimes(final_flows_json, msgs, nexpected, injectee_node_id)

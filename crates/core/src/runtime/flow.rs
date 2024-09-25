@@ -29,11 +29,12 @@ pub struct FlowArgs {
 impl FlowArgs {
     pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
         match cfg {
-            Some(cfg) => {
-                let res = cfg.get::<Self>("runtime.flow")?;
-                Ok(res)
-            }
-            _ => Ok(FlowArgs::default()),
+            Some(cfg) => match cfg.get::<Self>("runtime.flow") {
+                Ok(res) => Ok(res),
+                Err(config::ConfigError::NotFound(_)) => Ok(Self::default()),
+                Err(e) => Err(e.into()),
+            },
+            _ => Ok(Self::default()),
         }
     }
 }

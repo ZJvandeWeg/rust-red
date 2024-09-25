@@ -41,7 +41,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "payload",
                     "from": "", "to": "changed", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': 'changeMe'}},
@@ -63,7 +63,7 @@ class TestChangeNode:
                 {"id": "3", "type": "change", "z": "100", "rules": [
                     {"t": "set", "p": "payload", "pt": "msg", "to": "globalValue", "tot": "global"}
                 ], "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
 
             ]
             injections = [
@@ -86,7 +86,7 @@ class TestChangeNode:
                 {"id": "3", "type": "change", "z": "100", "rules": [
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::globalValue", "tot": "global"}
                 ], "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': ''}},
@@ -104,7 +104,7 @@ class TestChangeNode:
                         "to": "12345", "tot": "num"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': 'changeMe'}},
@@ -121,7 +121,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "foo.bar",
                  "from": "", "to": "bar", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"foo": {"bar": "foo"}}},
@@ -136,7 +136,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "foo.bar",
                  "from": "", "to": "bar", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {}},
@@ -151,7 +151,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "foo",
                  "from": "", "to": "msg.fred", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"fred": "bar"}},
@@ -166,7 +166,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "foo.bar",
                  "from": "", "to": "msg.fred.red", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"fred": {"red": "bar"}}},
@@ -181,7 +181,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "foo.bar",
                  "from": "", "to": "msg.fred.red", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {}},
@@ -196,7 +196,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "payload",
                  "from": "", "to": "msg.foo", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello"}},
@@ -211,7 +211,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "payload",
                  "from": "", "to": "msg.foo", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello", "foo": None}},
@@ -227,7 +227,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "payload",
                  "from": "", "to": "msg.otherProp=10", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "changeMe"}},
@@ -242,7 +242,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "replace", "property": "pay.load",
                  "from": "", "to": "10", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"pay": {"load": "changeMe"}}},
@@ -264,7 +264,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "flowValue", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -284,7 +284,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::flowValue", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -305,7 +305,7 @@ class TestChangeNode:
                         "to": "globalValue", "tot": "global"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -326,7 +326,7 @@ class TestChangeNode:
                         "to": "#:(memory1)::globalValue", "tot": "global"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -339,7 +339,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
                  "rules": [{"t": "set", "p": "payload", "to": "123", "tot": "num"}], "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": ""}},
@@ -354,7 +354,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
                  "rules": [{"t": "set", "p": "payload", "to": "true", "tot": "bool"}], "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": ""}},
@@ -369,7 +369,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
                  "rules": [{"t": "set", "p": "payload", "to": '{"a":123}', "tot": "json"}], "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": ""}},
@@ -384,7 +384,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
                  "rules": [{"t": "set", "p": "payload", "to": '[72,101,108,108,111,32,87,111,114,108,100]', "tot": "bin"}], "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": ""}},
@@ -400,7 +400,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100",
                  "rules": [{"t": "set", "p": "ts", "pt": "msg", "to": "", "tot": "date"}], "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": time.time_ns() / 1000_000.0}},
@@ -424,7 +424,7 @@ class TestChangeNode:
                     {"id": "100", "type": "tab"},  # flow 1
                     {"id": "1", "type": "change", "z": "100",
                      "rules": [{"t": "set", "p": "payload", "pt": "msg", "to": "NR_TEST_A", "tot": "env"}], "name": "changeNode", "wires": [["2"]]},
-                    {"id": "2", "z": "100", "type": "console-json"}
+                    {"id": "2", "z": "100", "type": "test-once"}
                 ]
                 injections = [
                     {"nid": "1", "msg": {"payload": "123", "topic": "ABC"}},
@@ -441,7 +441,7 @@ class TestChangeNode:
                     ]},  # flow 1
                     {"id": "1", "type": "change", "z": "100",
                      "rules": [{"t": "set", "p": "payload", "pt": "msg", "to": "NR_TEST_A", "tot": "env"}], "name": "changeNode", "wires": [["2"]]},
-                    {"id": "2", "z": "100", "type": "console-json"}
+                    {"id": "2", "z": "100", "type": "test-once"}
                 ]
                 injections = [
                     {"nid": "1", "msg": {"payload": "123", "topic": "ABC"}},
@@ -460,7 +460,7 @@ class TestChangeNode:
                     ], "z": "100"},
                     {"id": "1", "type": "change", "z": "100", "g": "999",
                      "rules": [{"t": "set", "p": "payload", "pt": "msg", "to": "NR_TEST_A", "tot": "env"}], "name": "changeNode", "wires": [["2"]]},
-                    {"id": "2", "z": "100", "type": "console-json"}
+                    {"id": "2", "z": "100", "type": "test-once"}
                 ]
                 injections = [
                     {"nid": "1", "msg": {"payload": "123", "topic": "ABC"}},
@@ -481,7 +481,7 @@ class TestChangeNode:
                         "g": "999", "env": [], "z": "100"},
                     {"id": "1", "type": "change", "z": "100", "g": "998",
                      "rules": [{"t": "set", "p": "payload", "pt": "msg", "to": "NR_TEST_A", "tot": "env"}], "name": "changeNode", "wires": [["2"]]},
-                    {"id": "2", "z": "100", "type": "console-json"}
+                    {"id": "2", "z": "100", "type": "test-once"}
                 ]
                 injections = [
                     {"nid": "1", "msg": {"payload": "123", "topic": "ABC"}},
@@ -497,7 +497,7 @@ class TestChangeNode:
                 {"id": "1", "type": "change", "name": "", "z": "100", "rules": [
                     {"t": "set", "p": "payload", "pt": "msg", "to": "lookup[msg.topic]", "tot": "msg"}],
                     "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {
@@ -517,7 +517,7 @@ class TestChangeNode:
                     {"t": "set", "p": "lookup[msg.topic]",
                         "pt": "msg", "to": "payload", "tot": "msg"}],
                  "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {
@@ -553,7 +553,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "payload", "from": "Hello",
                     "to": "Goodbye", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello World!"}},
@@ -569,7 +569,7 @@ class TestChangeNode:
                 {"id": "1", "type": "change", "z": "100", "rules": [
                     {"t": "change", "p": "payload", "pt": "msg", "from": "123",
                      "fromt": "str", "to": "456", "tot": "num"}], "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Change123Me"}},
@@ -586,7 +586,7 @@ class TestChangeNode:
                  "rules": [
                      {"t": "change", "p": "payload", "pt": "msg", "from": "123", "fromt": "str", "to": "456", "tot": "num"}],
                  "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "123"}},
@@ -607,7 +607,7 @@ class TestChangeNode:
                       "fromt": "str", "to": "false", "tot": "bool"}
                  ],
                     "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": {"a": "123", "b": "456"}}},
@@ -624,7 +624,7 @@ class TestChangeNode:
                 {"id": "1", "type": "change", "action": "change", "z": "100",
                  "property": "foo.bar", "from": "Hello",
                     "to": "Goodbye", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"foo": {"bar": "Hello World!"}}},
@@ -639,7 +639,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "foo", "from": "Hello",
                     "to": "Goodbye", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello World!"}},
@@ -655,7 +655,7 @@ class TestChangeNode:
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "foo.bar", "from": "Hello",
                     "to": "Goodbye", "reg": False, "name": "changeNode", "wires": [["2"]]},
 
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello World!"}},
@@ -676,7 +676,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload.c", "pt": "msg",
                         "from": "off", "fromt": "re", "to": "false", "tot": "bool"}
                 ], "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": {
@@ -694,7 +694,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "change", "property": "payload",
                     "from": "(Hello)", "to": "$1-$1-$1", "reg": True, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello World"}},
@@ -714,7 +714,7 @@ class TestChangeNode:
                         "from": "(Hello)", "to": "$1-$1-$1", "fromt": "re", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "Hello World"}},
@@ -732,7 +732,7 @@ class TestChangeNode:
                         "to": "123", "fromt": "str", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc"}},
@@ -749,7 +749,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "topic", "to": "123", "fromt": "msg", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc", "topic": "ABC"}},
@@ -768,7 +768,7 @@ class TestChangeNode:
                 {"id": "2", "type": "change", "z": "100", "rules": [
                     {"t": "change", "p": "payload", "from": "topic", "to": "123", "fromt": "flow", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
 
             ]
             injections = [
@@ -789,7 +789,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload",
                         "from": "#:(memory1)::topic", "to": "123", "fromt": "flow", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc"}},
@@ -808,7 +808,7 @@ class TestChangeNode:
                 {"id": "2", "type": "change", "z": "100", "rules": [
                     {"t": "change", "p": "payload", "from": "topic", "to": "123", "fromt": "global", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc"}},
@@ -828,7 +828,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload",
                         "from": "#:(memory1)::topic", "to": "123", "fromt": "global", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "abcABCabc"}},
@@ -847,7 +847,7 @@ class TestChangeNode:
                 {"id": "2", "type": "change", "z": "100", "rules": [
                     {"t": "change", "p": "payload", "from": "topic", "to": "ABC", "fromt": "global", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": 123}},
@@ -867,7 +867,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload",
                         "from": "#:(memory1)::topic", "to": "ABC", "fromt": "global", "tot": "str"}
                 ], "reg": False, "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": 123}},
@@ -884,7 +884,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "123", "to": "456", "fromt": "num", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "123"}},
@@ -901,7 +901,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "123", "to": "abc", "fromt": "num", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": 123}},
@@ -918,7 +918,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "true", "to": "xxx", "fromt": "bool", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "true"}},
@@ -935,7 +935,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "true", "to": "xxx", "fromt": "bool", "tot": "str"}
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": True}},
@@ -962,7 +962,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "global"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -986,7 +986,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "global"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}, ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1009,7 +1009,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1033,7 +1033,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1056,7 +1056,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1080,7 +1080,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1103,7 +1103,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1127,7 +1127,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1150,7 +1150,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1174,7 +1174,7 @@ class TestChangeNode:
                     {"t": "set", "p": "payload", "pt": "msg", "to": "#:(memory1)::payload", "tot": "flow"}
                 ],
                     "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [{"nid": "1", "msg": {'payload': ''}}]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -1199,7 +1199,7 @@ class TestChangeNode:
                     {"id": "1", "type": "change", "z": "100", "rules": [
                         {"t": "change", "p": "payload", "from": "topic", "to": "NR_TEST_A", "fromt": "msg", "tot": "env"}
                     ], "name": "changeNode", "wires": [["2"]]},
-                    {"id": "2", "z": "100", "type": "console-json"}
+                    {"id": "2", "z": "100", "type": "test-once"}
                 ]
                 injections = [
                     {"nid": "1", "msg": {'payload': "abcABCabc", "topic": "ABC"}},
@@ -1217,7 +1217,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "payload",
                     "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': "This won't get through"}},
@@ -1245,7 +1245,7 @@ class TestChangeNode:
                     {"t": "set", "p": "newGlobalValue", "pt": "msg",
                         "to": "globalValue", "tot": "global"}
                 ], "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': ''}},
@@ -1273,7 +1273,7 @@ class TestChangeNode:
                     {"t": "set", "p": "newGlobalValue", "pt": "msg",
                         "to": "#:(memory1)::globalValue", "tot": "global"}
                 ], "reg": False, "name": "changeNode", "wires": [["4"]]},
-                {"id": "4", "z": "100", "type": "console-json"}
+                {"id": "4", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {'payload': ''}},
@@ -1289,7 +1289,7 @@ class TestChangeNode:
                 {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar", "from": "", "to": "", "reg": False,
                  "name": "changeNode",
                  "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {
@@ -1310,7 +1310,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo",
                     "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "payload", }},
@@ -1326,7 +1326,7 @@ class TestChangeNode:
                 {"id": "100", "type": "tab"},  # flow 1
                 {"id": "1", "type": "change", "z": "100", "action": "delete", "property": "foo.bar",
                     "from": "", "to": "", "reg": False, "name": "changeNode", "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {
@@ -1355,7 +1355,7 @@ class TestChangeNode:
                 "rules": [
                     {"t": "move", "p": "topic", "pt": "msg", "to": "payload", "tot": "msg"}
                 ]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"topic": "You've got to move it move it.", "payload": {"foo":"bar"}}},
@@ -1375,7 +1375,7 @@ class TestChangeNode:
                 "rules": [
                     {"t": "move", "p": "topic", "pt": "msg", "to": "payload", "tot": "msg"}
                 ]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "String", "topic": {"foo": {"bar": 1}}}},
@@ -1397,7 +1397,7 @@ class TestChangeNode:
                 "rules": [
                     {"t":"move","p":"payload","pt":"msg","to":"payload","tot":"msg"}
                 ]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "bar"}},
@@ -1416,7 +1416,7 @@ class TestChangeNode:
                 "rules": [
                     {"t":"move","p":"payload","pt":"msg","to":"payload.foo","tot":"msg"}
                 ]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "bar"}},
@@ -1436,7 +1436,7 @@ class TestChangeNode:
                 "rules": [
                     {"t":"move","p":"payload.foo","pt":"msg","to":"payload","tot":"msg"}
                 ]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": {"foo": "bar"}}},
@@ -1461,7 +1461,7 @@ class TestChangeNode:
                     {"t": "delete", "p": "deleteProperty"},
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {
@@ -1486,7 +1486,7 @@ class TestChangeNode:
                     {"t": "change", "p": "payload", "from": "\\(.*\\)", "to": "[new]", "re": True},
                 ], "name": "changeNode",
                     "wires": [["2"]]},
-                {"id": "2", "z": "100", "type": "console-json"}
+                {"id": "2", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "changeMe"}},
@@ -1507,7 +1507,7 @@ class TestChangeNode:
                     {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "flow"},
                     {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "flow"}
                 ], "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "changeMe"}},
@@ -1529,7 +1529,7 @@ class TestChangeNode:
                     {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "global"},
                     {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "global"}
                 ], "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "changeMe"}},
@@ -1551,7 +1551,7 @@ class TestChangeNode:
                     {"t": "set", "p": "val0", "to": "#:(memory0)::val", "tot": "flow"},
                     {"t": "set", "p": "val1", "to": "#:(memory1)::val", "tot": "global"}
                 ], "name": "changeNode", "wires": [["3"]]},
-                {"id": "3", "z": "100", "type": "console-json"}
+                {"id": "3", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "1", "msg": {"payload": "changeMe"}},

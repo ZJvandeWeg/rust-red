@@ -9,5 +9,5 @@ mod link_out;
 mod subflow;
 mod unknown;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "pymod"))]
 mod test_once;

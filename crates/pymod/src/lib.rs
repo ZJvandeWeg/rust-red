@@ -1,7 +1,7 @@
-use std::sync::Arc;
-
-use pyo3::types::{PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
+use edgelink_core::runtime::model::{ElementId, Msg};
+use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use pyo3::{prelude::*, wrap_pyfunction};
+use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use edgelink_core::runtime::engine::FlowEngine;
@@ -23,30 +23,48 @@ fn rust_sleep(py: Python) -> PyResult<&PyAny> {
 }
 
 #[pyfunction]
-fn run_flows_once<'a>(py: Python<'a>, _expected_msgs: usize, _timeout: f64, py_json: &'a PyAny) -> PyResult<&'a PyAny> {
-    let flows_json = Arc::new(py_object_to_json_value(py, py_json)?);
+fn run_flows_once<'a>(
+    py: Python<'a>,
+    _expected_msgs: usize,
+    _timeout: f64,
+    py_json: &'a PyAny,
+    msgs_json: &'a PyAny,
+    app_cfg: &'a PyAny,
+) -> PyResult<&'a PyAny> {
+    let flows_json = py_object_to_json_value(py, py_json)?;
+    let msgs_to_inject = {
+        let json_msgs = py_object_to_json_value(py, msgs_json)?;
+        Vec::<(ElementId, Msg)>::deserialize(json_msgs)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?
+    };
+    let app_cfg = {
+        if !app_cfg.is_none() {
+            let app_cfg_json = py_object_to_json_value(py, app_cfg)?;
+            let config = config::Config::try_from(&app_cfg_json)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
+            Some(config)
+        } else {
+            None
+        }
+    };
 
-    pyo3_asyncio::tokio::future_into_py_with_locals(py, pyo3_asyncio::tokio::get_current_locals(py)?, async move {
+    pyo3_asyncio::tokio::future_into_py(py, async move {
         let registry = edgelink_core::runtime::registry::RegistryBuilder::default()
             .build()
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-        let engine = FlowEngine::new_with_json(registry, &flows_json, None)
+        let engine = FlowEngine::new_with_json(registry, &flows_json, app_cfg.as_ref())
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-        /*
         let msgs = engine
-            .run_once(1, std::time::Duration::from_millis(200))
+            .run_once_with_inject(_expected_msgs, std::time::Duration::from_secs_f64(_timeout), msgs_to_inject)
             .await
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
         let result_value = serde_json::to_value(&msgs)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
-        tokio::time::sleep(std::time::Duration::from_secs_f64(0.1)).await;
-        */
-        let result_value = serde_json::json!({"foo":"bar", "ints":[1,2,3,4,5]});
-        let res = json_value_to_py_object(py, &result_value)?;
-        Python::with_gil(|py| Ok(()))
+
+        Python::with_gil(|py| Ok(json_value_to_py_object(py, &result_value)?.to_object(py)))
     })
 }
 
@@ -71,18 +89,14 @@ fn py_object_to_json_value(py: Python, obj: &PyAny) -> PyResult<Value> {
             json_list.push(py_object_to_json_value(py, item)?);
         }
         Ok(Value::Array(json_list))
+    } else if let Ok(boolean) = obj.downcast::<PyBool>() {
+        Ok(Value::Bool(boolean.extract::<bool>()?))
     } else if let Ok(float) = obj.downcast::<PyFloat>() {
         let num = float.extract::<f64>()?;
-        Ok(Value::Number(
-            serde_json::Number::from_f64(num)
-                .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid float value"))?,
-        ))
+        Ok(serde_json::json!(num))
     } else if let Ok(int) = obj.downcast::<PyInt>() {
-        let num = int.extract::<i64>()? as f64;
-        Ok(Value::Number(
-            serde_json::Number::from_f64(num)
-                .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid int value"))?,
-        ))
+        let num = int.extract::<i64>()?;
+        Ok(serde_json::json!(num))
     } else if let Ok(string) = obj.downcast::<PyString>() {
         Ok(Value::String(string.extract::<String>()?))
     } else {

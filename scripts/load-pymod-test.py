@@ -14,7 +14,18 @@ spec.loader.exec_module(edgelink)
 
 
 async def main():
-    await edgelink.rust_sleep()
+
+    flows_json = [
+        { "id": "100", "type": "tab", "label": "Flow 1" },
+        { "id": "1", "z": "100", "type": "test-once" }
+    ]
+    msgs = [
+        ("1", {"payload": "Hello World!"})
+    ]
+    config = {}
+    #fn run_flows_once<'a>(py: Python<'a>, _expected_msgs: usize, _timeout: f64, py_json: &'a PyAny) -> PyResult<&'a PyAny> {
+    msgs = await edgelink.run_flows_once(1, 0.2, flows_json, msgs, config)
+    print(msgs)
 
 # should sleep for 1s
 asyncio.run(main())

@@ -4,13 +4,11 @@ use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 use edgelink_macro::*;
 
-#[cfg(test)]
 #[flow_node("test-once")]
 struct TestOnceNode {
     base: FlowNode,
 }
 
-#[cfg(test)]
 impl TestOnceNode {
     fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let node = TestOnceNode { base: state };
@@ -18,7 +16,6 @@ impl TestOnceNode {
     }
 }
 
-#[cfg(test)]
 #[async_trait]
 impl FlowNodeBehavior for TestOnceNode {
     fn get_node(&self) -> &FlowNode {
@@ -31,7 +28,13 @@ impl FlowNodeBehavior for TestOnceNode {
 
             match self.recv_msg(stop_token.clone()).await {
                 Ok(msg) => engine.recv_final_msg(msg).expect("Shoud send final msg to the engine"),
-                Err(e) => eprintln!("Failed to recv_msg(): {:?}", e),
+                Err(e) => {
+                    match e.downcast_ref::<EdgelinkError>() {
+                        Some(EdgelinkError::TaskCancelled) => (),
+                        None | Some(_) => eprintln!("Failed to recv_msg(): {:?}", e),
+                    }
+                    break;
+                }
             }
         }
     }

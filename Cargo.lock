@@ -528,6 +528,7 @@ dependencies = [
 name = "edgelink-pymod"
 version = "0.1.0"
 dependencies = [
+ "config",
  "edgelink-core",
  "edgelink-dummy-node",
  "pyo3",
