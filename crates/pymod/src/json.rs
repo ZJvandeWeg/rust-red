@@ -2,25 +2,25 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use serde_json::{Map, Value};
 
-pub fn py_object_to_json_value(py: Python, obj: &PyAny) -> PyResult<Value> {
+pub fn py_object_to_json_value(obj: &PyAny) -> PyResult<Value> {
     if let Ok(list) = obj.downcast::<PyList>() {
         let mut json_list = Vec::new();
         for item in list.iter() {
-            json_list.push(py_object_to_json_value(py, item)?);
+            json_list.push(py_object_to_json_value(item)?);
         }
         Ok(Value::Array(json_list))
     } else if let Ok(dict) = obj.downcast::<PyDict>() {
         let mut json_map = Map::new();
         for (key, value) in dict.iter() {
             let key = key.extract::<String>()?;
-            let value = py_object_to_json_value(py, value)?;
+            let value = py_object_to_json_value(value)?;
             json_map.insert(key, value);
         }
         Ok(Value::Object(json_map))
     } else if let Ok(tuple) = obj.downcast::<PyTuple>() {
         let mut json_list = Vec::new();
         for item in tuple.iter() {
-            json_list.push(py_object_to_json_value(py, item)?);
+            json_list.push(py_object_to_json_value(item)?);
         }
         Ok(Value::Array(json_list))
     } else if let Ok(boolean) = obj.downcast::<PyBool>() {

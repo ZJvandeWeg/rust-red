@@ -282,7 +282,7 @@ impl FlowEngine {
         // Clear the final_msgs channel
         {
             let mut rx = self.final_msgs_rx.rx.lock().await;
-            while let Ok(_) = rx.try_recv() {}
+            while rx.try_recv().is_ok() {}
         }
 
         let cancel = CancellationToken::new();

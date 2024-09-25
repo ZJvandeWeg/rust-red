@@ -43,15 +43,15 @@ fn run_flows_once<'a>(
     msgs_json: &'a PyAny,
     app_cfg: &'a PyAny,
 ) -> PyResult<&'a PyAny> {
-    let flows_json = json::py_object_to_json_value(py, py_json)?;
+    let flows_json = json::py_object_to_json_value(py_json)?;
     let msgs_to_inject = {
-        let json_msgs = json::py_object_to_json_value(py, msgs_json)?;
+        let json_msgs = json::py_object_to_json_value(msgs_json)?;
         Vec::<(ElementId, Msg)>::deserialize(json_msgs)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?
     };
     let app_cfg = {
         if !app_cfg.is_none() {
-            let app_cfg_json = json::py_object_to_json_value(py, app_cfg)?;
+            let app_cfg_json = json::py_object_to_json_value(app_cfg)?;
             let config = config::Config::try_from(&app_cfg_json)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
             Some(config)

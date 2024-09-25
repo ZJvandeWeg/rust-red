@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use node_class::NodeClass;
 use rquickjs::context::EvalOptions;
 use serde::Deserialize;
 use smallvec::SmallVec;
@@ -66,7 +65,7 @@ impl FlowNodeBehavior for FunctionNode {
         //.get_or_init(|| async move {
         log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
         let rt = js::AsyncRuntime::new().unwrap();
-        let mut resolver = js::loader::BuiltinResolver::default();
+        let resolver = js::loader::BuiltinResolver::default();
         //resolver.add_module("console");
         let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
         rt.set_loader(resolver, loaders).await;
@@ -93,8 +92,8 @@ impl FlowNodeBehavior for FunctionNode {
             with_uow(this_node.as_ref(), cancel.child_token(), |node, msg| async move {
                 let res = {
                     let msg_guard = msg.write().await;
-                    let res = node.filter_msg(msg_guard.clone(), sub_ctx).await; // This gonna eat the msg and produce a new one
-                    res
+                    // This gonna eat the msg and produce a new one
+                    node.filter_msg(msg_guard.clone(), sub_ctx).await
                 };
                 match res {
                     Ok(changed_msgs) => {
@@ -106,7 +105,6 @@ impl FlowNodeBehavior for FunctionNode {
                                 .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
                             node.fan_out_many(&envelopes, cancel.clone()).await?;
-                        } else {
                         }
                     }
                     Err(e) => {

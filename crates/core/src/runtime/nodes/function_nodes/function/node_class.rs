@@ -193,6 +193,7 @@ impl NodeClass {
     }
 }
 
+/*
 pub fn init(ctx: &Ctx<'_>, node: &Arc<FunctionNode>) -> crate::Result<()> {
     let globals = ctx.globals();
 
@@ -202,3 +203,4 @@ pub fn init(ctx: &Ctx<'_>, node: &Arc<FunctionNode>) -> crate::Result<()> {
 
     Ok(())
 }
+*/
