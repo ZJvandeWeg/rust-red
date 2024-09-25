@@ -192,3 +192,15 @@ impl NodeClass {
         Ok(())
     }
 }
+
+/*
+pub fn init(ctx: &Ctx<'_>, node: &Arc<FunctionNode>) -> crate::Result<()> {
+    let globals = ctx.globals();
+
+    rquickjs::Class::<NodeClass>::register(ctx)?;
+
+    globals.set("node", NodeClass::new(node))?;
+
+    Ok(())
+}
+*/

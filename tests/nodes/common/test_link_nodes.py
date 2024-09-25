@@ -29,7 +29,7 @@ class TestInjectNode:
                 "name": "link-out", "links": ["2"]},
             {"id": "2", "z": "100", "type": "link in",
                 "name": "link-out", "wires": [["3"]]},
-            {"id": "3", "z": "100", "type": "console-json"}
+            {"id": "3", "z": "100", "type": "test-once"}
         ]
         injections = [
             {'payload': 'hello'},
@@ -49,7 +49,7 @@ class TestInjectNode:
                 "name": "link-in0", "wires": [["4"]]},
             {"id": "3", "z": "100", "type": "link in",
                 "name": "link-in1", "wires": [["4"]]},
-            {"id": "4", "z": "100", "type": "console-json"}
+            {"id": "4", "z": "100", "type": "test-once"}
         ]
         injections = [
             {'payload': 'hello'},
@@ -69,7 +69,7 @@ class TestInjectNode:
                 "name": "link-out1", "links": ["3"]},
             {"id": "3", "z": "100", "type": "link in",
                 "name": "link-in", "wires": [["4"]]},
-            {"id": "4", "z": "100", "type": "console-json"}
+            {"id": "4", "z": "100", "type": "test-once"}
         ]
         injections = [
             {"nid": "1", "msg": {'payload': 'hello'}},
@@ -95,7 +95,7 @@ class TestInjectNode:
                 {"id": "3", "z": "100", "type": "link out", "mode": "return"},
                 {"id": "4", "z": "200", "type": "link call",
                     "links": ["1"], "wires": [["5"]]},
-                {"id": "5", "z": "200", "type": "console-json"}
+                {"id": "5", "z": "200", "type": "test-once"}
             ]
             injections = [
                 {"nid": "4", "msg": {'payload': 'hello'}},
@@ -120,7 +120,7 @@ class TestInjectNode:
                 {"id": "4", "z": "100", "type": "link out", "mode": "return"},
                 {"id": "5", "z": "100", "type": "link call",
                     "linkType": "dynamic", "links": [], "wires": [["6"]]},
-                {"id": "6", "z": "100", "type": "console-json"}
+                {"id": "6", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "5", "msg": {'payload': payload, 'target': 'double payload'}},
@@ -146,7 +146,7 @@ class TestInjectNode:
                     "id": "5", "z": "100", "type": "link call",
                     "linkType": "dynamic", "links": [], "wires": [["6"]]
                 },
-                {"id": "6", "z": "100", "type": "console-json"}
+                {"id": "6", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "5", "msg": {'payload': payload, 'target': 'double payload'}},
@@ -169,7 +169,7 @@ class TestInjectNode:
                 { "id": "2", "z": "100", "type": "link in", "name": "duplicate", "wires": [["3"]]},
                 { "id": "3", "z": "100", "type": "link out", "mode": "return"},
                 { "id": "4", "z": "100", "type": "link call", "linkType": "dynamic", "links": [], "wires": [["5"]] },
-                { "id": "5", "z": "100", "type": "console-json"}
+                { "id": "5", "z": "100", "type": "test-once"}
             ]
             injections = [
                 {"nid": "5", "msg": {'payload': payload, 'target': 'double payload'}},
@@ -206,7 +206,7 @@ class TestInjectNode:
                 # Test Flow Entry
                 {"id": "11", "z": "100", "type": "link call",
                     "links": ["7"], "wires": [["999"]]},
-                {"id": "999", "z": "100", "type": "console-json"},
+                {"id": "999", "z": "100", "type": "test-once"},
             ]
             injections = [
                 {"nid": "11", "msg": {'payload': 4.0}},

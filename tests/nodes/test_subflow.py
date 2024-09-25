@@ -13,7 +13,7 @@ class TestSubflow:
         flows = [
             {"id": "100", "type": "tab"},
             {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "100", "type": "test-once", "wires": []},
             # Subflow
             {"id": "200", "type": "subflow", "name": "Subflow", "info": "", "in": [
                 {"wires": [{"id": "3"}]}], "out": [{"wires": [{"id": "3", "port": 0}]}]},
@@ -32,7 +32,7 @@ class TestSubflow:
         flows = [
             {"id": "100", "type": "tab"},
             {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "100", "type": "test-once", "wires": []},
             # Subflow
             {"id": "200", "type": "subflow", "name": "Subflow", "info": "", "in": [
                 {"wires": [{"id": "3"}]}], "out": [{"wires": [{"id": "3", "port": 0}]}]},
@@ -51,7 +51,7 @@ class TestSubflow:
         flows = [
             {"id": "100", "type": "tab", "info": ""},
             {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "100", "type": "test-once", "wires": []},
             # Subflow1
             {"id": "200", "type": "subflow", "name": "Subflow1", "info": "",
              "in": [{"wires": [{"id": "3"}]}],
@@ -81,7 +81,7 @@ class TestSubflow:
             {"id": "100", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
             {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json", "wires": []},
+            {"id": "2", "z": "100", "type": "test-once", "wires": []},
             # Subflow
             {"id": "200", "type": "subflow", "name": "Subflow", "info": "",
              "env": [
@@ -110,7 +110,7 @@ class TestSubflow:
             {"id": "1", "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V"}
             ], "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             # Subflow
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
              "in": [{"wires": [{"id": "101"}]}],
@@ -138,7 +138,7 @@ class TestSubflow:
                 {"name": "X", "type": "str", "value": "VX"},
                 {"name": "K", "type": "str", "value": "V1"}
             ], "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             # Subflow
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
              "in": [{"wires": [{"id": "101"}]}],
@@ -171,7 +171,7 @@ class TestSubflow:
                     # FIXME {"name": "Kj", "type": "jsonata", "value": "1+2"}
                 ],
                 "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             {
                 "id": "100", "type": "subflow", "name": "Subflow", "info": "",
                 "in": [{"wires": [{"id": "101"}]}],
@@ -207,7 +207,7 @@ class TestSubflow:
             {"id": "1", "z": "999", "type": "subflow:100", "env": [
                 {"name": "K", "type": "str", "value": "V"},
             ], "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             # Subflow
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
              "env": [
@@ -233,7 +233,7 @@ class TestSubflow:
         flows = [
             {"id": "999", "type": "tab", "label": "",
                 "disabled": False, "info": ""},
-            {"id": "998", "z": "999", "type": "console-json", "wires": []},
+            {"id": "998", "z": "999", "type": "test-once", "wires": []},
             {"id": "1", "z": "999",
                 "type": "subflow:100", "wires": [["998"]]},
             # Subflow1
@@ -287,7 +287,7 @@ class TestSubflow:
                  {"name": "K", "type": "str", "value": "V"}
              ],
              "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             # Subflow1
             {"id": "100", "type": "subflow", "name": "Subflow1", "info": "",
              "in": [{"wires": [{"id": "101"}]}],
@@ -320,7 +320,7 @@ class TestSubflow:
                 "env": [{"name": "K", "type": "str", "value": "V"}]
              },
             {"id": "1", "z": "999", "type": "subflow:100", "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             # Subflow 1
             {
                 "id": "100",
@@ -356,7 +356,7 @@ class TestSubflow:
             },
             {"id": "1", "z": "999", "g": "1000",
                 "type": "subflow:100", "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "", "env": [],
              "in": [{"wires": [{"id": "101"}]}],
              "out": [{"wires": [{"id": "101", "port": 0}]}]},
@@ -382,7 +382,7 @@ class TestSubflow:
             {"id": "2000", "z": "999", "g": "1000", "type": "group", "env": []},
             {"id": "1", "z": "999", "g": "2000",
                 "type": "subflow:100", "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "", "env": [],
                 "in": [{"wires": [{"id": "101"}]}],
                 "out": [{"wires": [{"id": "101", "port": 0}]}]
@@ -406,7 +406,7 @@ class TestSubflow:
                 "disabled": False, "info": ""},
             {"id": "1", "z": "999", "type": "subflow:100",
                 "env": [], "wires": [["2"]]},
-            {"id": "2", "z": "999", "type": "console-json", "wires": []},
+            {"id": "2", "z": "999", "type": "test-once", "wires": []},
             {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
                 "in": [{"wires": [{"id": "101"}]}],
                 "out": [{"wires": [{"id": "101", "port": 0}]}]

@@ -48,7 +48,7 @@ struct FunctionNode {
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
-static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
+// static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
@@ -57,30 +57,33 @@ impl FlowNodeBehavior for FunctionNode {
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
-        let js_rt = JS_RUMTIME
-            .get_or_init(|| async move {
-                log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
-                let rt = js::AsyncRuntime::new().unwrap();
-                let mut resolver = js::loader::BuiltinResolver::default();
+        // This is a workaround; ideally, all function nodes should share a runtime. However,
+        // for some reason, if the runtime of rquickjs is used as a global variable,
+        // the members of node and env will disappear upon the second load.
 
-                resolver.add_module("console");
+        //let js_rt = JS_RUMTIME
+        //.get_or_init(|| async move {
+        log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
+        let rt = js::AsyncRuntime::new().unwrap();
+        let resolver = js::loader::BuiltinResolver::default();
+        //resolver.add_module("console");
+        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
+        rt.set_loader(resolver, loaders).await;
+        rt.idle().await;
+        let js_rt = rt;
+        //})
+        //.await;
 
-                let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
-                rt.set_loader(resolver, loaders).await;
-                rt
-            })
-            .await;
-
-        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
+        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
 
         if let Err(e) = self.init_async(&js_ctx).await {
             // It's a fatal error
-            log::error!("[FUNCTION NODE] Fatal error! Failed to initialize JavaScript environment: {}", e);
+            log::error!("[FUNCTION NODE] Fatal error! Failed to initialize JavaScript environment: {:?}", e);
 
             stop_token.cancel();
             stop_token.cancelled().await;
         }
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_rt.idle().await;
 
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
@@ -89,7 +92,8 @@ impl FlowNodeBehavior for FunctionNode {
             with_uow(this_node.as_ref(), cancel.child_token(), |node, msg| async move {
                 let res = {
                     let msg_guard = msg.write().await;
-                    node.filter_msg(msg_guard.clone(), sub_ctx).await // This gonna eat the msg and produce a new one
+                    // This gonna eat the msg and produce a new one
+                    node.filter_msg(msg_guard.clone(), sub_ctx).await
                 };
                 match res {
                     Ok(changed_msgs) => {
@@ -100,7 +104,7 @@ impl FlowNodeBehavior for FunctionNode {
                                 .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
                                 .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
-                            node.fan_out_many(&envelopes, cancel.child_token()).await?;
+                            node.fan_out_many(&envelopes, cancel.clone()).await?;
                         }
                     }
                     Err(e) => {
@@ -114,7 +118,7 @@ impl FlowNodeBehavior for FunctionNode {
 
         //let _ = js_ctx.eval(js::Source::from_bytes(&self1.config.initialize));
         let _ = self.finalize_async(&js_ctx).await;
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_ctx.runtime().idle().await;
 
         log::debug!("DebugNode process() task has been terminated.");
     }
@@ -154,7 +158,7 @@ impl FunctionNode {
         .await;
 
         // This is VERY IMPORTANT! Execute all spawned tasks.
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_ctx.runtime().idle().await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
@@ -241,7 +245,9 @@ impl FunctionNode {
                 var __msgid__ = msg._msgid; 
                 context.flow = flow;
                 context.global = global;
+
                 {user_func} 
+
             }}"#
         );
         let user_script_ref = &user_script;
@@ -250,6 +256,9 @@ impl FunctionNode {
         js::async_with!(js_ctx => |ctx| {
 
             // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
+            js::Class::<node_class::NodeClass>::register(&ctx)?;
+            js::Class::<env_class::EnvClass>::register(&ctx)?;
+            js::Class::<edgelink_class::EdgelinkClass>::register(&ctx)?;
 
             ::rquickjs_extra::console::init(&ctx)?;
             ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
@@ -289,22 +298,17 @@ impl FunctionNode {
             let mut eval_options = EvalOptions::default();
             eval_options.promise = true;
             eval_options.strict = true;
-            match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options) {
+            match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options).catch(&ctx) {
                 Err(e) => {
-                    log::error!("Failed to evaluate the prelude script: {}", e);
-                    Err(EdgelinkError::InvalidData(e.to_string()).into())
+                    return Err(EdgelinkError::InvalidData(e.to_string())).with_context(||
+                        format!("Failed to evaluate the prelude script: {:?}", e)
+                    );
                 }
-                _ =>{
+                _ => {
                     log::debug!("[FUNCTION_NODE] The evulation of the prelude script has been succeed.");
-                    Ok(())
                 }
             }
-        })
-        .await
-        .unwrap();
-        JS_RUMTIME.get().unwrap().idle().await;
 
-        js::async_with!(js_ctx => |ctx| {
             if !self.config.initialize.trim_ascii().is_empty() {
                 let init_body = &self.config.initialize;
                 let init_script = format!(
@@ -341,10 +345,10 @@ impl FunctionNode {
             }
             while ctx.execute_pending_job() {};
 
-            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()) {
+            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()).catch(&ctx) {
                 Ok(()) => Ok(()),
                 Err(e) => {
-                    log::error!("Failed to evaluate the user function definition code: {}", e);
+                    log::error!("Failed to evaluate the user function definition code: {:?}", e);
                     return Err(EdgelinkError::InvalidData(e.to_string()).into())
                 }
             }
@@ -392,8 +396,43 @@ impl FunctionNode {
 
     fn make_eval_options(&self) -> EvalOptions {
         let mut eval_options = EvalOptions::default();
-        eval_options.promise = true;
-        eval_options.strict = true;
+        eval_options.promise = false;
+        eval_options.strict = false;
         eval_options
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_it_should_set_node_context_with_stress() {
+        let flows_json = json!([
+            {"id": "100", "type": "tab"},
+            {"id": "1", "type": "function", "z": "100", "wires": [
+                // ["2"]], "func": "context.set('count','0'); msg.count=context.get('count'); node.send(msg);"},
+                //["2"]], "func": "context.set('count', '0'); return msg;"},
+                ["2"]], "func": "console.warn(context); console.warn(context.set);context.set('count', '123'); return msg;"},
+            {"id": "2", "z": "100", "type": "test-once"},
+        ]);
+        let msgs_to_inject_json = json!([
+            ["1", {"payload": "foo", "topic": "bar"}],
+        ]);
+
+        for i in 0..10 {
+            let engine = crate::runtime::engine::build_test_engine(flows_json.clone()).unwrap();
+            eprintln!("ROUND {}", i);
+            let msgs_to_inject = Vec::<(ElementId, Msg)>::deserialize(msgs_to_inject_json.clone()).unwrap();
+            let msgs =
+                engine.run_once_with_inject(1, std::time::Duration::from_secs_f64(1.0), msgs_to_inject).await.unwrap();
+
+            assert_eq!(msgs.len(), 1);
+            let msg = &msgs[0];
+            // assert_eq!(msg["payload"], "foo".into());
+            //assert_eq!(msg["topic"], "bar".into());
+            //assert_eq!(msg["count"], "0".into());
+        }
     }
 }

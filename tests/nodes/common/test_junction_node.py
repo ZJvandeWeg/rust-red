@@ -8,12 +8,12 @@ from tests import *
 class TestJunctionNode:
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''junction node should work''')
+    @pytest.mark.it('junction node should work')
     async def test_0001(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "junction", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             {"nid": "1", "msg": {"payload": "foo"}}

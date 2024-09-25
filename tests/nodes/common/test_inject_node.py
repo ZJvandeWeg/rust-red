@@ -19,7 +19,7 @@ async def basic_test(type: str, val, rval=None):
             # We are only allowed string expression in payload!
             "payload": isinstance(val, str) and val or json.dumps(val),
             "payloadType": type, "wires": [["2"]]},
-        {"id": "2", "z": "100", "type": "console-json"}
+        {"id": "2", "z": "100", "type": "test-once"}
     ]
     injections = []
     msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -67,7 +67,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_TEST", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         os.environ["NR_TEST"] = "foo"
@@ -83,7 +83,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_NODE_NAME", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -97,7 +97,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_NODE_ID", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -111,7 +111,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_NODE_PATH", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -125,7 +125,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab", "label": "FLOW"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_FLOW_NAME", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -139,7 +139,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "NR_FLOW_ID", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -153,7 +153,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
              "g": "FF", "topic": "t1", "payload": "NR_GROUP_NAME", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
             {"id": "FF", "z": "100", "type": "group", "name": "GROUP"}
         ]
         injections = []
@@ -168,7 +168,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
              "g": "FF", "topic": "t1", "payload": "NR_GROUP_ID", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
             {"id": "FF", "z": "100", "type": "group", "name": "GROUP"}
         ]
         injections = []
@@ -183,7 +183,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
              "topic": "t1", "payload": r"${NR_NODE_NAME}", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -198,7 +198,7 @@ class TestInjectNode:
             {"id": "0000000000000001", "z": "100", "type": "inject", "name": "NAME",
              "once": True, "onceDelay": 0.0, "repeat": "",
              "topic": "t1", "payload": r"${NR_NODE_ID}", "payloadType": "env", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -213,7 +213,7 @@ class TestInjectNode:
             {"id": "0000000000000001", "z": "100", "type": "inject", "name": "NAME",
              "once": True, "onceDelay": 0.0, "repeat": "",
              "topic": "t1", "payload": r"${NR_NODE_PATH}", "payloadType": "env", "wires": [["2"]]},  # CHECKME
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -229,7 +229,7 @@ class TestInjectNode:
              # CHECKME
              "topic": "t1", "payload": r"${NR_FLOW_NAME}", "payloadType": "env",
              "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -245,7 +245,7 @@ class TestInjectNode:
              # CHECKME
              "topic": "t1", "payload": r"${NR_FLOW_ID}", "payloadType": "env",
              "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -259,7 +259,7 @@ class TestInjectNode:
             {"id": "1", "z": "100", "g": "1000", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "${NR_GROUP_NAME}", "payloadType": "env", "wires": [["2"]]},
             {"id": "1000", "type": "group", "name": "GROUP", "z": "100"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -273,7 +273,7 @@ class TestInjectNode:
             {"id": "1", "z": "100", "g": "1000", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
                 "topic": "t1", "payload": "${NR_GROUP_ID}", "payloadType": "env", "wires": [["2"]]},
             {"id": "1000", "type": "group", "name": "GROUP", "z": "100"},
-            {"id": "2", "z": "100", "type": "console-json"}
+            {"id": "2", "z": "100", "type": "test-once"}
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -289,7 +289,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
             "topic": "t1", "payload": "flowValue", "payloadType": "flow", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -305,7 +305,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -318,7 +318,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         # Should in one second
@@ -334,7 +334,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 0.5,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
@@ -350,7 +350,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 2,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
@@ -366,7 +366,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "repeat": 0.2,
              "topic": "t2", "payload": "payload", "payloadType": "str", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
@@ -383,7 +383,7 @@ class TestInjectNode:
             {"id": "1", "z": "100", "type": "inject",
              "once": True, "onceDelay": 1.2, "repeat": 0.2,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
@@ -398,7 +398,7 @@ class TestInjectNode:
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "crontab": "* * * * * *",
              "topic": "t3", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
@@ -426,7 +426,7 @@ class TestInjectNode:
                 ],
                 "wires": [["2"]],
             },
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
@@ -455,7 +455,7 @@ class TestInjectNode:
                 ],
                 "wires": [["2"]],
             },
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = [
             'nid': '1',
@@ -495,7 +495,7 @@ class TestInjectNode:
                 "wires": [["2"]],
                 "z": "100"
             },
-            {"id": "2", "z": "100", "type": "console-json"},
+            {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)

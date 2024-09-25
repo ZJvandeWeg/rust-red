@@ -250,7 +250,7 @@ where
     F: FnOnce(&'a B, Arc<RwLock<Msg>>) -> T,
     T: std::future::Future<Output = crate::Result<()>>,
 {
-    match node.recv_msg(cancel.child_token()).await {
+    match node.recv_msg(cancel.clone()).await {
         Ok(msg) => {
             if let Err(ref err) = proc(node, msg.clone()).await {
                 // TODO report error
@@ -259,7 +259,7 @@ where
             // Report the completion
             {
                 let msg_guard = msg.read().await;
-                node.notify_uow_completed(&msg_guard, cancel.child_token()).await;
+                node.notify_uow_completed(&msg_guard, cancel.clone()).await;
             }
         }
         Err(ref err) => {

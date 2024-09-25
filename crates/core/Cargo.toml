@@ -53,12 +53,15 @@ arrayvec = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]
 # Enable test-utilities in dev mode only. This is mostly for tests.
-tokio = { version = "1", features = ["test-util"] }
+tokio = { workspace = true, features = ["test-util"] }
+log4rs.workspace = true
+ctor.workspace = true
 
 
 [features]
 default = ["core", "js", "net"]
 core = []
+pymod = []
 #js = ["rquickjs", "rquickjs-extra", "llrt_modules"]
 js = ["rquickjs", "rquickjs-extra"]
 rqjs_bindgen = ["rquickjs/bindgen"]

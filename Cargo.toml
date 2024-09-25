@@ -72,18 +72,6 @@ rquickjs-extra = { git = "https://github.com/rquickjs/rquickjs-extra.git", rev =
     "timers",
     "console",
 ] }
-
-[dependencies]
-clap.workspace = true
-dirs-next.workspace = true
-anyhow.workspace = true
-log.workspace = true
-tokio = { workspace = true, features = ["signal"] }
-tokio-util.workspace = true
-config.workspace = true
-semver.workspace = true
-serde_json.workspace = true
-serde = { workspace = true, features = ["derive"] }
 log4rs = { version = "1", features = [
     "console_appender",
     "file_appender",
@@ -99,6 +87,20 @@ log4rs = { version = "1", features = [
     "config_parsing",
     "toml_format",
 ], default-features = false }
+ctor = "0.2.8"
+
+[dependencies]
+clap.workspace = true
+dirs-next.workspace = true
+anyhow.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tokio-util.workspace = true
+config.workspace = true
+semver.workspace = true
+serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
+log4rs.workspace = true
 
 edgelink-core = { path = "crates/core", default-features = false }
 

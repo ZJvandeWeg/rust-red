@@ -247,8 +247,8 @@ impl<'de> serde::Deserialize<'de> for Msg {
                 let mut link_call_stack = None;
                 let mut body: BTreeMap<String, Variant> = BTreeMap::new();
 
-                while let Some(key) = map.next_key()? {
-                    match key {
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
                         wellknown::LINK_SOURCE_PROPERTY => {
                             if link_call_stack.is_some() {
                                 return Err(de::Error::duplicate_field(wellknown::LINK_SOURCE_PROPERTY));
@@ -257,7 +257,7 @@ impl<'de> serde::Deserialize<'de> for Msg {
                         }
                         _ => {
                             let value = map.next_value()?;
-                            body.insert(key.to_string(), value);
+                            body.insert(key, value);
                         }
                     }
                 }
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn test_get_nested_nav_property() {
         let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
-        let msg = Msg::deserialize(&jv).unwrap();
+        let msg = Msg::deserialize(jv).unwrap();
         {
             assert!(msg.contains("lookup"));
             assert!(msg.contains("topic"));
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn test_get_nested_nav_property_mut() {
         let jv = json!({"payload": "newValue", "lookup": {"a": 1, "b": 2}, "topic": "b"});
-        let mut msg = Msg::deserialize(&jv).unwrap();
+        let mut msg = Msg::deserialize(jv).unwrap();
         {
             assert!(msg.contains("lookup"));
             assert!(msg.contains("topic"));
@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn test_set_deep_msg_property() {
         let jv = json!( {"foo": {"bar": "foo"}, "name": "hello"});
-        let mut msg = Msg::deserialize(&jv).unwrap();
+        let mut msg = Msg::deserialize(jv).unwrap();
         {
             let old_foo = msg.get("foo").unwrap();
             assert!(old_foo.is_object());
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn should_be_ok_with_empty_object_variant() {
         let jv = json!({});
-        let mut msg = Msg::deserialize(&jv).unwrap();
+        let mut msg = Msg::deserialize(jv).unwrap();
 
         msg.set_nav("foo.bar", "changed2".into(), true).unwrap();
         assert!(msg.contains("foo"));

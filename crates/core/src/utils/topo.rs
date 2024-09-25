@@ -56,7 +56,6 @@ mod graph_tests {
         graph.add_dep("B", "C");
 
         let sorted = graph.topological_sort();
-        dbg!(&sorted);
         assert_eq!(sorted, vec!["A", "B", "C"]);
     }
 
