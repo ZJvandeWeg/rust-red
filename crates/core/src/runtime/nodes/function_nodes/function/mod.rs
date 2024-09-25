@@ -89,11 +89,11 @@ impl FlowNodeBehavior for FunctionNode {
             let sub_ctx = &js_ctx;
             let cancel = stop_token.child_token();
             let this_node = self.clone();
-            with_uow(this_node.as_ref(), cancel.child_token(), |node, msg| async move {
+            with_uow(this_node.clone().as_ref(), cancel.child_token(), |_, msg| async move {
                 let res = {
                     let msg_guard = msg.write().await;
                     // This gonna eat the msg and produce a new one
-                    node.filter_msg(msg_guard.clone(), sub_ctx).await
+                    this_node.filter_msg(msg_guard.clone(), sub_ctx).await
                 };
                 match res {
                     Ok(changed_msgs) => {
@@ -104,7 +104,7 @@ impl FlowNodeBehavior for FunctionNode {
                                 .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
                                 .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
-                            node.fan_out_many(&envelopes, cancel.clone()).await?;
+                            this_node.fan_out_many(&envelopes, cancel.clone()).await?;
                         }
                     }
                     Err(e) => {
@@ -139,9 +139,37 @@ impl FunctionNode {
         Ok(Box::new(node))
     }
 
-    async fn filter_msg(&self, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
+    async fn filter_msg(self: &Arc<Self>, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
+        // TODO make it to be a field
+        let user_func = &self.config.func;
+        let user_script = format!(
+            r#"
+            async function __el_user_func(msg) {{ 
+                var global = __edgelinkGlobalContext; 
+                var flow = __edgelinkFlowContext; 
+                var context = __edgelinkNodeContext; 
+                var __msgid__ = msg._msgid; 
+                context.flow = flow;
+                context.global = global;
+
+                {user_func} 
+
+            }}"#
+        );
+        let user_script_ref = &user_script;
+
         let origin_msg_id = msg.id();
         let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
+            self.prepare_js_ctx(&ctx).map_err(|_| js::Error::Exception)?;
+
+            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()).catch(&ctx) {
+                Ok(()) => (),
+                Err(e) => {
+                    log::error!("Failed to evaluate the user function definition code: {:?}", e);
+                    return Err(js::Error::Exception)
+                }
+            }
+
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
             let js_msg = msg.into_js(&ctx)?; // FIXME
             let args = (js_msg,);
@@ -235,79 +263,9 @@ impl FunctionNode {
     }
 
     async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
-        let user_func = &self.config.func;
-        let user_script = format!(
-            r#"
-            async function __el_user_func(msg) {{ 
-                var global = __edgelinkGlobalContext; 
-                var flow = __edgelinkFlowContext; 
-                var context = __edgelinkNodeContext; 
-                var __msgid__ = msg._msgid; 
-                context.flow = flow;
-                context.global = global;
-
-                {user_func} 
-
-            }}"#
-        );
-        let user_script_ref = &user_script;
-
         log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");
         js::async_with!(js_ctx => |ctx| {
-
-            // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
-            js::Class::<node_class::NodeClass>::register(&ctx)?;
-            js::Class::<env_class::EnvClass>::register(&ctx)?;
-            js::Class::<edgelink_class::EdgelinkClass>::register(&ctx)?;
-
-            ::rquickjs_extra::console::init(&ctx)?;
-            ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
-
-            /*
-            {
-                ::llrt_modules::timers::init_timers(&ctx)?;
-                let (_module, module_eval) = js::Module::evaluate_def::<llrt_modules::timers::TimersModule, _>(ctx.clone(), "timers")?;
-                module_eval.into_future().await?;
-            }
-            */
-            ::rquickjs_extra::timers::init(&ctx)?;
-
-            ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
-            ctx.globals().set("node", node_class::NodeClass::new(self))?;
-
-            // Register the global-scoped context
-            if let Some(global_context) = self.get_engine().map(|x| x.context()) {
-                ctx.globals().set("__edgelinkGlobalContext", context_class::ContextClass::new(global_context))?;
-            }
-            else {
-                return Err(EdgelinkError::InvalidOperation("Failed to get global context".into()))
-                    .with_context(|| "The engine cannot be released!");
-            }
-
-            // Register the flow-scoped context
-            if let Some(flow_context) = self.get_flow().upgrade().map(|x| x.context()) {
-                ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
-            }
-            else {
-                return Err(EdgelinkError::InvalidOperation("Failed to get flow context".into()).into());
-            }
-
-            // Register the node-scoped context
-            ctx.globals().set("__edgelinkNodeContext", context_class::ContextClass::new(self.context()))?;
-
-            let mut eval_options = EvalOptions::default();
-            eval_options.promise = true;
-            eval_options.strict = true;
-            match ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options).catch(&ctx) {
-                Err(e) => {
-                    return Err(EdgelinkError::InvalidData(e.to_string())).with_context(||
-                        format!("Failed to evaluate the prelude script: {:?}", e)
-                    );
-                }
-                _ => {
-                    log::debug!("[FUNCTION_NODE] The evulation of the prelude script has been succeed.");
-                }
-            }
+            self.prepare_js_ctx(&ctx)?;
 
             if !self.config.initialize.trim_ascii().is_empty() {
                 let init_body = &self.config.initialize;
@@ -345,32 +303,28 @@ impl FunctionNode {
             }
             while ctx.execute_pending_job() {};
 
-            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()).catch(&ctx) {
-                Ok(()) => Ok(()),
-                Err(e) => {
-                    log::error!("Failed to evaluate the user function definition code: {:?}", e);
-                    return Err(EdgelinkError::InvalidData(e.to_string()).into())
-                }
-            }
+            Ok(())
         })
         .await
     }
 
-    async fn finalize_async(&self, js_ctx: &js::AsyncContext) -> crate::Result<()> {
+    async fn finalize_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
+        let final_body = &self.config.finalize;
+        let final_script = format!(
+            "
+            async function __el_finalize_func() {{ 
+                var global = __edgelinkGlobalContext; 
+                var flow = __edgelinkFlowContext; 
+                var context = __edgelinkNodeContext; 
+                context.flow = flow;
+                context.global = global;
+                \n{final_body}\n
+            }}
+            "
+        );
         js::async_with!(js_ctx => |ctx| {
-            let final_body = &self.config.finalize;
-            let final_script = format!(
-                "
-                async function __el_finalize_func() {{ 
-                    var global = __edgelinkGlobalContext; 
-                    var flow = __edgelinkFlowContext; 
-                    var context = __edgelinkNodeContext; 
-                    context.flow = flow;
-                    context.global = global;
-                    \n{final_body}\n
-                }}
-                "
-            );
+            self.prepare_js_ctx(&ctx)?;
+
             match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
                 Err(e) => {
                     log::error!("Failed to evaluate the `finialize` script: {:?}", e);
@@ -392,6 +346,55 @@ impl FunctionNode {
             }
         })
         .await
+    }
+
+    fn prepare_js_ctx(self: &Arc<Self>, ctx: &js::Ctx<'_>) -> crate::Result<()> {
+        // crate::runtime::red::js::red::register_red_object(&ctx).unwrap();
+        // js::Class::<node_class::NodeClass>::register(&ctx)?;
+        // js::Class::<env_class::EnvClass>::register(&ctx)?;
+        // js::Class::<edgelink_class::EdgelinkClass>::register(&ctx)?;
+
+        ::rquickjs_extra::console::init(ctx)?;
+        ctx.globals().set("__edgelink", edgelink_class::EdgelinkClass::default())?;
+
+        /*
+        {
+            ::llrt_modules::timers::init_timers(&ctx)?;
+            let (_module, module_eval) = js::Module::evaluate_def::<llrt_modules::timers::TimersModule, _>(ctx.clone(), "timers")?;
+            module_eval.into_future().await?;
+        }
+        */
+        ::rquickjs_extra::timers::init(ctx)?;
+
+        ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
+        ctx.globals().set("node", node_class::NodeClass::new(self))?;
+
+        // Register the global-scoped context
+        if let Some(global_context) = self.get_engine().map(|x| x.context()) {
+            ctx.globals().set("__edgelinkGlobalContext", context_class::ContextClass::new(global_context))?;
+        } else {
+            return Err(EdgelinkError::InvalidOperation("Failed to get global context".into()))
+                .with_context(|| "The engine cannot be released!");
+        }
+
+        // Register the flow-scoped context
+        if let Some(flow_context) = self.get_flow().upgrade().map(|x| x.context()) {
+            ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
+        } else {
+            return Err(EdgelinkError::InvalidOperation("Failed to get flow context".into()).into());
+        }
+
+        // Register the node-scoped context
+        ctx.globals().set("__edgelinkNodeContext", context_class::ContextClass::new(self.context()))?;
+
+        let mut eval_options = EvalOptions::default();
+        eval_options.promise = true;
+        eval_options.strict = true;
+        if let Err(e) = ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options).catch(ctx) {
+            return Err(EdgelinkError::InvalidData(e.to_string()))
+                .with_context(|| format!("Failed to evaluate the prelude script: {:?}", e));
+        }
+        Ok(())
     }
 
     fn make_eval_options(&self) -> EvalOptions {
