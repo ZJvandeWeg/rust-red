@@ -24,12 +24,10 @@ mod node_class;
 
 const OUTPUT_MSGS_CAP: usize = 4;
 
-pub type OutputMsgs = smallvec::SmallVec<[(usize, Msg); OUTPUT_MSGS_CAP]>;
+type OutputMsgs = smallvec::SmallVec<[(usize, Msg); OUTPUT_MSGS_CAP]>;
 
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
-    func: String,
-
     #[serde(default)]
     initialize: String,
 
@@ -45,6 +43,7 @@ struct FunctionNodeConfig {
 struct FunctionNode {
     base: FlowNode,
     config: FunctionNodeConfig,
+    user_func: Vec<u8>,
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
@@ -135,34 +134,40 @@ impl FunctionNode {
             function_config.output_count = 1;
         }
 
-        let node = FunctionNode { base: base_node, config: function_config };
+        let user_script_bytes = if let Some(user_script) = _config.rest.get("func").and_then(|x| x.as_str()) {
+            let user_script = format!(
+                r#"
+                async function __el_user_func(msg) {{ 
+                    var global = __edgelinkGlobalContext; 
+                    var flow = __edgelinkFlowContext; 
+                    var context = __edgelinkNodeContext; 
+                    var __msgid__ = msg._msgid; 
+                    context.flow = flow;
+                    context.global = global;
+
+                    {} 
+
+                }}"#,
+                user_script
+            );
+            user_script.as_bytes().to_vec()
+        } else {
+            return Err(EdgelinkError::BadFlowsJson(
+                "The `func` property in function node cannot be null or empty".to_string(),
+            )
+            .into());
+        };
+
+        let node = FunctionNode { base: base_node, config: function_config, user_func: user_script_bytes };
         Ok(Box::new(node))
     }
 
     async fn filter_msg(self: &Arc<Self>, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
-        // TODO make it to be a field
-        let user_func = &self.config.func;
-        let user_script = format!(
-            r#"
-            async function __el_user_func(msg) {{ 
-                var global = __edgelinkGlobalContext; 
-                var flow = __edgelinkFlowContext; 
-                var context = __edgelinkNodeContext; 
-                var __msgid__ = msg._msgid; 
-                context.flow = flow;
-                context.global = global;
-
-                {user_func} 
-
-            }}"#
-        );
-        let user_script_ref = &user_script;
-
         let origin_msg_id = msg.id();
         let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
             self.prepare_js_ctx(&ctx).map_err(|_| js::Error::Exception)?;
 
-            match ctx.eval_with_options::<(),_>(user_script_ref.as_bytes(), self.make_eval_options()).catch(&ctx) {
+            match ctx.eval_with_options::<(),_>(self.user_func.as_slice(), self.make_eval_options()).catch(&ctx) {
                 Ok(()) => (),
                 Err(e) => {
                     log::error!("Failed to evaluate the user function definition code: {:?}", e);
@@ -171,7 +176,7 @@ impl FunctionNode {
             }
 
             let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-            let js_msg = msg.into_js(&ctx)?; // FIXME
+            let js_msg = msg.into_js(&ctx)?;
             let args = (js_msg,);
             let promised = user_func.call::<_, rquickjs::Promise>(args)?;
             let js_res_value: js::Result<js::Value> = promised.into_future().await;
