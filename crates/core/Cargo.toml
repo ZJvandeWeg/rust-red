@@ -53,7 +53,9 @@ arrayvec = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]
 # Enable test-utilities in dev mode only. This is mostly for tests.
-tokio = { version = "1", features = ["test-util"] }
+tokio = { workspace = true, version = "1", features = ["test-util"] }
+log4rs.workspace = true
+ctor.workspace = true
 
 
 [features]

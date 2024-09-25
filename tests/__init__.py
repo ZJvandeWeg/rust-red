@@ -219,7 +219,7 @@ async def run_with_single_node_ntimes(payload_type: str | None, payload, node_js
 
 async def run_flow_with_msgs_ntimes(flows_obj: list[object],
                                     msgs: list[object] | None,
-                                    nexpected: int, injectee_node_id: str = '1', timeout=3) -> list[object]:
+                                    nexpected: int, injectee_node_id: str = '1', timeout: float = 3) -> list[object]:
     msgs_to_inject = []
     for msg in msgs:
         msg_injection = None

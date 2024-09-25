@@ -279,13 +279,18 @@ impl FlowEngine {
         let mut count = 0;
         let mut received = Vec::new();
 
+        // Clear the final_msgs channel
+        {
+            let mut rx = self.final_msgs_rx.rx.lock().await;
+            while let Ok(_) = rx.try_recv() {}
+        }
+
+        let cancel = CancellationToken::new();
+        for msg in msgs_to_inject.drain(..) {
+            self.inject_msg(&msg.0, Arc::new(RwLock::new(msg.1)), cancel.clone()).await?;
+        }
+
         let result = tokio::time::timeout(timeout, async {
-            let cancel = CancellationToken::new();
-
-            for msg in msgs_to_inject.drain(..) {
-                self.inject_msg(&msg.0, Arc::new(RwLock::new(msg.1)), cancel.clone()).await?;
-            }
-
             while !cancel.is_cancelled() && count < expected_msgs {
                 let msg = self.final_msgs_rx.recv_msg(cancel.clone()).await?;
                 count += 1;

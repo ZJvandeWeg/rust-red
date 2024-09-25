@@ -73,3 +73,22 @@ impl EdgelinkError {
         EdgelinkError::InvalidOperation(msg.into()).into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[ctor::ctor]
+    fn initialize_test_logger() {
+        let stderr = log4rs::append::console::ConsoleAppender::builder()
+            .target(log4rs::append::console::Target::Stdout)
+            .encoder(Box::new(log4rs::encode::pattern::PatternEncoder::new("[{h({l})}]\t{m}{n}")))
+            .build();
+
+        let config = log4rs::Config::builder()
+            .appender(log4rs::config::Appender::builder().build("stderr", Box::new(stderr)))
+            .build(log4rs::config::Root::builder().appender("stderr").build(log::LevelFilter::Warn))
+            .unwrap();
+
+        let _ = log4rs::init_config(config).unwrap();
+    }
+}

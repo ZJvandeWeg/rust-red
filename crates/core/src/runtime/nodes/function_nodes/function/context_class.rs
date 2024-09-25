@@ -33,8 +33,8 @@ impl ContextClass {
     ) -> rquickjs::Result<Value<'js>> {
         let keys: String = keys.get()?;
 
-        let async_ctx = ctx.clone();
         if let Some(cb) = cb.0 {
+            let async_ctx = ctx.clone();
             // User provides the callback, we do it in async
             ctx.spawn(async move {
                 let store = store.0.and_then(|x| x.get::<String>().ok());
@@ -70,8 +70,8 @@ impl ContextClass {
         let keys: String = keys.get()?;
         let values: Variant = values.get()?;
 
-        let async_ctx = ctx.clone();
         if let Some(cb) = cb.0 {
+            let async_ctx = ctx.clone();
             // User provides the callback, we do it in async
             ctx.spawn(async move {
                 let store = store.0.and_then(|x| x.get::<String>().ok());

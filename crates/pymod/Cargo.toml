@@ -10,13 +10,15 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
 pyo3-asyncio = { version = "0.20", features = ["tokio-runtime"] }
-tokio = "1"
+tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 config.workspace = true
+log4rs.workspace = true
+log.workspace = true
 
 edgelink-core = { path = "../../crates/core", default-features = true, features = [
-    "pymod",
+    "pymod", "default"
 ] }
 # Node plug-ins:
 edgelink-dummy-node = { path = "../../node-plugins/edgelink-dummy-node" }
