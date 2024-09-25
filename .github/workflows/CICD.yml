@@ -83,9 +83,6 @@ jobs:
           target: ${{ matrix.target }}
           components: llvm-tools-preview
 
-      - name: Install nextest
-        uses: taiki-e/install-action@nextest
-
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -98,7 +95,7 @@ jobs:
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
+        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
 
       - name: Run Python tests
         env:
@@ -132,9 +129,6 @@ jobs:
           target: ${{ matrix.target }}
           components: llvm-tools-preview
 
-      - name: Install nextest
-        uses: taiki-e/install-action@nextest
-
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -147,7 +141,7 @@ jobs:
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo nextest run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
+        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
 
       - name: Run Python tests
         env:
@@ -281,25 +275,3 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: Clippy
         run: cargo clippy --all-features --tests --all
-
-  doctest:
-    name: Run doctests
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          target: x86_64-unknown-linux-gnu
-          components: clippy
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-      - name: Doctest
-        run: cargo test --doc --profile ci --workspace --features full
