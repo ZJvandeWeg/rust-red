@@ -17,7 +17,7 @@ fn edgelink_pymod(_py: Python, m: &PyModule) -> PyResult<()> {
 
     let config = log4rs::Config::builder()
         .appender(log4rs::config::Appender::builder().build("stderr", Box::new(stderr)))
-        .build(log4rs::config::Root::builder().appender("stderr").build(log::LevelFilter::Debug))
+        .build(log4rs::config::Root::builder().appender("stderr").build(log::LevelFilter::Warn))
         .unwrap(); // TODO FIXME
 
     let _ = log4rs::init_config(config).unwrap();

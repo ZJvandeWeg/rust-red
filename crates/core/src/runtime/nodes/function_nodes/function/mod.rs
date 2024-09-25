@@ -49,7 +49,7 @@ struct FunctionNode {
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
-static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
+// static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
@@ -58,20 +58,24 @@ impl FlowNodeBehavior for FunctionNode {
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
-        let js_rt = JS_RUMTIME
-            .get_or_init(|| async move {
-                log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
-                let rt = js::AsyncRuntime::new().unwrap();
-                let mut resolver = js::loader::BuiltinResolver::default();
-                //resolver.add_module("console");
-                let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
-                rt.set_loader(resolver, loaders).await;
-                rt.idle().await;
-                rt
-            })
-            .await;
+        // This is a workaround; ideally, all function nodes should share a runtime. However,
+        // for some reason, if the runtime of rquickjs is used as a global variable,
+        // the members of node and env will disappear upon the second load.
 
-        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
+        //let js_rt = JS_RUMTIME
+        //.get_or_init(|| async move {
+        log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
+        let rt = js::AsyncRuntime::new().unwrap();
+        let mut resolver = js::loader::BuiltinResolver::default();
+        //resolver.add_module("console");
+        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
+        rt.set_loader(resolver, loaders).await;
+        rt.idle().await;
+        let js_rt = rt;
+        //})
+        //.await;
+
+        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
 
         if let Err(e) = self.init_async(&js_ctx).await {
             // It's a fatal error
@@ -80,7 +84,7 @@ impl FlowNodeBehavior for FunctionNode {
             stop_token.cancel();
             stop_token.cancelled().await;
         }
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_rt.idle().await;
 
         while !stop_token.is_cancelled() {
             let sub_ctx = &js_ctx;
@@ -116,7 +120,7 @@ impl FlowNodeBehavior for FunctionNode {
 
         //let _ = js_ctx.eval(js::Source::from_bytes(&self1.config.initialize));
         let _ = self.finalize_async(&js_ctx).await;
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_ctx.runtime().idle().await;
 
         log::debug!("DebugNode process() task has been terminated.");
     }
@@ -156,7 +160,7 @@ impl FunctionNode {
         .await;
 
         // This is VERY IMPORTANT! Execute all spawned tasks.
-        JS_RUMTIME.get().unwrap().idle().await;
+        js_ctx.runtime().idle().await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
