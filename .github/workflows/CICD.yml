@@ -217,10 +217,10 @@ jobs:
           echo "EDGELINK_QEMU_CMD=qemu-arm-static" >> $GITHUB_ENV
 
       - name: Build
-        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
+        run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full --exclude edgelink-pymod
 
       - name: Build tests without running
-        run: cargo test --profile ci --target ${{ matrix.target }} --features full --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
+        run: cargo test --profile ci --target ${{ matrix.target }} --features full --exclude edgelink-pymod --no-run --message-format=json | tee ./target/${{ matrix.target }}/ci/cargo-build-test.json
 
       - name: Run unit tests in QEMU ARM
         run: python3 ./scripts/cross-unittest.py ${{ env.EDGELINK_QEMU_CMD }}  ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }} ./target/${{ matrix.target }}/ci/cargo-build-test.json
