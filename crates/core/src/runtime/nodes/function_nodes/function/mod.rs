@@ -415,27 +415,25 @@ mod tests {
         let flows_json = json!([
             {"id": "100", "type": "tab"},
             {"id": "1", "type": "function", "z": "100", "wires": [
-                // ["2"]], "func": "context.set('count','0'); msg.count=context.get('count'); node.send(msg);"},
-                //["2"]], "func": "context.set('count', '0'); return msg;"},
-                ["2"]], "func": "console.warn(context); console.warn(context.set);context.set('count', '123'); return msg;"},
+                ["2"]], "func": "context.set('count','0'); msg.count=context.get('count'); node.send(msg);"},
             {"id": "2", "z": "100", "type": "test-once"},
         ]);
         let msgs_to_inject_json = json!([
             ["1", {"payload": "foo", "topic": "bar"}],
         ]);
 
-        for i in 0..10 {
+        for i in 0..5 {
             let engine = crate::runtime::engine::build_test_engine(flows_json.clone()).unwrap();
             eprintln!("ROUND {}", i);
             let msgs_to_inject = Vec::<(ElementId, Msg)>::deserialize(msgs_to_inject_json.clone()).unwrap();
             let msgs =
-                engine.run_once_with_inject(1, std::time::Duration::from_secs_f64(1.0), msgs_to_inject).await.unwrap();
+                engine.run_once_with_inject(1, std::time::Duration::from_secs_f64(0.2), msgs_to_inject).await.unwrap();
 
             assert_eq!(msgs.len(), 1);
             let msg = &msgs[0];
-            // assert_eq!(msg["payload"], "foo".into());
-            //assert_eq!(msg["topic"], "bar".into());
-            //assert_eq!(msg["count"], "0".into());
+            assert_eq!(msg["payload"], "foo".into());
+            assert_eq!(msg["topic"], "bar".into());
+            assert_eq!(msg["count"], "0".into());
         }
     }
 }
