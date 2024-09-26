@@ -36,10 +36,8 @@ def load_edgelink_mod():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Determine the operating system and choose the appropriate executable name
     if platform.system() == 'Windows':
-        createion_flags = subprocess.CREATE_NEW_PROCESS_GROUP
-        mymod_name = 'edgelink_pymod.dll'
+        mymod_name = 'edgelink_pymod.pyd'
     else:
-        createion_flags = 0
         mymod_name = 'libedgelink_pymod.so'
 
     target = os.getenv('EDGELINK_BUILD_TARGET', '')
@@ -49,9 +47,13 @@ def load_edgelink_mod():
         script_dir, '..', 'target', target, profile)
 
     current_script_path = os.path.abspath(__file__)
-    current_directory = os.path.dirname(current_script_path)
     module_path = os.path.join(target_directory, mymod_name)
+    if not os.path.exists(module_path):
+        raise IOError(f"Module file not found: {module_path}")
+
     spec = importlib.util.spec_from_file_location("edgelink_pymod", module_path)
+    if spec == None:
+        raise RuntimeError(f"Bad Python module!")
     edgelink = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(edgelink)
     return edgelink
