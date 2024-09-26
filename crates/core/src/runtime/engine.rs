@@ -154,9 +154,11 @@ impl FlowEngine {
                 // register all nodes
                 for fnode in flow.get_all_flow_nodes().iter() {
                     if self.state.all_flow_nodes.contains_key(&fnode.id()) {
-                        return Err(
-                            EdgelinkError::InvalidData(format!("This flow node already existed: {}", fnode)).into()
-                        );
+                        return Err(EdgelinkError::InvalidOperation(format!(
+                            "This flow node already existed: {}",
+                            fnode
+                        ))
+                        .into());
                     }
                     self.state.all_flow_nodes.insert(fnode.id(), fnode.clone());
                 }

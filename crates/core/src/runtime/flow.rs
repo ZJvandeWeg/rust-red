@@ -726,7 +726,7 @@ impl Flow {
                 let node_in_flow = state.nodes.get(nid).map(|x| x.value().clone());
                 // Next we find the node in the entire engine, otherwise there is an error
                 let node_in_engine = engine.find_flow_node_by_id(nid);
-                let node_entry = node_in_flow.or(node_in_engine).ok_or(EdgelinkError::InvalidData(format!(
+                let node_entry = node_in_flow.or(node_in_engine).ok_or(EdgelinkError::InvalidOperation(format!(
                     "[flow:{}] Referenced node not found [this_node.id='{}' this_node.name='{}', referenced_node.id='{}']",
                     self.name(), node_config.id, node_config.name, nid
                 )))?;
@@ -746,7 +746,7 @@ impl Flow {
             Some(gid) => match state.groups.get(gid) {
                 Some(g) => Some(g.value().clone()),
                 None => {
-                    return Err(EdgelinkError::InvalidData(format!(
+                    return Err(EdgelinkError::InvalidOperation(format!(
                         "Can not found the group id in groups: id='{}'",
                         gid
                     ))

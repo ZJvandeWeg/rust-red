@@ -93,14 +93,14 @@ impl LinkOutNode {
                             .into());
                         }
                     } else {
-                        return Err(EdgelinkError::InvalidData(format!(
+                        return Err(EdgelinkError::InvalidOperation(format!(
                             "Cannot found the `link call` node by id='{}'",
                             source_link.link_call_node_id
                         ))
                         .into());
                     }
                 } else {
-                    return Err(EdgelinkError::InvalidData(format!(
+                    return Err(EdgelinkError::InvalidOperation(format!(
                         "The `link call stack` is empty for msg: {:?}",
                         msg
                     ))

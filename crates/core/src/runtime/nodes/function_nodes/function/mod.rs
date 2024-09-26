@@ -197,7 +197,7 @@ impl FunctionNode {
             Ok(msgs) => Ok(msgs),
             Err(e) => {
                 log::warn!("Failed to invoke user func: {}", e);
-                Err(EdgelinkError::InvalidData(e.to_string()).into())
+                Err(EdgelinkError::InvalidOperation(e.to_string()).into())
             }
         }
     }
@@ -289,7 +289,7 @@ impl FunctionNode {
                 match ctx.eval_with_options::<(), _>(init_script.as_bytes(), self.make_eval_options()) {
                     Err(e) => {
                         log::error!("Failed to evaluate the `initialize` script: {:?}", e);
-                        return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                        return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
                     }
                     _ =>{
                         log::debug!("[FUNCTION_NODE] The evulation of the `initialize` script has been succeed.");
@@ -302,7 +302,7 @@ impl FunctionNode {
                     Ok(()) => (),
                     Err(e) => {
                         log::error!("Failed to invoke the initialization script code: {}", e);
-                        return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                        return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
                     }
                 }
             }
@@ -333,7 +333,7 @@ impl FunctionNode {
             match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
                 Err(e) => {
                     log::error!("Failed to evaluate the `finialize` script: {:?}", e);
-                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
                 }
                 _ =>{
                     log::debug!("[FUNCTION_NODE] The evulation of the `finalize` script has been succeed.");
@@ -346,7 +346,7 @@ impl FunctionNode {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     log::error!("Failed to invoke the `finialize` script code: {}", e);
-                    return Err(EdgelinkError::InvalidData(e.to_string()).into());
+                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
                 }
             }
         })
@@ -396,7 +396,7 @@ impl FunctionNode {
         eval_options.promise = true;
         eval_options.strict = true;
         if let Err(e) = ctx.eval_with_options::<(), _>(JS_PRELUDE_SCRIPT, eval_options).catch(ctx) {
-            return Err(EdgelinkError::InvalidData(e.to_string()))
+            return Err(EdgelinkError::InvalidOperation(e.to_string()))
                 .with_context(|| format!("Failed to evaluate the prelude script: {:?}", e));
         }
         Ok(())

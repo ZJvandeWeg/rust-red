@@ -43,9 +43,6 @@ pub enum EdgelinkError {
     #[error("{0}")]
     InvalidOperation(String),
 
-    #[error("{0}")]
-    InvalidData(String),
-
     #[error("Out of range")]
     OutOfRange,
 

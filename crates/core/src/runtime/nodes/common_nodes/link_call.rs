@@ -154,7 +154,7 @@ impl LinkCallNode {
     fn get_dynamic_target_node(&self, msg: &Msg) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
         let target_field = msg
             .get("target")
-            .ok_or(EdgelinkError::InvalidData("There are no `target` field in the msg!".to_string()))?;
+            .ok_or(EdgelinkError::InvalidOperation("There are no `target` field in the msg!".to_string()))?;
 
         let result = match target_field {
             Variant::String(target_name) => {
@@ -191,7 +191,7 @@ impl LinkCallNode {
                 .upgrade()
                 .ok_or(EdgelinkError::InvalidOperation("The flow cannot be released".to_string()))?;
             if flow.is_subflow() {
-                return Err(EdgelinkError::InvalidData(
+                return Err(EdgelinkError::InvalidOperation(
                     "A `link call` cannot call a `link in` node inside a subflow".to_string(),
                 )
                 .into());

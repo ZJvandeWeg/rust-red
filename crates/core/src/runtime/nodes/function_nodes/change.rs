@@ -293,13 +293,8 @@ impl ChangeNode {
             },
 
             RedPropertyType::Flow | RedPropertyType::Global => {
-                let ctx = match rule.pt {
-                    RedPropertyType::Flow => self.get_flow().upgrade().unwrap().context(),
-                    RedPropertyType::Global => self.get_engine().unwrap().context(),
-                    _ => panic!("We are so over!"),
-                };
+                let ctx = self.get_context_by_property_type(rule.pt)?;
                 match (&current, reduced_from_type) {
-                    //FIXME unwrap
                     (Variant::String(_), ReducedType::Num | ReducedType::Bool | ReducedType::Str)
                         if current == from_value =>
                     {
@@ -391,7 +386,7 @@ impl ChangeNode {
         match rule.pt {
             RedPropertyType::Msg => {
                 let _ = msg.remove_nav(&rule.p).ok_or(EdgelinkError::NotSupported(format!(
-                    "Cannot remove the property '{}' in the msg",
+                    "cannot remove the property '{}' in the msg",
                     rule.p
                 )))?;
                 Ok(())
@@ -424,7 +419,7 @@ impl ChangeNode {
             }
 
             _ => Err(EdgelinkError::NotSupported(
-                "The 'change' node only allows deleting the 'msg' and global/flow context propertie".into(),
+                "the 'change' node only allows deleting the 'msg' and global/flow context propertie".into(),
             )
             .into()),
         }
@@ -472,6 +467,15 @@ impl ChangeNode {
         msg.remove_nav(&rule.p);
         Ok(())
     } // apply_rule_move
+
+    fn get_context_by_property_type(&self, pt: RedPropertyType) -> crate::Result<Arc<Context>> {
+        let res = match pt {
+            RedPropertyType::Flow => self.get_flow().upgrade().map(|x| x.context()),
+            RedPropertyType::Global => self.get_engine().map(|x| x.context()),
+            _ => None,
+        };
+        res.ok_or(EdgelinkError::InvalidOperation("Failed to get context".to_string()).into())
+    }
 }
 
 fn handle_legacy_json(n: Value) -> crate::Result<Value> {

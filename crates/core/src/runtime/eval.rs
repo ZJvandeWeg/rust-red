@@ -69,7 +69,8 @@ pub async fn evaluate_node_property(
             let arr = Variant::deserialize(&jv)?;
             let bytes = arr
                 .to_bytes()
-                .ok_or(EdgelinkError::InvalidData(format!("Expected an array of bytes, got: {:?}", value)))?;
+                .ok_or(EdgelinkError::BadArgument("value"))
+                .with_context(|| format!("Expected an array of bytes, got: {:?}", value))?;
             Ok(Variant::from(bytes))
         }
 
@@ -168,7 +169,8 @@ pub fn evaluate_node_property_variant<'a>(
             let arr = Variant::deserialize(&jv)?;
             let bytes = arr
                 .to_bytes()
-                .ok_or(EdgelinkError::InvalidData(format!("Expected an array of bytes, got: {:?}", value)))?;
+                .ok_or(EdgelinkError::BadArgument("value"))
+                .with_context(|| format!("Expected an array of bytes, got: {:?}", value))?;
             Cow::Owned(Variant::from(bytes))
         }
 
@@ -195,9 +197,8 @@ pub fn evaluate_node_property_variant<'a>(
         (RedPropertyType::Env, Variant::String(s)) => match evaluate_env_property(s, node, flow) {
             Some(ev) => Cow::Owned(ev),
             _ => {
-                return Err(
-                    EdgelinkError::InvalidData(format!("Cannot found the environment variable: '{}'", s)).into()
-                );
+                return Err(EdgelinkError::BadArgument("value"))
+                    .with_context(|| format!("Cannot found the environment variable: '{}'", s));
             }
         },
 
