@@ -490,7 +490,7 @@ class TestChangeNode:
                 assert msgs[0]["payload"] == "bar"
 
         @pytest.mark.asyncio
-        @pytest.mark.it('''sets the value of a message property using a nested property''')
+        @pytest.mark.it('sets the value of a message property using a nested property')
         async def test_set_28(self):
             flows = [
                 {"id": "100", "type": "tab"},  # flow 1
@@ -527,6 +527,56 @@ class TestChangeNode:
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["lookup"]["b"] == "newValue"
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('sets the value of a message property using a nested property in flow context')
+        async def test_it_sets_the_value_of_a_message_property_using_a_nested_property_in_flow_context(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "name": "", "z": "100", "action": "", "property": "", "from": "", "to": "", 
+                 "reg": False, "wires": [["2"]], "rules": [
+                    {"t":"set","p":"lookup","pt":"flow","to":'{"a":1, "b":2}',"tot":"json"},
+                ]},
+                {"id": "2", "type": "change", "name": "", "z": "100", "rules": [
+                    {"t":"set","p":"payload","pt":"msg","to":"lookup[msg.topic]","tot":"flow"}
+                 ], "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["3"]]},
+                {"id": "3", "z": "100", "type": "test-once"}
+            ]
+            injections = [
+                {
+                    "nid": "1",
+                    "msg": {"payload": "", "topic": "b"}
+                },
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == 2
+
+        @pytest.mark.asyncio
+        @pytest.mark.it('sets the value of a nested flow context property using a message property')
+        async def test_it_sets_the_value_of_a_nested_flow_context_property_using_a_message_property(self):
+            flows = [
+                {"id": "100", "type": "tab"},  # flow 1
+                {"id": "1", "type": "change", "name": "", "z": "100", "action": "", "property": "", "from": "", "to": "", 
+                 "reg": False, "wires": [["2"]], "rules": [
+                    {"t":"set","p":"lookup","pt":"flow","to":'{"a":1, "b":2}',"tot":"json"},
+                ]},
+                {"id": "2", "type": "change", "name": "", "z": "100", "rules": [
+                    {"t":"set","p":"lookup[msg.topic]","pt":"flow","to":"payload","tot":"msg"}],
+                 "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["3"]]},
+                {"id": "3", "type": "change", "name": "", "z": "100", "rules": [
+                    {"t":"set","p":"lookup_b","pt":"msg","to":"lookup.b","tot":"flow"}],
+                 "action": "", "property": "", "from": "", "to": "", "reg": False, "wires": [["4"]]},
+                {"id": "4", "z": "100", "type": "test-once"}
+            ]
+            injections = [
+                {
+                    "nid": "1",
+                    "msg": {"payload": "newValue", "topic": "b"}
+                },
+            ]
+            msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+            assert msgs[0]["payload"] == "newValue"
+            assert msgs[0]["lookup_b"] == "newValue"
 
 
 # 23 changes the value using jsonata

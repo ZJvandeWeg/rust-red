@@ -136,9 +136,9 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
         - [x] :heavy_check_mark: Link In
         - [x] :heavy_check_mark: Link Call
         - [x] :heavy_check_mark: Link Out
-        - [x] Comment (Ignored automatically)
+        - [x] :heavy_check_mark: Comment (Ignored automatically)
         - [x] GlobalConfig (WIP)
-        - [x] Unknown
+        - [x] :heavy_check_mark: Unknown
         - [x] :heavy_check_mark: Junction
     - Function nodes:
         - [x] Function (WIP)
@@ -150,11 +150,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
             - [x] `RED.util` object
             - [x] `env` object
         - [ ] Switch
-        - [ ] Change
-            - [x] Set
-            - [x] Change
-            - [ ] Move
-            - [x] Delete
+        - [x] :heavy_check_mark: Change
         - [x] :heavy_check_mark: Range
         - [ ] Template
         - [ ] Delay

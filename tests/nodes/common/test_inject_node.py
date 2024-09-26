@@ -345,19 +345,25 @@ class TestInjectNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with delay of two seconds')
-    async def test_0204(self):
+    async def test_it_should_inject_once_with_delay_of_two_seconds(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 2,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "test-once"},
+            {"id": "2", "type": "change", "z": "100",
+                "rules": [{"t": "set", "p": "ts", "pt": "msg", "to": "", "tot": "date"}], "name": "changeNode", "wires": [["3"]]},
+            {"id": "3", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
-        assert msgs[0]["topic"] == 't1'
-        assert msgs[0]["payload"] >= start_time + 2000.0
-        assert msgs[0]["payload"] < start_time + 2700.0
+        msg = msgs[0]
+        assert msg["topic"] == 't1'
+        assert "ts" in msg
+        assert isinstance(msg["ts"], (float, int))
+        assert msg["payload"] >= start_time + 2000.0
+        assert msg["ts"] >= start_time + 2000.0
+        assert msg["ts"] < msg["payload"] + 2700.0
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject repeatedly')

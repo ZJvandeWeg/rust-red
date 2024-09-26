@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use regex::Regex;
 use serde::Deserialize;
+use smallvec::SmallVec;
 
 use crate::runtime::flow::*;
 use crate::runtime::model::*;
@@ -88,19 +89,14 @@ pub async fn evaluate_node_property(
         }
 
         RedPropertyType::Global => {
-            /*
-            let csp = context::parse_context_store(value)?;
-            // TODO normalize propex
-            let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
-            if let Some(ctx_value) = engine.get_context().get_one(csp.store, csp.key).await {
-                Ok(ctx_value)
-            } else {
-                Err(EdgelinkError::OutOfRange.into())
-            }
-            */
-            let engine = node.and_then(|n| n.get_engine()).or(flow.and_then(|f| f.engine.upgrade())).unwrap();
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            if let Some(ctx_value) = engine.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
+            let ctx = node
+                .and_then(|n| n.get_engine())
+                .or(flow.and_then(|f| f.engine.upgrade()))
+                .map(|e| e.context())
+                .expect("engine instance");
+            let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
+            if let Some(ctx_value) = ctx.get_one(ctx_prop.store, ctx_prop.key, &msg_env).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::BadArgument("value"))
@@ -109,10 +105,10 @@ pub async fn evaluate_node_property(
         }
 
         RedPropertyType::Flow => {
-            let flow = node.and_then(|n| n.get_flow().upgrade()).unwrap();
-            let fe = flow as Arc<dyn FlowsElement>;
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            if let Some(ctx_value) = fe.context().get_one(ctx_prop.store, ctx_prop.key, &[]).await {
+            let ctx = node.and_then(|n| n.get_flow().upgrade()).map(|e| e.context()).expect("flow instance");
+            let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
+            if let Some(ctx_value) = ctx.get_one(ctx_prop.store, ctx_prop.key, &msg_env).await {
                 Ok(ctx_value)
             } else {
                 Err(EdgelinkError::BadArgument("value"))
