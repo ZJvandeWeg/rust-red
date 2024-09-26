@@ -88,7 +88,8 @@ pip install -r ./tests/requirements.txt
 然后执行以下命令即可：
 
 ```bash
-cargo build
+set PYTHON_SYS_EXECUTABLE=你的Python.exe路径 # 仅有 Windows 需要设置此环境变量
+cargo build --all
 py.test
 ```
 
