@@ -380,6 +380,18 @@ impl FlowEngine {
     }
 }
 
+impl Drop for FlowEngine {
+    fn drop(&mut self) {
+        let is_shutdown = self.state.shutdown.load(std::sync::atomic::Ordering::SeqCst);
+        if !is_shutdown {
+            log::warn!("The engine was released without being stopped! A forced blocking stop is being performed.");
+            if let Err(e) = tokio::runtime::Handle::current().block_on(self.stop()) {
+                log::error!("failed to shutdown engine: {:?}", e);
+            }
+        }
+    }
+}
+
 impl std::fmt::Debug for FlowEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
