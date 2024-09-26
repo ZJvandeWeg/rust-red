@@ -142,6 +142,8 @@ jobs:
 
       - name: Build
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
+        env:
+          PYTHON_SYS_EXECUTABLE: ${{ env.PYTHON_SYS_EXECUTABLE }}
 
       - name: Run Rust tests
         run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
