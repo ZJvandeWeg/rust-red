@@ -48,7 +48,6 @@ config = { version = "0.14", default-features = false, features = [
 ] }
 serde = { version = "1" }
 serde_json = "1"
-serde_json_path = "0.6"
 dashmap = { version = "6", features = ["serde"] }
 rand = "0.8"
 base64 = "0.22"
@@ -66,7 +65,18 @@ arrayvec = "0.7"
 smallvec = "1"
 smallstr = { version = "0.3", features = ["serde", "std", "union"] }
 inventory = "0.3"
-rquickjs = { version = "0.6", features = ["full-async", "parallel"] }
+rquickjs = { version = "0.6", features = [
+    "chrono",
+    "loader",
+    "allocator",
+    "either",
+    "classes",
+    "properties",
+    "array-buffer",
+    "macro",
+    "futures",
+    "parallel",
+] }
 #llrt_modules = { git = "https://github.com/awslabs/llrt.git", default-features = false, package = "llrt_modules", features = ["buffer", "timers"]}
 rquickjs-extra = { git = "https://github.com/rquickjs/rquickjs-extra.git", rev = "c838e60", default-features = false, features = [
     "timers",
@@ -109,7 +119,6 @@ edgelink-dummy-node = { path = "node-plugins/edgelink-dummy-node" }
 
 
 [dev-dependencies]
-serde_json_path.workspace = true
 
 [workspace]
 members = ["crates/*", "node-plugins/*"]
