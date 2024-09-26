@@ -90,11 +90,12 @@ pub async fn evaluate_node_property(
 
         RedPropertyType::Global => {
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            let ctx = node
-                .and_then(|n| n.get_engine())
-                .or(flow.and_then(|f| f.engine.upgrade()))
+            let ctx = flow
+                .and_then(|f| f.engine.upgrade())
+                .or(node.and_then(|n| n.get_engine()))
                 .map(|e| e.context())
-                .expect("engine instance");
+                .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
+
             let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
             if let Some(ctx_value) = ctx.get_one(ctx_prop.store, ctx_prop.key, &msg_env).await {
                 Ok(ctx_value)
@@ -106,7 +107,12 @@ pub async fn evaluate_node_property(
 
         RedPropertyType::Flow => {
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
-            let ctx = node.and_then(|n| n.get_flow().upgrade()).map(|e| e.context()).expect("flow instance");
+            let ctx = flow
+                .cloned()
+                .or(node.and_then(|n| n.get_flow().upgrade()))
+                .map(|e| e.context())
+                .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
+
             let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
             if let Some(ctx_value) = ctx.get_one(ctx_prop.store, ctx_prop.key, &msg_env).await {
                 Ok(ctx_value)
