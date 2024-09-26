@@ -37,7 +37,7 @@ def load_edgelink_mod():
     # Determine the operating system and choose the appropriate executable name
     if platform.system() == 'Windows':
         createion_flags = subprocess.CREATE_NEW_PROCESS_GROUP
-        mymod_name = 'libedgelink_pymod.dll'
+        mymod_name = 'edgelink_pymod.dll'
     else:
         createion_flags = 0
         mymod_name = 'libedgelink_pymod.so'
