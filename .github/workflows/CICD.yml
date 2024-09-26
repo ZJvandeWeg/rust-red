@@ -56,9 +56,6 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r ./tests/requirements.txt
 
-      - name: Set PYTHON_SYS_EXECUTABLE
-        run: echo "PYTHON_SYS_EXECUTABLE=$(which python)" >> $GITHUB_ENV
-
       - name: Setup msys2 toolchains
         if: endsWith(matrix.target, '-gnu')
         uses: msys2/setup-msys2@v2
@@ -98,13 +95,7 @@ jobs:
         run: cargo build --profile ci --workspace --target ${{ matrix.target }} --features full
 
       - name: Run Rust tests
-        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
-
-      - name: Run Python tests
-        env:
-          EDGELINK_BUILD_TARGET: ${{ matrix.target }}
-          EDGELINK_BUILD_PROFILE: ci
-        run: pytest ./tests -v
+        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }} --profile ci
 
   build-and-test-linux:
     name: Build and Test on Linux (x86-64)
@@ -146,7 +137,7 @@ jobs:
           PYTHON_SYS_EXECUTABLE: ${{ env.PYTHON_SYS_EXECUTABLE }}
 
       - name: Run Rust tests
-        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }}
+        run: cargo test run --workspace --no-fail-fast --features full --target ${{ matrix.target }} --profile ci
 
       - name: Run Python tests
         env:
@@ -226,16 +217,6 @@ jobs:
         env:
           EDGELINK_TOOLCHAIN_TRIPLE: ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }}
           EDGELINK_QEMU_CMD: ${{ env.EDGELINK_QEMU_CMD }}
-
-#      - name: Run Python tests with QEMU ARM
-#        env:
-#          EDGELINK_BUILD_TARGET: ${{ matrix.target }}
-#          EDGELINK_BUILD_PROFILE: ci
-#          EDGELINK_TOOLCHAIN_TRIPLE: ${{ env.EDGELINK_TOOLCHAIN_TRIPLE }}
-#          EDGELINK_QEMU_CMD: ${{ env.EDGELINK_QEMU_CMD }}
-#        run: python3 -B -m pytest ./tests -v
-
-
 
   fmt:
     name: Format checking

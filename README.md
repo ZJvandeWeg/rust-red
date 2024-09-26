@@ -92,7 +92,7 @@ pip install -r ./tests/requirements.txt
 Then execute the following command:
 
 ```bash
-set PYTHON_SYS_EXECUTABLE=YOUR_PYTHON_EXECUTABLE_PATH # Windows only
+set PYO3_PYTHON=YOUR_PYTHON_EXECUTABLE_PATH # Windows only
 cargo build --all
 py.test
 ```
