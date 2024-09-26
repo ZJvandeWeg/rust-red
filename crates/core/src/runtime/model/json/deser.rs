@@ -15,7 +15,7 @@ use crate::EdgelinkError;
 
 use super::*;
 
-pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
+pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<ResolvedFlows> {
     let preprocessed = preprocess_subflows(root_jv)?;
     let all_values = preprocessed
         .as_array()
@@ -117,7 +117,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     let mut sorted_flow_nodes = Vec::new();
     for node_id in node_topo_sort.dependency_sort().iter() {
         // We check for cycle errors before usage
-        if let Some(node) = flow_nodes.get(node_id).cloned() {
+        if let Some(node) = flow_nodes.remove(node_id) {
             log::debug!(
                 "SORTED_NODES: node.id='{}', node.name='{}', node.type='{}'",
                 node_id,
@@ -131,8 +131,8 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
     }
 
     let mut flow_configs = Vec::with_capacity(flows.len());
-    for (flow_ordering, flow) in sorted_flows.iter().enumerate() {
-        let mut flow_config: RedFlowConfig = serde_json::from_value(flow.clone())?;
+    for (flow_ordering, flow) in sorted_flows.into_iter().enumerate() {
+        let mut flow_config: RedFlowConfig = serde_json::from_value(flow)?;
         flow_config.ordering = flow_ordering;
 
         flow_config.subflow_node_id = if flow_config.type_name == "subflow" {
@@ -159,7 +159,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<RedFlows> {
         flow_configs.push(flow_config);
     }
 
-    Ok(RedFlows { flows: flow_configs, global_nodes })
+    Ok(ResolvedFlows { flows: flow_configs, global_nodes })
 }
 
 fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {

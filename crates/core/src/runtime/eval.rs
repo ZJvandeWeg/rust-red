@@ -29,9 +29,7 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
         return flow_ref.get_env(name);
     }
 
-    // TODO FIXME
-    // We should use the snapshot in the FlowEngine
-    Some(std::env::var(name).map(Variant::String).unwrap_or(Variant::Null))
+    flow.and_then(|f| f.engine.upgrade()).or(node.and_then(|n| n.get_engine())).and_then(|x| x.get_env(name))
 }
 
 /// Evaluates a property value according to its type.

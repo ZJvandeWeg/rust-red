@@ -155,7 +155,7 @@ pub struct RedSubflowPort {
 }
 
 #[derive(Debug, Clone)]
-pub struct RedFlows {
+pub struct ResolvedFlows {
     pub flows: Vec<RedFlowConfig>,
     pub global_nodes: Vec<RedGlobalNodeConfig>,
 }
