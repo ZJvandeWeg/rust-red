@@ -91,7 +91,7 @@ pub struct FlowNode {
 impl FlowNode {}
 
 #[async_trait]
-pub trait GlobalNodeBehavior: 'static + Send + Sync {
+pub trait GlobalNodeBehavior: Send + Sync {
     fn id(&self) -> &ElementId;
     fn name(&self) -> &str;
     fn type_name(&self) -> &'static str;
@@ -101,7 +101,7 @@ pub trait GlobalNodeBehavior: 'static + Send + Sync {
 }
 
 #[async_trait]
-pub trait FlowNodeBehavior: 'static + Send + Sync + FlowsElement {
+pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
     fn get_node(&self) -> &FlowNode;
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken);

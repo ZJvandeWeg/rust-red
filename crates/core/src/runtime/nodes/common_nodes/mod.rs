@@ -1,3 +1,4 @@
+mod catch;
 mod complete;
 mod console_json;
 mod debug;
@@ -6,6 +7,7 @@ mod junction;
 pub(crate) mod link_call;
 mod link_in;
 mod link_out;
+mod status;
 mod subflow;
 mod unknown;
 
