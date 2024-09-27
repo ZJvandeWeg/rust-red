@@ -172,12 +172,11 @@ class TestSubflow:
                 ],
                 "wires": [["2"]]},
             {"id": "2", "z": "999", "type": "test-once", "wires": []},
-            {
-                "id": "100", "type": "subflow", "name": "Subflow", "info": "",
-                "in": [{"wires": [{"id": "101"}]}],
-                "out": [{"wires": [{"id": "101", "port": 0}]}],
-                "env": [{"name": "KS", "type": "str", "value": "STR"}]
-            },
+            {"id": "100", "type": "subflow", "name": "Subflow", "info": "",
+             "in": [{"wires": [{"id": "101"}]}],
+             "out": [{"wires": [{"id": "101", "port": 0}]}],
+             "env": [{"name": "KS", "type": "str", "value": "STR"}]
+             },
             {"id": "101", "z": "100", "type": "function",
                 "func": "msg.VE = env.get('Ke'); msg.VS = env.get('KS'); msg.VN = env.get('KN'); msg.VB = env.get('KB'); msg.VJ = env.get('KJ'); msg.Vb = env.get('Kb'); /*msg.Vj = env.get('Kj');*/ return msg;",
                 "wires": []

@@ -112,7 +112,7 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 - [x] :heavy_check_mark: Flow
 - [x] :heavy_check_mark: Sub-flow
 - [x] Group
-- [x] Environment Variables (WIP)
+- [x] :heavy_check_mark: Environment Variables
 - [ ] Context
     - [x] Memory storage
     - [ ] Local file-system storage
