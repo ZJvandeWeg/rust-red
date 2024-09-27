@@ -126,6 +126,8 @@ The heavy check mark ( :heavy_check_mark: ) below indicates that this feature ha
 
 ### The Current Status of Nodes:
 
+Refer [REDNODES-SPECS-DIFF.md](tests/REDNODES-SPECS-DIFF.md) to view the details of the currently implemented nodes that comply with the Node-RED specification tests.
+
 - Core nodes:
     - Common nodes:
         - [x] :heavy_check_mark: Console-JSON (For integration tests)

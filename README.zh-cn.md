@@ -102,6 +102,8 @@ py.test
 
 **Pre-Alpha**：项目当前处于发布前活跃开发阶段，不保证任何稳定性。
 
+参考 [REDNODES-SPECS-DIFF.md](tests/REDNODES-SPECS-DIFF.md) 查看目前项目已实现节点和 Node-RED 的规格测试对比。
+
 ## 开发路线图
 
 请参见项目的[里程碑页面](https://github.com/oldrev/edgelink/milestones)。
