@@ -365,8 +365,8 @@ impl FlowEngine {
         self.envs.evalute_env(key)
     }
 
-    pub fn get_context_manager(&self) -> Arc<ContextManager> {
-        self.context_manager.clone()
+    pub fn get_context_manager(&self) -> &Arc<ContextManager> {
+        &self.context_manager
     }
 
     pub fn context(&self) -> Arc<Context> {
