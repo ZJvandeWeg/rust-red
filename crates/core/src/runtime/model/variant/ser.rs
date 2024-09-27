@@ -12,7 +12,13 @@ impl Serialize for Variant {
             Variant::Number(v) => v.serialize(serializer),
             Variant::String(v) => serializer.serialize_str(v),
             Variant::Bool(v) => serializer.serialize_bool(*v),
-            Variant::Bytes(v) => serializer.serialize_bytes(v),
+            Variant::Bytes(v) => {
+                let mut seq = serializer.serialize_seq(Some(v.len()))?;
+                for item in v {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
             Variant::Regexp(v) => serializer.serialize_str(v.as_str()),
             Variant::Date(v) => {
                 let ts = v.duration_since(UNIX_EPOCH).map_err(serde::ser::Error::custom)?;

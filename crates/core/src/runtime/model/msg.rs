@@ -297,7 +297,7 @@ impl<'js> js::FromJs<'js> for Msg {
                                 }
                                 wellknown::LINK_SOURCE_PROPERTY => {
                                     if let Some(bytes) =
-                                        v.as_object().and_then(|x| x.as_typed_array::<u8>()).and_then(|x| x.as_bytes())
+                                        v.as_object().and_then(|x| x.as_array_buffer()).and_then(|x| x.as_bytes())
                                     {
                                         link_call_stack =
                                             bincode::deserialize(bytes).map_err(|_| js::Error::FromJs {
@@ -346,7 +346,7 @@ impl<'js> js::IntoJs<'js> for Msg {
                 to: "js._linkSource",
                 message: Some(e.to_string()),
             })?;
-            let link_source_buffer = js::TypedArray::<u8>::new(ctx.clone(), link_source_bytes)?;
+            let link_source_buffer = js::ArrayBuffer::new(ctx.clone(), link_source_bytes)?;
             obj.set(link_source_atom, link_source_buffer)?;
         }
         Ok(jsv)

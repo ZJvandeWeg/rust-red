@@ -264,7 +264,9 @@ impl Flow {
             FlowKind::GlobalFlow => envs_builder.with_parent(&engine.get_envs()),
             FlowKind::Subflow => {
                 if let Some(ref instance) = subflow_instance {
-                    envs_builder.with_parent(&instance.get_envs())
+                    envs_builder = envs_builder.with_parent(&instance.get_envs());
+                    // merge from subflow instance
+                    envs_builder.merge(instance.get_envs().as_ref())
                 } else {
                     log::warn!("Cannot found the instance node of the subflow: id='{}'", flow_config.id);
                     envs_builder.with_parent(&engine.get_envs())

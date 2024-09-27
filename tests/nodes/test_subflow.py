@@ -193,11 +193,10 @@ class TestSubflow:
         assert msg["VN"] == 100
         assert msg["VB"] == True
         assert msg["VJ"] == [1, 2, 3]
-        #assert msg["Vb"] == [65, 65] #FIXME
-        #assert msg["VE"] == "STR"
-        #assert msg["Vj"] == 3
+        assert msg["Vb"] == [65, 65]
+        assert msg["VE"] == "STR"
+        # assert msg["Vj"] == 3 #FIXME
 
-    @pytest.mark.skip  # FIXME
     @pytest.mark.asyncio
     @pytest.mark.it('should overwrite env var of subflow template by env var of subflow instance')
     async def test_0008(self):
@@ -214,12 +213,10 @@ class TestSubflow:
                  {"name": "K", "type": "str", "value": "TV"},
              ],
              "in": [{"wires": [{"id": "101"}]}],
-             "out": [{"wires": [{"id": "101", "port": 0}]
-                      }]
+             "out": [{"wires": [{"id": "101", "port": 0}]}]
              },
-            {"id": "101", "type": "change", "z": "100",
-                "rules": [{"t": "set", "p": "V", "pt": "msg", "to": "K", "tot": "env"}],
-                "name": "set-env-node", "wires": []},
+            {"id": "101", "type": "function", "z": "100",
+             "func": "msg.V = env.get('K'); return msg;", "wires": []},
         ]
         injections = [
             {"nid": "1", "msg": {"payload": "foo"}},

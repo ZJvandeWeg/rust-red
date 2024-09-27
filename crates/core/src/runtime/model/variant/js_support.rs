@@ -25,8 +25,13 @@ impl<'js> js::FromJs<'js> for Variant {
 
             js::Type::Array => {
                 if let Some(arr) = jv.as_array() {
-                    if let Some(buf) = arr.as_array_buffer() {
-                        Ok(Variant::Bytes(buf.as_slice()?.into()))
+                    if let Some(buf) = arr.as_typed_array::<u8>() {
+                        match buf.as_bytes() {
+                            Some(bytes) => Ok(Variant::Bytes(bytes.to_vec())),
+                            None => {
+                                Err(js::Error::FromJs { from: "TypedArray<u8>", to: "Variant::Bytes", message: None })
+                            }
+                        }
                     } else {
                         let mut vec: Vec<Variant> = Vec::with_capacity(arr.len());
                         for item in arr.iter() {
@@ -62,6 +67,11 @@ impl<'js> js::FromJs<'js> for Variant {
                                 to: "Variant::Regexp",
                                 message: Some(format!("Failed to create Regex from: '{}'", re_str)),
                             }),
+                        }
+                    } else if let Some(buf) = jo.as_array_buffer() {
+                        match buf.as_bytes() {
+                            Some(bytes) => Ok(Variant::Bytes(bytes.to_vec())),
+                            None => Err(js::Error::FromJs { from: "ArrayBuffer", to: "Variant::Bytes", message: None }),
                         }
                     } else {
                         let mut map = VariantObjectMap::new();

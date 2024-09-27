@@ -62,7 +62,7 @@ struct EnvEntry {
     pub type_: RedPropertyType,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EnvStoreBuilder {
     parent: Option<Weak<EnvStore>>,
     envs: HashMap<String, Variant>,
@@ -100,9 +100,7 @@ impl EnvStoreBuilder {
 
             for e in entries.iter() {
                 if let Ok(var) = self.evaluate(&e.value, e.type_) {
-                    if !self.envs.contains_key(&e.name) {
-                        self.envs.insert(e.name.clone(), var);
-                    }
+                    self.envs.insert(e.name.clone(), var);
                 } else {
                     log::warn!("Failed to evaluate environment variable property: {:?}", e);
                 }
@@ -120,9 +118,16 @@ impl EnvStoreBuilder {
         self
     }
 
-    pub fn extends<T: IntoIterator<Item = (String, Variant)>>(mut self, iter: T) -> Self {
+    pub fn extends(mut self, iter: impl IntoIterator<Item = (String, Variant)>) -> Self {
         for (k, v) in iter {
             self.envs.insert(k, v);
+        }
+        self
+    }
+
+    pub fn merge(mut self, other: &EnvStore) -> Self {
+        for guard in other.envs.iter() {
+            self.envs.insert(guard.key().clone(), guard.value().clone());
         }
         self
     }
@@ -152,7 +157,7 @@ impl EnvStoreBuilder {
                     .to_bytes()
                     .ok_or(EdgelinkError::BadArgument("value"))
                     .with_context(|| format!("Expected an array of bytes, got: {:?}", value))?;
-                Ok(Variant::from(bytes))
+                Ok(Variant::Bytes(bytes))
             }
 
             RedPropertyType::Jsonata => todo!(),
