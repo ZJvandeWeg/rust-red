@@ -205,7 +205,7 @@ impl FlowEngine {
                 }
             };
 
-            self.state.global_nodes.insert(*global_node.id(), Arc::from(global_node));
+            self.state.global_nodes.insert(global_node.id(), Arc::from(global_node));
         }
         Ok(())
     }

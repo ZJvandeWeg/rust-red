@@ -287,7 +287,7 @@ impl Flow {
         };
         let envs = envs_builder.build();
 
-        let context = engine.get_context_manager().new_context(Some(&engine.context()), flow_config.id.to_string());
+        let context = engine.get_context_manager().new_context(&engine.context(), flow_config.id.to_string());
 
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
@@ -772,7 +772,7 @@ impl Flow {
                 ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.id, node_config.id))),
             ])
             .build();
-        let context = engine.get_context_manager().new_context(Some(&self.context), node_config.id.to_string());
+        let context = engine.get_context_manager().new_context(&self.context, node_config.id.to_string());
 
         Ok(FlowNode {
             id: node_config.id,

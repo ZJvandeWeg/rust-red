@@ -9,34 +9,28 @@ const UNKNOWN_GLOBAL_NODE_TYPE: &str = "unknown.global";
 #[derive(Debug)]
 #[global_node("unknown.global")]
 struct UnknownGlobalNode {
-    id: ElementId,
-    name: String,
-    type_: &'static str,
+    base: GlobalNode,
 }
 
 impl UnknownGlobalNode {
-    fn build(_engine: Arc<FlowEngine>, _config: &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
-        let node = UnknownGlobalNode { id: _config.id, name: _config.name.clone(), type_: UNKNOWN_GLOBAL_NODE_TYPE };
+    fn build(engine: Arc<FlowEngine>, config: &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
+        let context = engine.get_context_manager().new_context(&engine.context(), config.id.to_string());
+        let node = Self {
+            base: GlobalNode {
+                id: config.id,
+                name: config.name.clone(),
+                type_str: UNKNOWN_GLOBAL_NODE_TYPE,
+                ordering: config.ordering,
+                context,
+            },
+        };
         Ok(Box::new(node))
     }
 }
 
-#[async_trait]
 impl GlobalNodeBehavior for UnknownGlobalNode {
-    fn id(&self) -> &ElementId {
-        &self.id
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn type_name(&self) -> &'static str {
-        self.type_
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
+    fn get_node(&self) -> &GlobalNode {
+        &self.base
     }
 }
 

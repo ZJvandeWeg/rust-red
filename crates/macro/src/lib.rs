@@ -81,6 +81,38 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
+        impl FlowsElement for #struct_name {
+            fn id(&self) -> ElementId {
+                self.get_node().id
+            }
+
+            fn name(&self) -> &str {
+                &self.get_node().name
+            }
+
+            fn type_str(&self) -> &'static str {
+                self.get_node().type_str
+            }
+
+            fn ordering(&self) -> usize {
+                self.get_node().ordering
+            }
+
+            fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {
+                // TODO change it to engine
+                log::warn!("Cannot get the parent element in global node");
+                None
+            }
+
+            fn context(&self) -> Arc<Context> {
+                self.get_node().context.clone()
+            }
+
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
+        }
+
         ::inventory::submit! {
             MetaNode {
                 kind: NodeKind::Global,

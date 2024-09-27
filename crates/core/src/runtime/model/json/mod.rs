@@ -133,6 +133,9 @@ pub struct RedGlobalNodeConfig {
     #[serde(default)]
     pub disabled: bool,
 
+    #[serde(skip, default)]
+    pub ordering: usize,
+
     #[serde(flatten)]
     pub rest: JsonValue,
 }

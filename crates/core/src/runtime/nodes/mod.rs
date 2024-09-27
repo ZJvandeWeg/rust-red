@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt;
 use std::sync::{Arc, Weak};
 
@@ -88,16 +87,18 @@ pub struct FlowNode {
     pub on_error: MsgEventSender,
 }
 
-impl FlowNode {}
+#[derive(Debug)]
+pub struct GlobalNode {
+    pub id: ElementId,
+    pub name: String,
+    pub type_str: &'static str,
+    pub ordering: usize,
+    pub context: Arc<Context>,
+}
 
 #[async_trait]
-pub trait GlobalNodeBehavior: Send + Sync {
-    fn id(&self) -> &ElementId;
-    fn name(&self) -> &str;
-    fn type_name(&self) -> &'static str;
-
-    /// Cast the global node to the any type
-    fn as_any(&self) -> &dyn Any;
+pub trait GlobalNodeBehavior: Send + Sync + FlowsElement {
+    fn get_node(&self) -> &GlobalNode;
 }
 
 #[async_trait]
@@ -214,15 +215,23 @@ impl dyn GlobalNodeBehavior {
 
 impl fmt::Debug for dyn GlobalNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(
-            format_args!("GlobalNode(id='{}', type='{}', name='{}')", self.id(), self.type_name(), self.name(),),
-        )
+        f.write_fmt(format_args!(
+            "GlobalNode(id='{}', type='{}', name='{}')",
+            self.id(),
+            self.get_node().type_str,
+            self.name(),
+        ))
     }
 }
 
 impl fmt::Display for dyn GlobalNodeBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("FlowNode(id='{}', type='{}', name='{}')", self.id(), self.type_name(), self.name(),))
+        f.write_fmt(format_args!(
+            "GlobalNode(id='{}', type='{}', name='{}')",
+            self.id(),
+            self.get_node().type_str,
+            self.name(),
+        ))
     }
 }
 
