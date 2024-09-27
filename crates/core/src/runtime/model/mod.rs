@@ -34,10 +34,10 @@ pub trait FlowsElement: Sync + Send {
     fn name(&self) -> &str;
     fn type_str(&self) -> &'static str;
     fn ordering(&self) -> usize;
+    fn is_disabled(&self) -> bool;
     fn as_any(&self) -> &dyn ::std::any::Any;
     fn parent_element(&self) -> Option<Arc<dyn FlowsElement>>;
     fn context(&self) -> Arc<Context>;
-    fn is_disabled(&self) -> bool;
 }
 
 #[derive(Debug)]
