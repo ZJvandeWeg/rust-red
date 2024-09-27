@@ -21,6 +21,7 @@ impl UnknownGlobalNode {
                 name: config.name.clone(),
                 type_str: UNKNOWN_GLOBAL_NODE_TYPE,
                 ordering: config.ordering,
+                disabled: config.disabled,
                 context,
             },
         };
@@ -36,12 +37,12 @@ impl GlobalNodeBehavior for UnknownGlobalNode {
 
 #[flow_node("unknown.flow")]
 struct UnknownFlowNode {
-    state: FlowNode,
+    base: FlowNode,
 }
 
 impl UnknownFlowNode {
     fn build(_flow: &Flow, base: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let node = UnknownFlowNode { state: base };
+        let node = UnknownFlowNode { base };
         Ok(Box::new(node))
     }
 }
@@ -49,7 +50,7 @@ impl UnknownFlowNode {
 #[async_trait]
 impl FlowNodeBehavior for UnknownFlowNode {
     fn get_node(&self) -> &FlowNode {
-        &self.state
+        &self.base
     }
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {

@@ -94,6 +94,7 @@ pub struct GlobalNode {
     pub type_str: &'static str,
     pub ordering: usize,
     pub context: Arc<Context>,
+    pub disabled: bool,
 }
 
 #[async_trait]

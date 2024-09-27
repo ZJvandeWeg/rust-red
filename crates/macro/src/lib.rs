@@ -38,6 +38,10 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 self.get_node().ordering
             }
 
+            fn is_disabled(&self) -> bool {
+                self.get_node().disabled
+            }
+
             fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {
                 self.get_node().flow.upgrade().and_then(|arc| Some(arc as std::sync::Arc<dyn FlowsElement>))
             }
@@ -96,6 +100,10 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             fn ordering(&self) -> usize {
                 self.get_node().ordering
+            }
+
+            fn is_disabled(&self) -> bool {
+                self.get_node().disabled
             }
 
             fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {

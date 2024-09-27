@@ -125,6 +125,10 @@ impl FlowsElement for Flow {
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
+
+    fn is_disabled(&self) -> bool {
+        self.disabled
+    }
 }
 
 impl SubflowOutputPort {
@@ -513,22 +517,6 @@ impl Flow {
         }
     }
 
-    pub fn id(&self) -> ElementId {
-        self.id
-    }
-
-    pub fn parent(&self) -> &Option<Weak<Flow>> {
-        &self.parent
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
-    }
-
-    pub fn disabled(&self) -> bool {
-        self.disabled
-    }
-
     pub fn is_subflow(&self) -> bool {
         self.subflow_state.is_some()
     }
@@ -560,59 +548,6 @@ impl Flow {
     pub fn get_env(&self, key: &str) -> Option<Variant> {
         self.envs.evalute_env(key)
     }
-
-    /*
-    pub fn eval_envs(
-        &self,
-        env_entries: &[RedEnvEntry],
-    ) -> crate::Result<HashMap<String, Variant>> {
-        let mut evaluated_entries: HashMap<String, Variant> = HashMap::new();
-
-        // preprocessing
-        for e in env_entries.iter().filter(|&x| x.name != "env") {
-            let parsed_value = eval::evaluate_node_property(
-                &e.value,
-                e.type_,
-                None,
-                None,
-            )?;
-            evaluated_entries.insert(e.name.clone(), parsed_value);
-        }
-
-        // TODO JSONATA
-
-        for e in env_entries.iter().filter(|&x| x.name == "env") {
-            let env_value_text = if e.name == e.value {
-                format!("$parent.${}", e.name)
-            } else {
-                e.value.clone()
-            };
-            let mut parsed_value =
-                if let Some(existed_value) = evaluated_entries.get(&env_value_text) {
-                    existed_value.clone()
-                } else {
-                    eval::evaluate_node_property(
-                        &env_value_text,
-                        e.type_,
-                        None,
-                        None,
-                    )?
-                };
-            parsed_value = if let Some(parsed_obj) = parsed_value.as_object() {
-                if !parsed_obj.contains_key("__clone__") {
-                    Variant::from([("value", parsed_value), ("__clone__", Variant::Bool(true))])
-                } else {
-                    parsed_value
-                }
-            } else {
-                parsed_value
-            };
-            evaluated_entries.insert(e.name.clone(), parsed_value);
-        }
-
-        Ok(evaluated_entries)
-    }
-    */
 
     pub async fn start(&self) -> crate::Result<()> {
         // let mut state = self.shared.state.write().await;
