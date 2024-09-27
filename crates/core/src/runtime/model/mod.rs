@@ -38,6 +38,7 @@ pub trait FlowsElement: Sync + Send {
     fn as_any(&self) -> &dyn ::std::any::Any;
     fn parent_element(&self) -> Option<ElementId>;
     fn context(&self) -> Arc<Context>;
+    fn get_path(&self) -> String;
 }
 
 #[derive(Debug)]

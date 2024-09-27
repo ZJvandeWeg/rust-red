@@ -397,7 +397,6 @@ class TestSubflow:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["V"] == "V"
 
-    @pytest.mark.skip  # FIXME
     @pytest.mark.asyncio
     @pytest.mark.it('should access NR_NODE_PATH env var within subflow instance')
     async def test_0014(self):

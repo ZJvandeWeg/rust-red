@@ -53,6 +53,11 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
+
+            fn get_path(&self) -> String {
+                format!("{}/{}", self.get_node().flow.upgrade().unwrap().get_path(), self.id())
+            }
+
         }
 
         ::inventory::submit! {
@@ -118,6 +123,10 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
+            }
+
+            fn get_path(&self) -> String {
+                self.id().to_string()
             }
         }
 

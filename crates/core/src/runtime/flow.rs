@@ -129,6 +129,14 @@ impl FlowsElement for Flow {
     fn is_disabled(&self) -> bool {
         self.disabled
     }
+
+    fn get_path(&self) -> String {
+        if let Some(parent_id) = self.parent_element() {
+            self.engine.upgrade().unwrap().find_flow_node_by_id(&parent_id).unwrap().get_path()
+        } else {
+            self.id.to_string()
+        }
+    }
 }
 
 impl SubflowOutputPort {
@@ -704,7 +712,7 @@ impl Flow {
             .extends([
                 ("NR_NODE_ID".into(), Variant::String(node_config.id.to_string())),
                 ("NR_NODE_NAME".into(), Variant::String(node_config.name.clone())),
-                ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.id, node_config.id))),
+                ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.get_path(), node_config.id))),
             ])
             .build();
         let context = engine.get_context_manager().new_context(&self.context, node_config.id.to_string());

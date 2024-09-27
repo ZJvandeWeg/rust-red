@@ -221,7 +221,7 @@ impl ContextManagerBuilder {
 impl ContextManager {
     pub fn new_context(self: &Arc<Self>, parent: &Arc<Context>, scope: String) -> Arc<Context> {
         let c = Arc::new(Context {
-            parent: Some(Arc::downgrade(&parent)),
+            parent: Some(Arc::downgrade(parent)),
             manager: Arc::downgrade(self),
             scope: scope.clone(),
         });
@@ -231,7 +231,7 @@ impl ContextManager {
 
     pub fn new_global_context(self: &Arc<Self>) -> Arc<Context> {
         let c =
-            Arc::new(Context { parent: None, manager: Arc::downgrade(&self), scope: GLOBAL_CONTEXT_NAME.to_string() });
+            Arc::new(Context { parent: None, manager: Arc::downgrade(self), scope: GLOBAL_CONTEXT_NAME.to_string() });
         self.contexts.insert(GLOBAL_CONTEXT_NAME.to_string(), c.clone());
         c
     }
