@@ -42,8 +42,8 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 self.get_node().disabled
             }
 
-            fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {
-                self.get_node().flow.upgrade().and_then(|arc| Some(arc as std::sync::Arc<dyn FlowsElement>))
+            fn parent_element(&self) -> Option<ElementId> {
+                self.get_node().flow.upgrade().map(|arc| arc.id())
             }
 
             fn context(&self) -> Arc<Context> {
@@ -106,7 +106,7 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 self.get_node().disabled
             }
 
-            fn parent_element(&self) -> Option<std::sync::Arc<dyn FlowsElement>> {
+            fn parent_element(&self) -> Option<ElementId> {
                 // TODO change it to engine
                 log::warn!("Cannot get the parent element in global node");
                 None

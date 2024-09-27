@@ -36,7 +36,7 @@ pub trait FlowsElement: Sync + Send {
     fn ordering(&self) -> usize;
     fn is_disabled(&self) -> bool;
     fn as_any(&self) -> &dyn ::std::any::Any;
-    fn parent_element(&self) -> Option<Arc<dyn FlowsElement>>;
+    fn parent_element(&self) -> Option<ElementId>;
     fn context(&self) -> Arc<Context>;
 }
 

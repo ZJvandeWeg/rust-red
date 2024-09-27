@@ -80,7 +80,7 @@ pub enum FlowKind {
 #[derive(Debug)]
 pub struct Flow {
     pub id: ElementId,
-    pub parent: Option<Weak<Self>>,
+    pub parent: Option<ElementId>,
     pub label: String,
     pub disabled: bool,
     pub args: FlowArgs,
@@ -114,8 +114,8 @@ impl FlowsElement for Flow {
         self.ordering
     }
 
-    fn parent_element(&self) -> Option<Arc<dyn FlowsElement>> {
-        self.parent.as_ref().and_then(|weak_parent| weak_parent.upgrade()).map(|arc| arc as Arc<dyn FlowsElement>)
+    fn parent_element(&self) -> Option<ElementId> {
+        self.parent
     }
 
     fn context(&self) -> Arc<Context> {
@@ -295,7 +295,7 @@ impl Flow {
 
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
-            parent: None, //TODO FIXME
+            parent: subflow_instance.clone().map(|x| x.id()),
             engine: Arc::downgrade(&engine),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
