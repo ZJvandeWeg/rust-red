@@ -375,7 +375,7 @@ impl Flow {
         Ok(flow)
     }
 
-    fn populate_groups(self: Arc<Self>, flow_config: &RedFlowConfig) -> crate::Result<()> {
+    fn populate_groups(self: &Arc<Self>, flow_config: &RedFlowConfig) -> crate::Result<()> {
         if !self.state.groups.is_empty() {
             self.state.groups.clear();
         }
