@@ -99,12 +99,13 @@ impl EnvStoreBuilder {
             }
             let sorted_keys = topo.dependency_sort();
 
-            for key in sorted_keys.into_iter() {
-                let e = entries.iter().find(|x| x.name == key).unwrap();
-                if let Ok(var) = self.evaluate(&e.value, e.type_) {
-                    self.envs.insert(e.name.clone(), var);
-                } else {
-                    log::warn!("Failed to evaluate environment variable property: {:?}", e);
+            for key in sorted_keys.iter() {
+                if let Some(e) = entries.iter().find(|x| &x.name == key) {
+                    if let Ok(var) = self.evaluate(&e.value, e.type_) {
+                        self.envs.insert(e.name.clone(), var);
+                    } else {
+                        log::warn!("Failed to evaluate environment variable property: {:?}", e);
+                    }
                 }
             }
         } else {
