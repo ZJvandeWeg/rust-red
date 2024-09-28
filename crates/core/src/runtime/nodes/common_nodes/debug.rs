@@ -9,9 +9,6 @@ use edgelink_macro::*;
 
 #[derive(Deserialize, Debug)]
 struct DebugNodeConfig {
-    #[serde(default)]
-    active: bool,
-
     //#[serde(default)]
     //console: bool,
     //#[serde(default)]
@@ -24,17 +21,17 @@ struct DebugNodeConfig {
 #[flow_node("debug")]
 struct DebugNode {
     base: FlowNode,
-    config: DebugNodeConfig,
+    _config: DebugNodeConfig,
 }
 
 impl DebugNode {
-    fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&_config.rest)?;
+    fn build(_flow: &Flow, state: FlowNode, config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
+        let mut debug_config: DebugNodeConfig = DebugNodeConfig::deserialize(&config.rest)?;
         if debug_config.complete.is_empty() {
             debug_config.complete = "payload".to_string();
         }
 
-        let node = DebugNode { base: state, config: debug_config };
+        let node = DebugNode { base: state, _config: debug_config };
         Ok(Box::new(node))
     }
 }
@@ -47,13 +44,13 @@ impl FlowNodeBehavior for DebugNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            if self.config.active {
+            if self.base.active {
                 match self.recv_msg(stop_token.child_token()).await {
                     Ok(msg) => {
-                        log::info!("Message Received [Node: {}] ：\n{:#?}", self.name(), msg.as_ref())
+                        log::info!("[debug:{}] Message Received: \n{:#?}", self.name(), msg.as_ref())
                     }
                     Err(ref err) => {
-                        log::error!("Error: {:#?}", err);
+                        log::error!("[debug:{}] Error: {:#?}", self.name(), err);
                         break;
                     }
                 }

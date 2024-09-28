@@ -1,5 +1,7 @@
+use std::cmp::Ordering;
 use std::sync::{Arc, Weak};
 
+use common_nodes::catch::{CatchNode, CatchNodeScope};
 use dashmap::DashMap;
 use itertools::Itertools;
 use serde::Deserialize;
@@ -8,7 +10,7 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
-use super::group::Group;
+use super::group::{Group, GroupParent};
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::env::*;
 use crate::runtime::model::json::*;
@@ -66,7 +68,7 @@ pub(crate) struct FlowState {
     pub(crate) groups: DashMap<ElementId, Arc<Group>>,
     pub(crate) nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
     pub(crate) complete_nodes_map: DashMap<ElementId, Vec<Arc<dyn FlowNodeBehavior>>>,
-    pub(crate) catch_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+    pub(crate) catch_nodes: std::sync::RwLock<Vec<Arc<dyn FlowNodeBehavior>>>,
     pub(crate) _context: RwLock<Variant>,
     pub(crate) node_tasks: Mutex<JoinSet<()>>,
 }
@@ -322,7 +324,7 @@ impl Flow {
                 groups: DashMap::new(),
                 nodes: DashMap::new(),
                 complete_nodes_map: DashMap::new(),
-                catch_nodes: DashMap::new(),
+                catch_nodes: std::sync::RwLock::new(Vec::new()),
                 _context: RwLock::new(Variant::empty_object()),
                 node_tasks: Mutex::new(JoinSet::new()),
             },
@@ -482,6 +484,29 @@ impl Flow {
 
             self.register_internal_node(arc_node, node_config)?;
         }
+
+        // Sort the `catch` nodes
+        {
+            let mut catch_nodes = self.state.catch_nodes.write().expect("aquire the lock of `catch_nodes`");
+            catch_nodes.sort_by(|a, b| {
+                let a = a.as_any().downcast_ref::<CatchNode>().unwrap();
+                let b = b.as_any().downcast_ref::<CatchNode>().unwrap();
+                if a.scope.as_bool() && !b.scope.as_bool() {
+                    Ordering::Greater
+                } else if !a.scope.as_bool() && b.scope.as_bool() {
+                    Ordering::Less
+                } else if a.scope.as_bool() && b.scope.as_bool() {
+                    Ordering::Equal
+                } else if a.uncaught && !b.uncaught {
+                    Ordering::Greater
+                } else if !a.uncaught && b.uncaught {
+                    Ordering::Less
+                } else {
+                    Ordering::Equal
+                }
+            });
+        }
+
         Ok(())
     }
 
@@ -493,7 +518,8 @@ impl Flow {
         match node.get_node().type_str {
             "complete" => self.register_complete_node(node, node_config)?,
             "catch" => {
-                self.state.catch_nodes.insert(node_config.id, node.clone());
+                let mut catch_nodes = self.state.catch_nodes.write().expect("aquire the lock of `catch_nodes`");
+                catch_nodes.push(node.clone());
             }
             // ignore normal nodes
             &_ => {}
@@ -728,6 +754,7 @@ impl Flow {
             type_str: meta_node.type_,
             ordering: node_config.ordering,
             disabled: node_config.disabled,
+            active: node_config.active.unwrap_or(true),
             flow: Arc::downgrade(self),
             msg_tx: tx_root,
             msg_rx: MsgReceiverHolder::new(rx),
@@ -739,5 +766,100 @@ impl Flow {
             on_completed: MsgEventSender::new(1),
             on_error: MsgEventSender::new(1),
         })
+    }
+
+    pub async fn handle_error(
+        &self,
+        node: &dyn FlowNodeBehavior,
+        log_message: &str,
+        msg: Option<&Arc<RwLock<Msg>>>,
+        reporting_node: Option<&dyn FlowNodeBehavior>,
+        cancel: CancellationToken,
+    ) -> crate::Result<bool> {
+        let reporting_node = if let Some(rn) = reporting_node { rn } else { node };
+
+        // TODO: use SmallVec
+        let mut candidates = Vec::new();
+        {
+            let catch_nodes = self.state.catch_nodes.read().expect("aquire lock for `catch_nodes`");
+            for catch_node_behavior in catch_nodes.iter() {
+                let catch_node = catch_node_behavior.as_any().downcast_ref::<CatchNode>().expect("CatchNode");
+                if catch_node.group().is_some()
+                    && catch_node.scope == CatchNodeScope::Group
+                    && reporting_node.group().is_none()
+                {
+                    // Catch node inside a group, reporting node not in a group - skip it
+                    return Ok(true);
+                }
+
+                if let CatchNodeScope::Nodes(ref scope) = catch_node.scope {
+                    // Catch node has a scope set and it doesn't include the reporting node
+                    if !scope.contains(&reporting_node.id()) {
+                        return Ok(true);
+                    }
+                }
+                let mut distance: usize = 0;
+                let catch_node_group_id = catch_node.group().and_then(|x| x.upgrade()).map(|x| x.id);
+                if let Some(ref reporting_node_group_id) =
+                    reporting_node.group().and_then(|x| x.upgrade()).map(|x| x.id)
+                {
+                    // Reporting node inside a group. Calculate the distance between it and the catch node
+                    let mut containing_group_id = Some(*reporting_node_group_id);
+                    while containing_group_id.is_some() && containing_group_id != catch_node_group_id {
+                        distance += 1;
+                        let containing_group_parent =
+                            self.state.groups.get(&containing_group_id.unwrap()).map(|x| x.value().parent.clone());
+                        containing_group_id = if let Some(GroupParent::Group(g)) = containing_group_parent {
+                            Some(g.upgrade().expect("Group").id)
+                        } else {
+                            None
+                        };
+                    }
+                    if containing_group_id.is_none()
+                        && catch_node.group().is_some()
+                        && catch_node.scope == CatchNodeScope::Group
+                    {
+                        // This catch node is in a group, but not in the same hierachy
+                        // the reporting node is in
+                        return Ok(true);
+                    }
+                }
+                candidates.push((distance, catch_node_behavior.clone()))
+            }
+        }
+        candidates.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let mut handled = false;
+        let mut handled_by_uncaught = false;
+        for candidate in candidates.iter() {
+            let catch_node = candidate.1.as_any().downcast_ref::<CatchNode>().unwrap();
+            if catch_node.uncaught && !handled_by_uncaught {
+                if handled {
+                    return Ok(true);
+                }
+                handled_by_uncaught = true;
+            }
+            let mut error_msg = if let Some(msg) = msg {
+                let msg_lock = msg.read().await;
+                msg_lock.clone()
+            } else {
+                Msg::default()
+            };
+            let error_object = Variant::from(serde_json::json!({
+                "message": log_message.to_string(),
+                "source": {
+                    "id": node.id(),
+                    "type": node.type_str().to_string(),
+                    "name": node.name(),
+                    "count": 1, // TODO
+                }
+            }));
+            error_msg.set("error".into(), error_object);
+            let error_msg = Arc::new(RwLock::new(error_msg));
+            catch_node.inject_msg(error_msg, cancel.clone()).await?;
+
+            handled = true;
+        }
+        Ok(handled)
     }
 }

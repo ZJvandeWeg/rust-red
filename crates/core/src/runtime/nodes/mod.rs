@@ -74,6 +74,7 @@ pub struct FlowNode {
     pub type_str: &'static str,
     pub ordering: usize,
     pub disabled: bool,
+    pub active: bool,
     pub flow: Weak<Flow>,
     pub msg_tx: MsgSender,
     pub msg_rx: MsgReceiverHolder,
@@ -108,8 +109,8 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken);
 
-    fn group(&self) -> &Option<Weak<Group>> {
-        &self.get_node().group
+    fn group(&self) -> Option<&Weak<Group>> {
+        self.get_node().group.as_ref()
     }
 
     fn get_flow(&self) -> &Weak<Flow> {
@@ -263,8 +264,14 @@ where
     match node.recv_msg(cancel.clone()).await {
         Ok(msg) => {
             if let Err(ref err) = proc(node, msg.clone()).await {
-                // TODO report error
-                log::warn!("Failed to commit uow job: {}", err.to_string())
+                let flow = node.get_flow().upgrade().expect("flow");
+                let error_message = err.to_string();
+                match flow.handle_error(node, &error_message, Some(&msg), None, cancel.clone()).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        log::error!("Failed to handle error: {:?}", e)
+                    }
+                }
             }
             // Report the completion
             {

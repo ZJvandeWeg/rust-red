@@ -1,17 +1,43 @@
 use std::sync::Arc;
 
+use serde::Deserialize;
+
 use crate::runtime::flow::Flow;
 use crate::runtime::nodes::*;
 use edgelink_macro::*;
 
 #[flow_node("catch")]
-struct CatchNode {
+#[derive(Debug)]
+pub struct CatchNode {
     base: FlowNode,
+    pub scope: CatchNodeScope,
+    pub uncaught: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum CatchNodeScope {
+    #[default]
+    All,
+    Group,
+    Nodes(Vec<ElementId>),
+}
+
+impl CatchNodeScope {
+    pub fn as_bool(&self) -> bool {
+        !matches!(self, CatchNodeScope::All)
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CatchNodeConfig {
+    scope: CatchNodeScope,
+    uncaught: bool,
 }
 
 impl CatchNode {
     fn build(_flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let node = CatchNode { base: state };
+        let catch_config = CatchNodeConfig::deserialize(&_config.rest)?;
+        let node = CatchNode { base: state, scope: catch_config.scope, uncaught: catch_config.uncaught };
         Ok(Box::new(node))
     }
 }
@@ -31,5 +57,49 @@ impl FlowNodeBehavior for CatchNode {
             })
             .await;
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for CatchNodeScope {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct CatchNodeScopeVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for CatchNodeScopeVisitor {
+            type Value = CatchNodeScope;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string, null, or an array of strings")
+            }
+
+            fn visit_unit<E>(self) -> Result<CatchNodeScope, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(CatchNodeScope::All)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<CatchNodeScope, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "group" => Ok(CatchNodeScope::Group),
+                    _ => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Str(value), &self)),
+                }
+            }
+
+            fn visit_seq<A>(self, seq: A) -> Result<CatchNodeScope, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let vec: Vec<ElementId> = Deserialize::deserialize(serde::de::value::SeqAccessDeserializer::new(seq))?;
+                Ok(CatchNodeScope::Nodes(vec))
+            }
+        }
+
+        deserializer.deserialize_any(CatchNodeScopeVisitor)
     }
 }

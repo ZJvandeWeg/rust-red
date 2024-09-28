@@ -41,6 +41,12 @@ pub struct Msg {
     pub link_call_stack: Option<Vec<LinkCallStackEntry>>,
 }
 
+impl Default for Msg {
+    fn default() -> Self {
+        Msg { body: Variant::empty_object(), link_call_stack: None }
+    }
+}
+
 impl Msg {
     pub fn new_default() -> Arc<RwLock<Self>> {
         let msg = Msg {

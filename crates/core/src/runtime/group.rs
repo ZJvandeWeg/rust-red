@@ -6,7 +6,7 @@ use super::flow::*;
 use super::model::json::*;
 use super::model::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupParent {
     Flow(Weak<Flow>),
     Group(Weak<Group>),

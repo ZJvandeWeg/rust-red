@@ -1,4 +1,4 @@
-mod catch;
+pub(crate) mod catch;
 mod complete;
 mod console_json;
 mod debug;
