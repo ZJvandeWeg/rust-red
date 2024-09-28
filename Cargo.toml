@@ -115,7 +115,7 @@ log4rs.workspace = true
 edgelink-core = { path = "crates/core", default-features = false }
 
 # Node plug-ins:
-edgelink-dummy-node = { path = "node-plugins/edgelink-dummy-node" }
+edgelink-nodes-dummy = { path = "node-plugins/edgelink-nodes-dummy" }
 
 
 [dev-dependencies]

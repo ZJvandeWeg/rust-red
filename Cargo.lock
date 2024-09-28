@@ -444,7 +444,7 @@ dependencies = [
  "config",
  "dirs-next",
  "edgelink-core",
- "edgelink-dummy-node",
+ "edgelink-nodes-dummy",
  "log",
  "log4rs",
  "semver",
@@ -491,7 +491,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "edgelink-dummy-node"
+name = "edgelink-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "edgelink-nodes-dummy"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -503,21 +512,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "edgelink-macro"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "edgelink-pymod"
 version = "0.1.0"
 dependencies = [
  "config",
  "edgelink-core",
- "edgelink-dummy-node",
+ "edgelink-nodes-dummy",
  "log",
  "log4rs",
  "pyo3",
