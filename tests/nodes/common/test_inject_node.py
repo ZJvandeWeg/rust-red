@@ -327,19 +327,21 @@ class TestInjectNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with 500 msec. delay')
-    async def test_0203(self):
+    async def test_it_should_inject_once_with_500_msec_delay(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 0.5,
              "topic": "t1", "payload": "", "payloadType": "date", "wires": [["2"]]},
-            {"id": "2", "z": "100", "type": "test-once"},
+            {"id": "2", "z": "100", "type": "function",
+                "func": "msg.recvTime = (new Date()).getTime(); return msg;", "wires": [["3"]]},
+            {"id": "3", "z": "100", "type": "test-once"},
         ]
         injections = []
         start_time = _timestamp()
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == 't1'
         assert int(round(msgs[0]["payload"])) >= start_time + 500
-        assert int(round(msgs[0]["payload"])) < start_time + 1000  # in 1-second
+        assert int(round(msgs[0]["recvTime"])) < start_time + 600  # in 0.6 second
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with delay of two seconds')
