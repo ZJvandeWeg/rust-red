@@ -399,7 +399,7 @@ impl Flow {
     }
 
     fn populate_nodes(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         flow_config: &RedFlowConfig,
         reg: &dyn Registry,
         engine: &FlowEngine,
@@ -423,7 +423,7 @@ impl Flow {
             let node = match meta_node.factory {
                 NodeFactory::Flow(factory) => {
                     let mut node_state =
-                        self.clone().new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
+                        self.new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
                             log::error!("Failed to create flow node(id='{}'): {:?}", node_config.id, e);
                             e
                         })?;
@@ -658,7 +658,7 @@ impl Flow {
     }
 
     fn new_flow_node_state(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         meta_node: &MetaNode,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
