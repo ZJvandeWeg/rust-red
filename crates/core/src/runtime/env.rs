@@ -122,9 +122,7 @@ impl EnvStoreBuilder {
 
     pub fn extends(mut self, other_iter: impl IntoIterator<Item = (String, Variant)>) -> Self {
         for (k, v) in other_iter {
-            if !self.envs.contains_key(&k) {
-                self.envs.insert(k, v);
-            }
+            self.envs.entry(k).or_insert(v);
         }
         self
     }

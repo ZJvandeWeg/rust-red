@@ -386,12 +386,12 @@ impl Flow {
                 // Subgroup
                 Some(parent_id) => Group::new_subgroup(
                     gc,
-                    &self,
+                    self,
                     &self.state.groups.get(parent_id).unwrap(), //FIXME
                 )?,
 
                 // Root group
-                None => Group::new_flow_group(gc, &self)?,
+                None => Group::new_flow_group(gc, self)?,
             };
             self.state.groups.insert(group.id, Arc::new(group));
         }
@@ -453,7 +453,7 @@ impl Flow {
                         }
                     }
 
-                    match factory(&self, node_state, node_config) {
+                    match factory(self, node_state, node_config) {
                         Ok(node) => {
                             log::debug!("------ The node {} has been built.", node);
                             node
@@ -728,7 +728,7 @@ impl Flow {
             type_str: meta_node.type_,
             ordering: node_config.ordering,
             disabled: node_config.disabled,
-            flow: Arc::downgrade(&self),
+            flow: Arc::downgrade(self),
             msg_tx: tx_root,
             msg_rx: MsgReceiverHolder::new(rx),
             ports,

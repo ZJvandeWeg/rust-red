@@ -749,7 +749,7 @@ fn preprocess_merge_subflow_env(flows: &mut JsonValue) -> crate::Result<()> {
                     element["env"] = JsonValue::Array(Vec::new());
                     element.get_mut("env").unwrap()
                 };
-                merge_env(instance_env, &subflow_env)?;
+                merge_env(instance_env, subflow_env)?;
             }
         }
     }
