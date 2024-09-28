@@ -13,6 +13,11 @@
                 "test/nodes/core/common/20-inject_spec.js"
             ],
             [
+                "catch",
+                "nodes/common/test_catch_nodes.py",
+                "test/nodes/core/common/25-catch_spec.js"
+            ],
+            [
                 "link",
                 "nodes/common/test_link_nodes.py",
                 "test/nodes/core/common/60-link_spec.js"

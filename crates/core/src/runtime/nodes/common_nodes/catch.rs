@@ -30,7 +30,10 @@ impl CatchNodeScope {
 
 #[derive(Debug, Default, Deserialize)]
 struct CatchNodeConfig {
+    #[serde(default)]
     scope: CatchNodeScope,
+
+    #[serde(default)]
     uncaught: bool,
 }
 
