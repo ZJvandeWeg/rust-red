@@ -8,7 +8,7 @@ from tests import *
 
 
 def _timestamp():
-    return time.time_ns() / 1000_000.0
+    return int(round(time.time_ns() / 1000_000.0))
 
 
 async def basic_test(type: str, val, rval=None):
@@ -279,8 +279,6 @@ class TestInjectNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["payload"] == "0000000000001000"
 
-
-
     """
     @pytest.mark.asyncio
     async def test_0101(self):
@@ -322,10 +320,10 @@ class TestInjectNode:
         ]
         injections = []
         # Should in one second
-        expected_time = _timestamp() + 1000.0
+        expected_time = _timestamp() + 1000
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == 't1'
-        assert msgs[0]['payload'] < expected_time
+        assert int(round(msgs[0]['payload'])) < expected_time
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with 500 msec. delay')
@@ -340,8 +338,8 @@ class TestInjectNode:
         start_time = _timestamp()
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == 't1'
-        assert msgs[0]["payload"] >= start_time + 500.0
-        assert msgs[0]["payload"] < start_time + 1000.0  # in 1-second
+        assert int(round(msgs[0]["payload"])) >= start_time + 500
+        assert int(round(msgs[0]["payload"])) < start_time + 1000  # in 1-second
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with delay of two seconds')
@@ -361,9 +359,9 @@ class TestInjectNode:
         assert msg["topic"] == 't1'
         assert "ts" in msg
         assert isinstance(msg["ts"], (float, int))
-        assert msg["payload"] >= start_time + 2000.0
-        assert msg["ts"] >= start_time + 2000.0
-        assert msg["ts"] < msg["payload"] + 2700.0
+        assert int(round(msg["payload"])) >= start_time + 2000.0
+        assert int(round(msg["ts"])) >= start_time + 2000.0
+        assert int(round(msg["ts"])) < msg["payload"] + 2700.0
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject repeatedly')
@@ -395,7 +393,7 @@ class TestInjectNode:
         start_time = _timestamp()
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
         assert msgs[0]["topic"] == 't1'
-        assert msgs[0]["payload"] > start_time + 1000.0
+        assert int(round(msgs[0]["payload"])) > start_time + 1000
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject with cron')
