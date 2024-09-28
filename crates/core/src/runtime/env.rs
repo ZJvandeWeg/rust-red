@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock, Weak},
 };
@@ -9,14 +8,15 @@ use itertools::Itertools;
 use nom;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
+use utils::topo::TopologicalSorter;
 
 use crate::runtime::model::{RedPropertyType, Variant};
 use crate::*;
 
 #[derive(Debug)]
 pub struct EnvStore {
-    pub parent: RwLock<Option<Weak<EnvStore>>>,
-    pub envs: DashMap<String, Variant>,
+    parent: RwLock<Option<Weak<EnvStore>>>,
+    envs: DashMap<String, Variant>,
 }
 
 impl EnvStore {
@@ -24,12 +24,12 @@ impl EnvStore {
         self.get_normalized(env_expr)
     }
 
-    pub fn get_env(&self, key: &str) -> Option<Variant> {
+    fn get_raw_env(&self, key: &str) -> Option<Variant> {
         if let Some(value) = self.envs.get(key) {
             Some(value.clone())
         } else {
             let parent = self.parent.read().ok()?;
-            parent.as_ref().and_then(|p| p.upgrade()).and_then(|p| p.evalute_env(key))
+            parent.as_ref().and_then(|p| p.upgrade()).and_then(|p| p.get_raw_env(key))
         }
     }
 
@@ -38,13 +38,13 @@ impl EnvStore {
         if trimmed.starts_with("${") && env_expr.ends_with("}") {
             // ${ENV_VAR}
             let to_match = &trimmed[2..(env_expr.len() - 1)];
-            self.get_env(to_match)
+            self.get_raw_env(to_match)
         } else if !trimmed.contains("${") {
             // ENV_VAR
-            self.get_env(trimmed)
+            self.get_raw_env(trimmed)
         } else {
             // FOO${ENV_VAR}BAR
-            Some(Variant::String(replace_vars(trimmed, |env_name| match self.get_env(env_name) {
+            Some(Variant::String(replace_vars(trimmed, |env_name| match self.get_raw_env(env_name) {
                 Some(v) => v.to_string().unwrap(), // FIXME
                 _ => "".to_string(),
             })))
@@ -90,15 +90,17 @@ impl EnvStoreBuilder {
                     .collect()
             };
 
-            // TODO: Maybe dependency sorting? The Node-RED didn't have it.
-            entries.sort_by(|a, b| match (a.type_, b.type_) {
-                (RedPropertyType::Env, RedPropertyType::Env) => Ordering::Equal,
-                (RedPropertyType::Env, _) => Ordering::Less,
-                (_, RedPropertyType::Env) => Ordering::Greater,
-                _ => Ordering::Equal,
-            });
+            let mut topo = TopologicalSorter::new();
+            for entry in entries.iter() {
+                topo.add_vertex(entry.name.as_str());
+                if entry.type_ == RedPropertyType::Env {
+                    topo.add_dep(entry.name.as_str(), entry.value.as_str());
+                }
+            }
+            let sorted_keys = topo.dependency_sort();
 
-            for e in entries.iter() {
+            for key in sorted_keys.into_iter() {
+                let e = entries.iter().find(|x| x.name == key).unwrap();
                 if let Ok(var) = self.evaluate(&e.value, e.type_) {
                     self.envs.insert(e.name.clone(), var);
                 } else {
@@ -118,14 +120,25 @@ impl EnvStoreBuilder {
         self
     }
 
-    pub fn extends(mut self, iter: impl IntoIterator<Item = (String, Variant)>) -> Self {
-        for (k, v) in iter {
-            self.envs.insert(k, v);
+    pub fn extends(mut self, other_iter: impl IntoIterator<Item = (String, Variant)>) -> Self {
+        for (k, v) in other_iter {
+            if !self.envs.contains_key(&k) {
+                self.envs.insert(k, v);
+            }
         }
         self
     }
 
-    pub fn merge(mut self, other: &EnvStore) -> Self {
+    pub fn extends_with(mut self, other: &EnvStore) -> Self {
+        for it in other.envs.iter() {
+            if !self.envs.contains_key(it.key()) {
+                self.envs.insert(it.key().clone(), it.value().clone());
+            }
+        }
+        self
+    }
+
+    pub fn update_with(mut self, other: &EnvStore) -> Self {
         for guard in other.envs.iter() {
             self.envs.insert(guard.key().clone(), guard.value().clone());
         }

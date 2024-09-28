@@ -276,7 +276,7 @@ impl Flow {
         }
         if let Some(ref instance) = subflow_instance {
             // merge from subflow instance
-            envs_builder = envs_builder.merge(instance.get_envs().as_ref());
+            envs_builder = envs_builder.update_with(instance.get_envs().as_ref());
         }
 
         envs_builder = match flow_kind {

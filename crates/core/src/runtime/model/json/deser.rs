@@ -16,7 +16,8 @@ use crate::EdgelinkError;
 use super::*;
 
 pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<ResolvedFlows> {
-    let preprocessed = preprocess_subflows(root_jv)?;
+    let mut preprocessed = preprocess_subflows(root_jv)?;
+    preprocess_merge_subflow_env(&mut preprocessed)?;
     let all_values = preprocessed
         .as_array()
         .ok_or(EdgelinkError::BadFlowsJson("Cannot convert the value into an array".to_string()))?;
@@ -94,7 +95,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<ResolvedFlows
                 }
             }
         } else {
-            return Err(EdgelinkError::BadFlowsJson("The entry in `flows.json` must be object".to_string()).into());
+            return Err(EdgelinkError::BadFlowsJson("The entry in `flows.json` must be an object".to_string()).into());
         }
     }
 
@@ -726,4 +727,54 @@ where
         }
         None => Ok(None),
     }
+}
+
+fn preprocess_merge_subflow_env(flows: &mut JsonValue) -> crate::Result<()> {
+    let elements = flows.as_array_mut().ok_or(EdgelinkError::BadArgument("flows"))?;
+    let subflows: HashMap<String, JsonValue> = elements
+        .iter()
+        .filter(|x| x.get("type").and_then(|y| y.as_str()).map(|y| y == "subflow").unwrap_or(false))
+        .filter(|x| x.get("env").is_some())
+        .map(|e| (e.get("id").and_then(|x| x.as_str()).unwrap().to_string(), e.get("env").cloned().unwrap()))
+        .collect();
+
+    for element in elements.iter_mut() {
+        if let Some(("subflow", subflow_id)) =
+            element.get("type").and_then(|x| x.as_str()).and_then(|x| x.split_once(':'))
+        {
+            if let Some(subflow_env) = subflows.get(subflow_id) {
+                let instance_env = if let Some(instance_env) = element.get_mut("env") {
+                    instance_env
+                } else {
+                    element["env"] = JsonValue::Array(Vec::new());
+                    element.get_mut("env").unwrap()
+                };
+                merge_env(instance_env, &subflow_env)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn merge_env(target_envs: &mut JsonValue, ref_envs: &JsonValue) -> crate::Result<()> {
+    let target_vec: &mut Vec<JsonValue> =
+        target_envs.as_array_mut().ok_or(EdgelinkError::BadArgument("target_envs"))?;
+    let ref_vec: &Vec<JsonValue> = ref_envs.as_array().ok_or(EdgelinkError::BadArgument("ref_envs"))?;
+
+    let target_names: HashSet<String> = target_vec
+        .iter()
+        .filter_map(|item| item.get("name"))
+        .filter_map(|name| name.as_str())
+        .map(|name| name.to_string())
+        .collect();
+
+    for item in ref_vec.iter() {
+        if let Some(name) = item.get("name").and_then(|name| name.as_str()) {
+            if !target_names.contains(name) {
+                target_vec.push(item.clone());
+            }
+        }
+    }
+
+    Ok(())
 }

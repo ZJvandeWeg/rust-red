@@ -22,7 +22,7 @@ impl<'js> EnvClass {
     #[qjs()]
     fn get(&self, key: Value<'js>, ctx: Ctx<'js>) -> Result<Value<'js>> {
         let key: String = key.get()?;
-        let res: Value<'js> = match self.env_store.get_env(key.as_ref()) {
+        let res: Value<'js> = match self.env_store.evalute_env(key.as_ref()) {
             Some(var) => var.into_js(&ctx)?,
             _ => Value::new_undefined(ctx),
         };
