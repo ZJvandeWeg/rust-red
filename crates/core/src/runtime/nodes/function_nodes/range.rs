@@ -69,11 +69,14 @@ impl RangeNode {
         Ok(Box::new(node))
     }
 
-    fn do_range(&self, msg: &mut Msg) -> bool {
+    fn do_range(&self, msg: &mut Msg) -> crate::Result<()> {
         if let Some(value) = msg.get_nav_stripped_mut(&self.config.property) {
             let mut n: f64 = match value {
-                Variant::Number(num_value) => num_value.as_f64().unwrap(), // FIXME
-                Variant::String(s) => s.parse::<f64>().unwrap(),
+                Variant::Number(num_value) => num_value
+                    .as_f64()
+                    .ok_or(EdgelinkError::OutOfRange)
+                    .with_context(|| format!("Cannot convert the number `{}` to float", num_value))?,
+                Variant::String(s) => s.parse::<f64>()?,
                 _ => f64::NAN,
             };
 
@@ -81,7 +84,7 @@ impl RangeNode {
                 match self.config.action {
                     RangeAction::Drop => {
                         if n < self.config.minin || n > self.config.maxin {
-                            return false;
+                            return Err(EdgelinkError::OutOfRange.into());
                         }
                     }
 
@@ -103,13 +106,12 @@ impl RangeNode {
                 }
 
                 *value = Variant::Number(serde_json::Number::from_f64(new_value).unwrap());
-                true
+                Ok(())
             } else {
-                log::info!("The value is not a numner: {:?}", value); //FIXME TODO
-                false
+                Err(EdgelinkError::OutOfRange).with_context(|| format!("The value is not a numner: {:?}", value))
             }
         } else {
-            true
+            Ok(())
         }
     }
 }
@@ -138,13 +140,11 @@ impl FlowNodeBehavior for RangeNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.child_token();
             with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
-                let do_send = {
+                {
                     let mut msg_guard = msg.write().await;
-                    node.do_range(&mut msg_guard)
-                };
-                if do_send {
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                    node.do_range(&mut msg_guard)?;
                 }
+                node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
                 Ok(())
             })
             .await;

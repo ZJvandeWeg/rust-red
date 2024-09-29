@@ -95,4 +95,18 @@ class TestRangeNode:
         msgs = await run_single_node_with_msgs_ntimes(node, injections, 1)
         assert 'payload' not in msgs[0]
 
-# TODO: 'reports if input is not a number'
+    @pytest.mark.asyncio
+    @pytest.mark.it('reports if input is not a number')
+    async def test_it_reports_if_input_is_not_a_number(self):
+        flows = [
+            {"id": "100", "type": "tab"},  # flow 1
+            {"id": "1", "z": "100", "type": "range", 
+             "minin": 0, "maxin": 0, "minout": 0, "maxout": 0, "action": "scale", "round": True, },
+            {"id": "2", "z": "100", "type": "catch", "wires": [["3"]]},
+            {"id": "3", "z": "100", "type": "test-once"},
+        ]
+        injections = [
+            {"nid": "1", "msg": {"payload": "NOT A NUMBER"}}
+        ]
+        msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
+        assert 'error' in msgs[0]

@@ -283,6 +283,20 @@ where
     }
 }
 
+pub async fn report_error<B>(node: &B, log_message: String, msg: MsgHandle, cancel: CancellationToken)
+where
+    B: FlowNodeBehavior,
+{
+    let handled = if let Some(flow) = node.get_flow().upgrade() {
+        flow.handle_error(node, &log_message, Some(&msg), None, cancel).await.unwrap_or(false)
+    } else {
+        false
+    };
+    if !handled {
+        log::error!("[{}:{}] {}", node.type_str(), node.name(), log_message);
+    }
+}
+
 #[async_trait]
 pub trait LinkCallNodeBehavior: Send + Sync + FlowNodeBehavior {
     /// Receive the returning message
