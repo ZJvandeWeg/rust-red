@@ -1,12 +1,11 @@
 use std::sync::{Arc, Weak};
 
 use rquickjs::{class::Trace, prelude::Opt, Ctx, FromJs, IntoJs, Value};
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use crate::runtime::js::util;
 
-use super::{EdgelinkError, Envelope, FlowNodeBehavior, FunctionNode, Msg};
+use super::*;
 
 #[derive(Clone, Trace)]
 #[rquickjs::class(frozen)]
@@ -85,8 +84,7 @@ impl NodeClass {
                                 let msg_value =
                                     if cloning && is_first { util::deep_clone(ctx.clone(), msg)? } else { msg };
                                 is_first = false;
-                                let envelope =
-                                    Envelope { port, msg: Arc::new(RwLock::new(Msg::from_js(&ctx, msg_value)?)) };
+                                let envelope = Envelope { port, msg: MsgHandle::new(Msg::from_js(&ctx, msg_value)?) };
                                 msgs_to_send.push(envelope);
                             }
                         }
@@ -98,7 +96,7 @@ impl NodeClass {
                             msgs_in_port
                         };
                         is_first = false;
-                        let envelope = Envelope { port, msg: Arc::new(RwLock::new(Msg::from_js(&ctx, msg_value)?)) };
+                        let envelope = Envelope { port, msg: MsgHandle::new(Msg::from_js(&ctx, msg_value)?) };
                         msgs_to_send.push(envelope);
                     } else {
                         log::warn!("Unknown msg type: {}", port);
@@ -116,7 +114,7 @@ impl NodeClass {
             }
 
             rquickjs::Type::Object => {
-                let msg_to_send = Arc::new(RwLock::new(Msg::from_js(&ctx, msgs)?));
+                let msg_to_send = MsgHandle::new(Msg::from_js(&ctx, msgs)?);
                 let envelope = Envelope { port: 0, msg: msg_to_send };
                 // FIXME
                 let cancel = CancellationToken::new();

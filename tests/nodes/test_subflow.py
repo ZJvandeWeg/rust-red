@@ -27,8 +27,8 @@ class TestSubflow:
         assert msgs[0]["payload"] == "hello"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''should pass data to/from subflow''')
-    async def test_0002(self):
+    @pytest.mark.it('should pass data to/from subflow')
+    async def test_it_should_pass_data_to_from_subflow(self):
         flows = [
             {"id": "100", "type": "tab"},
             {"id": "1", "z": "100", "type": "subflow:200", "wires": [["2"]]},

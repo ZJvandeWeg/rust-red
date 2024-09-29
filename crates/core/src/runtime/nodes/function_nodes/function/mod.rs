@@ -100,7 +100,7 @@ impl FlowNodeBehavior for FunctionNode {
                         if !changed_msgs.is_empty() {
                             let envelopes = changed_msgs
                                 .into_iter()
-                                .map(|x| Envelope { port: x.0, msg: Arc::new(RwLock::new(x.1)) })
+                                .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
                                 .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
 
                             this_node.fan_out_many(&envelopes, cancel.clone()).await?;

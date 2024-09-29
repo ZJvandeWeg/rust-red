@@ -37,10 +37,9 @@ class TestInjectNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["payload"] == 'hello'
 
-
     @pytest.mark.asyncio
     @pytest.mark.it('should be linked to multiple nodes')
-    async def test_0002(self):
+    async def test_it_should_be_linked_to_multiple_nodes(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "link out",
@@ -52,11 +51,10 @@ class TestInjectNode:
             {"id": "4", "z": "100", "type": "test-once"}
         ]
         injections = [
-            {'payload': 'hello'},
+            {"nid": "1", "msg": {'payload': 'hello'}},
         ]
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
         assert msgs[0]["payload"] == 'hello'
-
 
     @pytest.mark.asyncio
     @pytest.mark.it('''should be linked from multiple nodes''')
@@ -78,7 +76,6 @@ class TestInjectNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 2)
         assert msgs[0]["payload"] == 'hello'
         assert msgs[1]["payload"] == 'hello'
-
 
     @pytest.mark.describe('link-call node')
     class TestLinkCallNode:
@@ -102,7 +99,6 @@ class TestInjectNode:
             ]
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             assert msgs[0]["payload"] == "123"
-
 
         @pytest.mark.asyncio
         @pytest.mark.it('should call link-in node by name and get response')
@@ -128,7 +124,6 @@ class TestInjectNode:
             msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
             print(msgs)
             assert int(round(msgs[0]["payload"])) == int(round(payload + payload))
-
 
         """ TODO implements the `catch` node
         @pytest.mark.asyncio
@@ -178,7 +173,6 @@ class TestInjectNode:
             assert msgs[0]["payload"] == payload + payload
         """
 
-
         @pytest.mark.asyncio
         @pytest.mark.it('should allow nested link-call flows')
         async def test_it_should_allow_nested_link_call_flows_link_call_node(self):
@@ -201,7 +195,7 @@ class TestInjectNode:
                 {"id": "7", "z": "100", "type": "link in", "wires": [["8"]]},
                 {"id": "8", "z": "100", "type": "link call", "links": ["1"], "wires": [["9"]]},
                 {"id": "9", "z": "100", "type": "link call", "links": ["4"], "wires": [["10"]]},
-                {"id": "10", "z": "100",  "type": "link out", "mode": "return"},
+                {"id": "10", "z": "100", "type": "link out", "mode": "return"},
 
                 # Test Flow Entry
                 {"id": "11", "z": "100", "type": "link call",

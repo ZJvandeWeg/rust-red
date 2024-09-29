@@ -24,10 +24,15 @@ pub mod wellknown {
 #[derive(Debug, Clone)]
 pub struct Envelope {
     pub port: usize,
-    pub msg: Arc<RwLock<Msg>>,
+    pub msg: MsgHandle,
 }
 
 pub type MsgBody = BTreeMap<String, Variant>;
+
+#[derive(Debug, Clone)]
+pub struct MsgHandle {
+    inner: Arc<RwLock<Msg>>,
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct LinkCallStackEntry {
@@ -48,33 +53,6 @@ impl Default for Msg {
 }
 
 impl Msg {
-    pub fn new_default() -> Arc<RwLock<Self>> {
-        let msg = Msg {
-            link_call_stack: None,
-            body: Variant::Object(BTreeMap::from([
-                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
-                ("payload".to_string(), Variant::Null),
-            ])),
-        };
-        Arc::new(RwLock::new(msg))
-    }
-
-    pub fn new_with_body(body: BTreeMap<String, Variant>) -> Arc<RwLock<Self>> {
-        let msg = Msg { link_call_stack: None, body: Variant::Object(body) };
-        Arc::new(RwLock::new(msg))
-    }
-
-    pub fn new_with_payload(payload: Variant) -> Arc<RwLock<Self>> {
-        let msg = Msg {
-            link_call_stack: None,
-            body: Variant::Object(BTreeMap::from([
-                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
-                ("payload".to_string(), payload),
-            ])),
-        };
-        Arc::new(RwLock::new(msg))
-    }
-
     pub fn id(&self) -> Option<ElementId> {
         self.body
             .as_object()
@@ -356,6 +334,62 @@ impl<'js> js::IntoJs<'js> for Msg {
             obj.set(link_source_atom, link_source_buffer)?;
         }
         Ok(jsv)
+    }
+}
+
+impl Default for MsgHandle {
+    fn default() -> Self {
+        let msg = Msg {
+            body: Variant::Object(BTreeMap::from([
+                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
+                ("payload".to_string(), Variant::Null),
+            ])),
+            link_call_stack: None,
+        };
+        MsgHandle::new(msg)
+    }
+}
+
+impl MsgHandle {
+    pub fn new(inner: Msg) -> Self {
+        MsgHandle { inner: (Arc::new(RwLock::new(inner))) }
+    }
+
+    pub fn with_body(body: BTreeMap<String, Variant>) -> Self {
+        let msg = Msg { link_call_stack: None, body: Variant::Object(body) };
+        MsgHandle::new(msg)
+    }
+
+    pub fn with_payload(payload: Variant) -> Self {
+        let msg = Msg {
+            link_call_stack: None,
+            body: Variant::Object(BTreeMap::from([
+                (wellknown::MSG_ID_PROPERTY.to_string(), Msg::generate_id_variant()),
+                ("payload".to_string(), payload),
+            ])),
+        };
+        MsgHandle::new(msg)
+    }
+
+    pub async fn read(&self) -> tokio::sync::RwLockReadGuard<Msg> {
+        self.inner.read().await
+    }
+
+    pub async fn write(&self) -> tokio::sync::RwLockWriteGuard<Msg> {
+        self.inner.write().await
+    }
+
+    pub async fn deep_clone(&self, new_id: bool) -> Self {
+        let mut inner = self.inner.read().await.clone();
+        if new_id {
+            inner.set_id(Msg::generate_id());
+        }
+        MsgHandle::new(inner)
+    }
+
+    pub async fn unwrap(self) -> Msg {
+        let inner_lock = Arc::try_unwrap(self.inner).expect("only one reference");
+        inner_lock.into_inner()
     }
 }
 

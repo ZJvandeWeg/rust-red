@@ -37,7 +37,7 @@ struct LinkCallNodeConfig {
 
 #[derive(Debug)]
 struct MsgEvent {
-    _msg: Arc<RwLock<Msg>>,
+    _msg: MsgHandle,
     timeout_handle: tokio::task::AbortHandle,
 }
 
@@ -94,24 +94,17 @@ impl LinkCallNode {
         Ok(Box::new(node))
     }
 
-    async fn uow(&self, node: Arc<Self>, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    async fn uow(&self, node: Arc<Self>, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         self.forward_call_msg(node.clone(), msg, cancel).await
     }
 
-    async fn forward_call_msg(
-        &self,
-        node: Arc<Self>,
-        msg: Arc<RwLock<Msg>>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
-        let entry_id;
-        let cloned_msg;
-        {
+    async fn forward_call_msg(&self, node: Arc<Self>, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
+        let (entry_id, cloned_msg) = {
             let mut locked_msg = msg.write().await;
-            entry_id = ElementId::with_u64(self.event_id_atomic.fetch_add(1, Ordering::Relaxed));
+            let entry_id = ElementId::with_u64(self.event_id_atomic.fetch_add(1, Ordering::Relaxed));
             locked_msg.push_link_source(LinkCallStackEntry { id: entry_id, link_call_node_id: self.id() });
-            cloned_msg = Arc::new(RwLock::new(locked_msg.clone()));
-        }
+            (entry_id, msg.clone())
+        };
         {
             let mut mut_state = self.mut_state.lock().await;
             let timeout_handle = mut_state.timeout_tasks.spawn(async move { node.timeout_task(entry_id).await });
@@ -120,7 +113,7 @@ impl LinkCallNode {
         self.fan_out_linked_msg(msg, cancel.clone()).await
     }
 
-    async fn fan_out_linked_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    async fn fan_out_linked_msg(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         match self.config.link_type {
             LinkType::Static => {
                 for link_node in self.linked_nodes.iter() {
@@ -241,7 +234,7 @@ impl LinkCallNodeBehavior for LinkCallNode {
     /// Receive the returning message
     async fn return_msg(
         &self,
-        msg: Arc<RwLock<Msg>>,
+        msg: MsgHandle,
         stack_id: ElementId,
         _return_from_node_id: ElementId,
         _return_from_flow_id: ElementId,

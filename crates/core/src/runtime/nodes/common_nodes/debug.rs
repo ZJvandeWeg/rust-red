@@ -47,7 +47,8 @@ impl FlowNodeBehavior for DebugNode {
             if self.base.active {
                 match self.recv_msg(stop_token.child_token()).await {
                     Ok(msg) => {
-                        log::info!("[debug:{}] Message Received: \n{:#?}", self.name(), msg.as_ref())
+                        let msg = msg.read().await;
+                        log::info!("[debug:{}] Message Received: \n{:#?}", self.name(), &msg)
                     }
                     Err(ref err) => {
                         log::error!("[debug:{}] Error: {:#?}", self.name(), err);

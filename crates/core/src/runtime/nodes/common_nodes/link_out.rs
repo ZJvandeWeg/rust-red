@@ -59,12 +59,15 @@ impl LinkOutNode {
         Ok(Box::new(node))
     }
 
-    async fn uow(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    async fn uow(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         match self.mode {
             LinkOutMode::Link => {
+                let mut is_msg_sent = false;
                 for link_node in self.linked_nodes.iter() {
                     if let Some(link_node) = link_node.upgrade() {
-                        link_node.inject_msg(msg.clone(), cancel.clone()).await?;
+                        let cloned_msg = if is_msg_sent { msg.deep_clone(true).await } else { msg.clone() };
+                        is_msg_sent = true;
+                        link_node.inject_msg(cloned_msg, cancel.clone()).await?;
                     } else {
                         let err_msg =
                             format!("The required `link in` was unavailable in `link out` node(id={})!", self.id());

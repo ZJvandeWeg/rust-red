@@ -62,7 +62,7 @@ class TestInjectNode:
 
     @pytest.mark.asyncio
     @pytest.mark.it('inject value of environment variable ')
-    async def test_0002(self):
+    async def test_it_inject_value_of_environment_variable(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
             {"id": "1", "z": "100", "type": "inject", "once": True, "onceDelay": 0.0, "repeat": "",

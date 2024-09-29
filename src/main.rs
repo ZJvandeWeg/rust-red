@@ -7,7 +7,7 @@ use std::sync::Arc;
 // 3rd-party libs
 use clap::Parser;
 use serde::Deserialize;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use edgelink_core::runtime::engine::FlowEngine;
@@ -15,7 +15,6 @@ use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::text::json_seq;
 use edgelink_core::*;
-use runtime::model::ElementId;
 
 include!(concat!(env!("OUT_DIR"), "/__use_node_plugins.rs"));
 
@@ -30,7 +29,7 @@ pub use cliargs::*;
 pub struct MsgInjectionEntry {
     pub nid: ElementId,
 
-    pub msg: Arc<RwLock<Msg>>,
+    pub msg: MsgHandle,
 }
 
 #[derive(Debug)]
@@ -85,7 +84,7 @@ impl App {
                                     &json_value["nid"],
                                 )
                                 .unwrap(),
-                                msg: Arc::new(RwLock::new(Msg::deserialize(&json_value["msg"])?)),
+                                msg: MsgHandle::new(Msg::deserialize(&json_value["msg"])?),
                             };
                             msgs_to_inject.push(entry);
                         }

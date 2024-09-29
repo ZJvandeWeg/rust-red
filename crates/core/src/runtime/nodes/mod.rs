@@ -3,12 +3,10 @@ use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
 use tokio::select;
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
 use super::group::Group;
-use super::model::{ElementId, Envelope, Msg, MsgReceiverHolder};
 use crate::runtime::engine::FlowEngine;
 use crate::runtime::env::*;
 use crate::runtime::flow::*;
@@ -134,7 +132,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         flow.engine.upgrade()
     }
 
-    async fn inject_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    async fn inject_msg(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         select! {
             result = self.get_node().msg_tx.send(msg) => {
                 result.map_err(|e| e.into())
@@ -147,7 +145,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         }
     }
 
-    async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<Arc<RwLock<Msg>>> {
+    async fn recv_msg(&self, stop_token: CancellationToken) -> crate::Result<MsgHandle> {
         let msg = self.get_node().msg_rx.recv_msg(stop_token).await?;
         if self.get_node().on_received.receiver_count() > 0 {
             self.get_node().on_received.send(msg.clone())?;
@@ -155,7 +153,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         Ok(msg)
     }
 
-    async fn notify_uow_completed(&self, msg: &Msg, cancel: CancellationToken) {
+    async fn notify_uow_completed(&self, msg: MsgHandle, cancel: CancellationToken) {
         let (node_id, flow) = { (self.id(), self.get_node().flow.upgrade()) };
         if let Some(flow) = flow {
             flow.notify_node_uow_completed(&node_id, msg, cancel).await;
@@ -178,13 +176,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
 
         let mut msg_sent = false;
         for wire in port.wires.iter() {
-            let msg_to_send = if msg_sent {
-                // other msg
-                let to_clone = envelope.msg.read().await;
-                Arc::new(RwLock::new(to_clone.clone()))
-            } else {
-                envelope.msg.clone() // First time
-            };
+            let msg_to_send = if msg_sent { envelope.msg.deep_clone(true).await } else { envelope.msg.clone() };
 
             wire.tx(msg_to_send, cancel.clone()).await?;
             msg_sent = true;
@@ -258,7 +250,7 @@ impl fmt::Display for dyn FlowNodeBehavior {
 pub async fn with_uow<'a, B, F, T>(node: &'a B, cancel: CancellationToken, proc: F)
 where
     B: FlowNodeBehavior,
-    F: FnOnce(&'a B, Arc<RwLock<Msg>>) -> T,
+    F: FnOnce(&'a B, MsgHandle) -> T,
     T: std::future::Future<Output = crate::Result<()>>,
 {
     match node.recv_msg(cancel.clone()).await {
@@ -274,10 +266,7 @@ where
                 }
             }
             // Report the completion
-            {
-                let msg_guard = msg.read().await;
-                node.notify_uow_completed(&msg_guard, cancel.clone()).await;
-            }
+            node.notify_uow_completed(msg, cancel.clone()).await;
         }
         Err(ref err) => {
             if let Some(EdgelinkError::TaskCancelled) = err.downcast_ref::<EdgelinkError>() {
@@ -299,7 +288,7 @@ pub trait LinkCallNodeBehavior: Send + Sync + FlowNodeBehavior {
     /// Receive the returning message
     async fn return_msg(
         &self,
-        msg: Arc<RwLock<Msg>>,
+        msg: MsgHandle,
         stack_id: ElementId,
         return_from_node_id: ElementId,
         return_from_flow_id: ElementId,

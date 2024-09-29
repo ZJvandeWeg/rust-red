@@ -636,10 +636,10 @@ impl Flow {
         Ok(())
     }
 
-    pub async fn notify_node_uow_completed(&self, emitter_id: &ElementId, msg: &Msg, cancel: CancellationToken) {
+    pub async fn notify_node_uow_completed(&self, emitter_id: &ElementId, msg: MsgHandle, cancel: CancellationToken) {
         if let Some(complete_nodes) = self.state.complete_nodes_map.get(emitter_id) {
             for complete_node in complete_nodes.iter() {
-                let to_send = Arc::new(RwLock::new(msg.clone()));
+                let to_send = msg.deep_clone(true).await;
                 match complete_node.inject_msg(to_send, cancel.child_token()).await {
                     Ok(()) => {}
                     Err(err) => {
@@ -650,7 +650,7 @@ impl Flow {
         }
     }
 
-    pub async fn inject_msg(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    pub async fn inject_msg(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         tokio::select! {
             result = self.inject_msg_internal(msg, cancel.clone()) => result,
 
@@ -661,7 +661,7 @@ impl Flow {
         }
     }
 
-    async fn inject_msg_internal(&self, msg: Arc<RwLock<Msg>>, cancel: CancellationToken) -> crate::Result<()> {
+    async fn inject_msg_internal(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         if let Some(subflow_state) = &self.subflow_state {
             let in_nodes = {
                 let subflow_state = subflow_state.read().unwrap();
@@ -672,8 +672,7 @@ impl Flow {
                 if !msg_sent {
                     node.inject_msg(msg.clone(), cancel.clone()).await?;
                 } else {
-                    let to_clone = msg.read().await;
-                    node.inject_msg(Arc::new(RwLock::new(to_clone.clone())), cancel.clone()).await?;
+                    node.inject_msg(msg.deep_clone(true).await, cancel.clone()).await?;
                 }
                 msg_sent = true;
             }
@@ -772,7 +771,7 @@ impl Flow {
         &self,
         node: &dyn FlowNodeBehavior,
         log_message: &str,
-        msg: Option<&Arc<RwLock<Msg>>>,
+        msg: Option<&MsgHandle>,
         reporting_node: Option<&dyn FlowNodeBehavior>,
         cancel: CancellationToken,
     ) -> crate::Result<bool> {
@@ -855,7 +854,7 @@ impl Flow {
                 }
             }));
             error_msg.set("error".into(), error_object);
-            let error_msg = Arc::new(RwLock::new(error_msg));
+            let error_msg = MsgHandle::new(error_msg);
             catch_node.inject_msg(error_msg, cancel.clone()).await?;
 
             handled = true;

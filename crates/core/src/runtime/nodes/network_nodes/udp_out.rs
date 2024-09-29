@@ -85,7 +85,7 @@ struct UdpOutNodeConfig {
 }
 
 impl UdpOutNode {
-    async fn uow(&self, msg: Arc<RwLock<Msg>>, socket: &UdpSocket) -> crate::Result<()> {
+    async fn uow(&self, msg: MsgHandle, socket: &UdpSocket) -> crate::Result<()> {
         let msg_guard = msg.read().await;
         if let Some(payload) = msg_guard.get("payload") {
             let remote_addr = std::net::SocketAddr::new(

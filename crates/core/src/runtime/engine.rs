@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use serde::Deserialize;
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use super::context::{Context, ContextManager, ContextManagerBuilder};
@@ -213,7 +212,7 @@ impl FlowEngine {
     pub async fn inject_msg_to_flow(
         &self,
         flow_id: &ElementId,
-        msg: Arc<RwLock<Msg>>,
+        msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         let flow = self.state.flows.get(flow_id).as_deref().cloned();
@@ -228,7 +227,7 @@ impl FlowEngine {
     pub async fn forward_msg_to_link_in(
         &self,
         link_in_id: &ElementId,
-        msg: Arc<RwLock<Msg>>,
+        msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         let flow = { self.state.flows.get(link_in_id).as_deref().cloned() };
@@ -289,17 +288,15 @@ impl FlowEngine {
 
         let cancel = CancellationToken::new();
         for msg in msgs_to_inject.drain(..) {
-            self.inject_msg(&msg.0, Arc::new(RwLock::new(msg.1)), cancel.clone()).await?;
+            self.inject_msg(&msg.0, MsgHandle::new(msg.1), cancel.clone()).await?;
         }
 
         let result = tokio::time::timeout(timeout, async {
             while !cancel.is_cancelled() && count < expected_msgs {
                 let msg = self.final_msgs_rx.recv_msg(cancel.clone()).await?;
                 count += 1;
-                if let Ok(msg) = Arc::try_unwrap(msg) {
-                    let msg = msg.into_inner();
-                    received.push(msg);
-                }
+                let msg = msg.unwrap().await;
+                received.push(msg);
             }
             cancel.cancel();
             cancel.cancelled().await;
@@ -347,7 +344,7 @@ impl FlowEngine {
     pub async fn inject_msg(
         &self,
         flow_node_id: &ElementId,
-        msg: Arc<RwLock<Msg>>,
+        msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
         let node = self
@@ -374,7 +371,7 @@ impl FlowEngine {
     }
 
     #[cfg(any(test, feature = "pymod"))]
-    pub fn recv_final_msg(&self, msg: Arc<RwLock<Msg>>) -> crate::Result<()> {
+    pub fn recv_final_msg(&self, msg: MsgHandle) -> crate::Result<()> {
         self.final_msgs_tx.send(msg)?;
         Ok(())
     }
