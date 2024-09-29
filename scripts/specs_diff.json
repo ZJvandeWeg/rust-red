@@ -3,18 +3,13 @@
         "category": "common nodes",
         "nodes": [
             [
-                "subflow",
-                "nodes/test_subflow.py",
-                "test/nodes/subflow/subflow_spec.js"
-            ],
-            [
                 "inject",
                 "nodes/common/test_inject_node.py",
                 "test/nodes/core/common/20-inject_spec.js"
             ],
             [
                 "catch",
-                "nodes/common/test_catch_nodes.py",
+                "nodes/common/test_catch_node.py",
                 "test/nodes/core/common/25-catch_spec.js"
             ],
             [
@@ -66,6 +61,16 @@
                 "rbe",
                 "nodes/function/test_rbe_node.py",
                 "test/nodes/core/function/rbe_spec.js"
+            ]
+        ]
+    },
+    {
+        "category": "subflow",
+        "nodes": [
+            [
+                "subflow",
+                "nodes/test_subflow.py",
+                "test/nodes/subflow/subflow_spec.js"
             ]
         ]
     }
