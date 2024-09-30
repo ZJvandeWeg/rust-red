@@ -1,5 +1,4 @@
 use std::io::Read;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -38,7 +37,6 @@ impl EngineArgs {
 #[derive(Debug)]
 pub(crate) struct EngineState {
     _context: Variant,
-    shutdown: AtomicBool,
     flows: DashMap<ElementId, Arc<Flow>>,
     global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
@@ -46,7 +44,7 @@ pub(crate) struct EngineState {
 
 pub struct Engine {
     pub(crate) state: EngineState,
-
+    shutdown: tokio::sync::RwLock<bool>,
     stop_token: CancellationToken,
     _args: EngineArgs,
     envs: Arc<EnvStore>,
@@ -88,13 +86,13 @@ impl Engine {
         let final_msgs_channel = tokio::sync::mpsc::unbounded_channel();
 
         let engine = Arc::new(Engine {
+            shutdown: tokio::sync::RwLock::new(true),
             stop_token: CancellationToken::new(),
             state: EngineState {
                 all_flow_nodes: DashMap::new(),
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
                 _context: Variant::empty_object(),
-                shutdown: AtomicBool::new(true),
             },
             envs,
             _args: EngineArgs::load(elcfg)?,
@@ -211,11 +209,11 @@ impl Engine {
 
     pub async fn inject_msg_to_flow(
         &self,
-        flow_id: &ElementId,
+        flow_id: ElementId,
         msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let flow = self.state.flows.get(flow_id).as_deref().cloned();
+        let flow = self.state.flows.get(&flow_id).as_deref().cloned();
         if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
@@ -241,30 +239,41 @@ impl Engine {
     }
 
     pub async fn start(&self) -> crate::Result<()> {
+        log::info!("-- Starting engine...");
+        let mut shutdown_lock = self.shutdown.try_write()?;
+        if !(*shutdown_lock) {
+            return Err(EdgelinkError::invalid_operation("already started."));
+        }
+
         if self.state.flows.is_empty() {
-            return Err(EdgelinkError::invalid_operation("No flows loaded in the engine."));
+            return Err(EdgelinkError::invalid_operation("no flows loaded in the engine."));
         }
         for f in self.state.flows.iter() {
             f.value().start().await?;
         }
 
-        self.state.shutdown.store(false, std::sync::atomic::Ordering::Relaxed);
+        *shutdown_lock = false;
 
         log::info!("-- All flows started.");
         Ok(())
     }
 
     pub async fn stop(&self) -> crate::Result<()> {
-        log::info!("-- Stopping all flows...");
+        let mut shutdown_lock = self.shutdown.try_write()?;
+        if *shutdown_lock {
+            return Err(EdgelinkError::invalid_operation("not started."));
+        }
+        log::info!("-- Stopping engine...");
+
         self.stop_token.cancel();
 
         for i in self.state.flows.iter() {
             i.value().stop().await?;
         }
 
-        self.state.shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+        *shutdown_lock = true;
         //drop(self.stopped_tx);
-        log::info!("-- All flows stopped.");
+        log::info!("-- Engine flows stopped.");
         Ok(())
     }
 
@@ -304,20 +313,11 @@ impl Engine {
         })
         .await;
 
+        self.stop().await?;
         match result {
-            Ok(Ok(())) => {
-                self.stop().await?;
-                Ok(received)
-            }
-            Ok(Err(e)) => {
-                self.stop().await?;
-                Err(e)
-            }
-            Err(_) => {
-                // timed out
-                self.stop().await?;
-                Err(EdgelinkError::Timeout.into())
-            }
+            Ok(Ok(())) => Ok(received),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(EdgelinkError::Timeout.into()),
         }
     }
 
@@ -374,18 +374,6 @@ impl Engine {
     pub fn recv_final_msg(&self, msg: MsgHandle) -> crate::Result<()> {
         self.final_msgs_tx.send(msg)?;
         Ok(())
-    }
-}
-
-impl Drop for Engine {
-    fn drop(&mut self) {
-        let is_shutdown = self.state.shutdown.load(std::sync::atomic::Ordering::SeqCst);
-        if !is_shutdown {
-            log::warn!("The engine was released without being stopped! A forced blocking stop is being performed.");
-            if let Err(e) = tokio::runtime::Handle::current().block_on(self.stop()) {
-                log::error!("failed to shutdown engine: {:?}", e);
-            }
-        }
     }
 }
 

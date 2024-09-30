@@ -76,8 +76,8 @@ pub struct Flow {
 
     pub engine: Weak<Engine>,
 
-    pub stop_token: CancellationToken,
-    pub(crate) subflow_state: Option<std::sync::RwLock<SubflowState>>,
+    stop_token: CancellationToken,
+    pub(crate) subflow_state: Option<SubflowState>,
 
     state: FlowState,
     envs: Arc<EnvStore>,
@@ -245,7 +245,7 @@ impl Flow {
             },
 
             subflow_state: match flow_kind {
-                FlowKind::Subflow => Some(std::sync::RwLock::new(SubflowState::new(&engine, flow_config, &args)?)),
+                FlowKind::Subflow => Some(SubflowState::new(&engine, flow_config, &args)?),
                 FlowKind::GlobalFlow => None,
             },
             envs,
@@ -262,8 +262,6 @@ impl Flow {
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
-            let mut subflow_state = subflow_state.write().unwrap();
-
             subflow_state.populate_in_nodes(&flow.state, flow_config)?;
         }
 
@@ -325,7 +323,6 @@ impl Flow {
 
                     // Redirect all the output node wires in the subflow to the output port of the subflow.
                     if let Some(subflow_state) = &self.subflow_state {
-                        let subflow_state = subflow_state.read().unwrap();
                         for (subflow_port_index, red_port) in flow_config.out_ports.iter().enumerate() {
                             let red_wires = red_port.wires.iter().filter(|x| x.id == node_state.id);
                             for red_wire in red_wires {
@@ -334,7 +331,11 @@ impl Flow {
                                     node_state.ports.push(Port::empty());
                                 }
                                 if let Some(node_port) = node_state.ports.get_mut(red_wire.port) {
-                                    let subflow_tx_port = &subflow_state.tx_ports[subflow_port_index];
+                                    let subflow_tx_port = {
+                                        let tx_ports_lock =
+                                            subflow_state.tx_ports.read().expect("read subflow tx_ports lock");
+                                        tx_ports_lock[subflow_port_index].clone()
+                                    };
                                     let node_wire = PortWire { msg_sender: subflow_tx_port.msg_tx.clone() };
                                     node_port.wires.push(node_wire)
                                 } else {
@@ -380,7 +381,7 @@ impl Flow {
 
         // Sort the `catch` nodes
         {
-            let mut catch_nodes = self.state.catch_nodes.write().expect("aquire the lock of `catch_nodes`");
+            let mut catch_nodes = self.state.catch_nodes.write().expect("`catch_nodes` write lock");
             catch_nodes.sort_by(|a, b| {
                 let a = a.as_any().downcast_ref::<CatchNode>().unwrap();
                 let b = b.as_any().downcast_ref::<CatchNode>().unwrap();
@@ -410,10 +411,12 @@ impl Flow {
     ) -> crate::Result<()> {
         match node.get_node().type_str {
             "complete" => self.register_complete_node(node, node_config)?,
+
             "catch" => {
-                let mut catch_nodes = self.state.catch_nodes.write().expect("aquire the lock of `catch_nodes`");
+                let mut catch_nodes = self.state.catch_nodes.write().expect("`catch_nodes` write lock");
                 catch_nodes.push(node.clone());
             }
+
             // ignore normal nodes
             &_ => {}
         }
@@ -492,8 +495,7 @@ impl Flow {
 
         if let Some(subflow_state) = &self.subflow_state {
             log::info!("------ Starting the forward tasks of the subflow...");
-            let mut subflow_state = subflow_state.write().unwrap();
-            subflow_state.start_tx_tasks(self.stop_token.clone())?;
+            subflow_state.start_tx_tasks(self.stop_token.clone()).await?;
         }
 
         {
@@ -556,12 +558,9 @@ impl Flow {
 
     async fn inject_msg_internal(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         if let Some(subflow_state) = &self.subflow_state {
-            let in_nodes = {
-                let subflow_state = subflow_state.read().unwrap();
-                subflow_state.in_nodes.clone()
-            };
             let mut msg_sent = false;
-            for node in in_nodes {
+            let in_nodes = subflow_state.in_nodes.read().expect("read in_nodes lock").clone();
+            for node in in_nodes.iter() {
                 if !msg_sent {
                     node.inject_msg(msg.clone(), cancel.clone()).await?;
                 } else {
@@ -673,7 +672,7 @@ impl Flow {
         // TODO: use SmallVec
         let mut candidates = Vec::new();
         {
-            let catch_nodes = self.state.catch_nodes.read().expect("aquire lock for `catch_nodes`");
+            let catch_nodes = self.state.catch_nodes.read().expect("`catch_nodes` read lock").clone();
             for catch_node_behavior in catch_nodes.iter() {
                 let catch_node = catch_node_behavior.as_any().downcast_ref::<CatchNode>().expect("CatchNode");
                 if catch_node.group().is_some()
