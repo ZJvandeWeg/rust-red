@@ -4,13 +4,17 @@ use json::RedFlowConfig;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
-use crate::runtime::model::*;
-use super::{flow::{Flow, FlowState}, nodes::FlowNodeBehavior};
+use super::{
+    engine::Engine,
+    flow::{Flow, FlowArgs, FlowState},
+    nodes::FlowNodeBehavior,
+};
+use crate::{runtime::model::*, EdgelinkError};
 
 #[derive(Debug)]
 pub(crate) struct SubflowOutputPort {
     pub index: usize,
-    pub owner: Weak<Flow>,
+    pub instance_node: Option<Weak<dyn FlowNodeBehavior>>,
     pub msg_tx: MsgSender,
     pub msg_rx: MsgReceiverHolder,
 }
@@ -19,8 +23,8 @@ pub(crate) struct SubflowOutputPort {
 pub(crate) struct SubflowState {
     pub instance_node: Option<Arc<dyn FlowNodeBehavior>>,
     pub in_nodes: Vec<Arc<dyn FlowNodeBehavior>>,
-    pub tx_tasks: JoinSet<()>,
     pub tx_ports: Vec<Arc<SubflowOutputPort>>,
+    pub tx_tasks: JoinSet<()>,
 }
 
 impl SubflowOutputPort {
@@ -29,20 +33,7 @@ impl SubflowOutputPort {
             match self.msg_rx.recv_msg(stop_token.clone()).await {
                 Ok(msg) => {
                     // Find out the subflow:xxx node
-                    let instance_node = {
-                        let flow =
-                            self.owner.upgrade().expect("The owner of this sub-flow node has been released already!!!");
-
-                        let subflow_state = flow.subflow_state.as_ref().expect("Subflow must have a subflow_state!");
-
-                        let subflow_state_guard =
-                            subflow_state.read().expect("Cannot acquire the lock of field `subflow_state`!!!");
-
-                        subflow_state_guard.instance_node.clone()
-                    };
-
-                    if let Some(instance_node) = instance_node {
-                        let instance_node = instance_node.clone();
+                    if let Some(instance_node) = self.instance_node.clone().and_then(|x| x.upgrade()) {
                         let envelope = Envelope { port: self.index, msg };
                         if let Err(e) = instance_node.fan_out_one(&envelope, stop_token.clone()).await {
                             log::warn!("Failed to fan-out message: {:?}", e);
@@ -61,6 +52,31 @@ impl SubflowOutputPort {
 }
 
 impl SubflowState {
+    pub(crate) fn new(engine: &Arc<Engine>, flow_config: &RedFlowConfig, args: &FlowArgs) -> crate::Result<Self> {
+        let mut this = Self {
+            instance_node: None, //
+            in_nodes: Vec::new(),
+            tx_tasks: JoinSet::new(),
+            tx_ports: Vec::new(),
+        };
+        let subflow_instance = flow_config.subflow_node_id.and_then(|x| engine.find_flow_node_by_id(&x));
+
+        // Add empty subflow forward ports
+        for (index, _) in flow_config.out_ports.iter().enumerate() {
+            let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(args.node_msg_queue_capacity);
+
+            this.tx_ports.push(Arc::new(SubflowOutputPort {
+                index,
+                instance_node: subflow_instance.clone().map(|x| Arc::downgrade(&x)),
+                msg_tx: msg_root_tx.clone(),
+                msg_rx: MsgReceiverHolder::new(msg_rx),
+            }));
+        }
+        this.instance_node = subflow_instance;
+
+        Ok(this)
+    }
+
     pub(crate) fn populate_in_nodes(
         &mut self,
         flow_state: &FlowState,

@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
 use super::group::{Group, GroupParent};
-use super::subflow::{SubflowOutputPort, SubflowState};
+use super::subflow::SubflowState;
 use crate::runtime::engine::Engine;
 use crate::runtime::env::*;
 use crate::runtime::model::json::*;
@@ -26,7 +26,7 @@ pub type FlowNodeTask = tokio::task::JoinHandle<()>;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FlowArgs {
-    node_msg_queue_capacity: usize,
+    pub node_msg_queue_capacity: usize,
 }
 
 impl FlowArgs {
@@ -221,6 +221,7 @@ impl Flow {
         let envs = envs_builder.build();
 
         let context = engine.get_context_manager().new_context(&engine.context(), flow_config.id.to_string());
+        let args = FlowArgs::load(options)?;
 
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
@@ -229,7 +230,7 @@ impl Flow {
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
             ordering: flow_config.ordering,
-            args: FlowArgs::load(options)?,
+            args: args.clone(),
             type_str: match flow_kind {
                 FlowKind::GlobalFlow => "flow",
                 FlowKind::Subflow => "subflow",
@@ -244,12 +245,7 @@ impl Flow {
             },
 
             subflow_state: match flow_kind {
-                FlowKind::Subflow => Some(std::sync::RwLock::new(SubflowState {
-                    instance_node: None,
-                    in_nodes: Vec::new(),
-                    tx_tasks: JoinSet::new(),
-                    tx_ports: Vec::new(),
-                })),
+                FlowKind::Subflow => Some(std::sync::RwLock::new(SubflowState::new(&engine, flow_config, &args)?)),
                 FlowKind::GlobalFlow => None,
             },
             envs,
@@ -257,23 +253,6 @@ impl Flow {
             stop_token: CancellationToken::new(),
             // groups: HashMap::new(), //   flow_config.groups.iter().map(|g| Group::new_flow_group(config, flow))
         });
-
-        // Add empty subflow forward ports
-        if let Some(ref subflow_state) = flow.subflow_state {
-            let mut subflow_state = subflow_state.write().unwrap();
-            subflow_state.instance_node = subflow_instance;
-
-            for (index, _) in flow_config.out_ports.iter().enumerate() {
-                let (msg_root_tx, msg_rx) = tokio::sync::mpsc::channel(flow.args.node_msg_queue_capacity);
-
-                subflow_state.tx_ports.push(Arc::new(SubflowOutputPort {
-                    index,
-                    owner: Arc::downgrade(&flow),
-                    msg_tx: msg_root_tx.clone(),
-                    msg_rx: MsgReceiverHolder::new(msg_rx),
-                }));
-            }
-        }
 
         {
             let flow = flow.clone();
