@@ -105,7 +105,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000001"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject path of node as environment variable''')
+    @pytest.mark.it('''inject path of node as environment variable ''')
     async def test_0005(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -119,7 +119,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000100/0000000000000001"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject name of flow as environment variable''')
+    @pytest.mark.it('''inject name of flow as environment variable ''')
     async def test_0006(self):
         flows = [
             {"id": "100", "type": "tab", "label": "FLOW"},  # flow 1
@@ -133,7 +133,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "FLOW"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject id of flow as environment variable')
+    @pytest.mark.it('inject id of flow as environment variable ')
     async def test_0007(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -147,7 +147,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000100"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject name of group as environment variable''')
+    @pytest.mark.it('''inject name of group as environment variable ''')
     async def test_0008(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -162,7 +162,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "GROUP"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject id of group as environment variable''')
+    @pytest.mark.it('''inject id of group as environment variable ''')
     async def test_0009(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -177,7 +177,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "00000000000000ff"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject name of node as environment variable by substitution''')
+    @pytest.mark.it('''inject name of node as environment variable by substitution ''')
     async def test_0010(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -191,7 +191,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "NAME"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('''inject id of node as environment variable by substitution''')
+    @pytest.mark.it('inject id of node as environment variable by substitution ')
     async def test_0011(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -206,7 +206,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000001"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject path of node as environment variable by substitution')
+    @pytest.mark.it('inject path of node as environment variable by substitution ')
     async def test_0012(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -220,7 +220,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000100/0000000000000001"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject name of flow as environment variable by substitution')
+    @pytest.mark.it('inject name of flow as environment variable by substitution ')
     async def test_0013(self):
         flows = [
             {"id": "100", "type": "tab", "label": "FLOW"},  # flow 1
@@ -252,7 +252,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "0000000000000100"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject name of group as environment variable by substitution')
+    @pytest.mark.it('inject name of group as environment variable by substitution ')
     async def test_00015(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -266,7 +266,7 @@ class TestInjectNode:
         assert msgs[0]["payload"] == "GROUP"
 
     @pytest.mark.asyncio
-    @pytest.mark.it('inject id of group as environment variable by substitution')
+    @pytest.mark.it('inject id of group as environment variable by substitution ')
     async def test_00016(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
@@ -279,21 +279,20 @@ class TestInjectNode:
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["payload"] == "0000000000001000"
 
-    """
+    # Now there is no way to set the context in Python code yet
+    @pytest.mark.skip
     @pytest.mark.asyncio
-    async def test_0101(self):
-        '''sets the value of flow context property'''
+    @pytest.mark.it('sets the value of flow context property')
+    async def test_it_sets_the_value_of_flow_context_property(self):
         flows = [
             {"id": "100", "type": "tab"},  # flow 1
-            {"id": "1", "z": "100", "type": "inject", "name": "NAME", "once": True, "onceDelay": 0.0, "repeat": "",
-            "topic": "t1", "payload": "flowValue", "payloadType": "flow", "wires": [["2"]]},
+            {"id": "n1", "type": "inject", "topic": "t1", "payload": "flowValue", "payloadType": "flow", "wires": [["2"]], "z": "100"},
             {"id": "2", "z": "100", "type": "test-once"},
         ]
         injections = []
         msgs = await run_flow_with_msgs_ntimes(flows, injections, 1)
         assert msgs[0]["topic"] == 't1'
         assert msgs[0]["payload"] == "changeMe"
-    """
 
     @pytest.mark.asyncio
     @pytest.mark.it('should inject once with default delay property')
