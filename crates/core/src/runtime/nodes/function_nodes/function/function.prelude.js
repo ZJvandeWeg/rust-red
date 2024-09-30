@@ -2,6 +2,42 @@
 const RED = (function () {
     return {
         util: {
+
+            _cloneDeep: function (value, map = new WeakMap()) {
+                if (value === null || typeof value !== 'object') {
+                    return value;
+                }
+
+                if (map.has(value)) {
+                    return map.get(value);
+                }
+
+                if (value instanceof Date) {
+                    return new Date(value.getTime());
+                }
+
+                if (value instanceof RegExp) {
+                    return new RegExp(value);
+                }
+
+                if (Array.isArray(value)) {
+                    const clonedArray = value.map(item => this._cloneDeep(item, map));
+                    map.set(value, clonedArray);
+                    return clonedArray;
+                }
+
+                const clonedObj = {};
+                map.set(value, clonedObj);
+
+                for (const key in value) {
+                    if (value.hasOwnProperty(key)) {
+                        clonedObj[key] = this._cloneDeep(value[key], map);
+                    }
+                }
+
+                return clonedObj;
+            },
+
             cloneMessage: function (msg) {
                 // FROM node-red
                 if (typeof msg !== "undefined" && msg !== null) {
@@ -11,7 +47,7 @@ const RED = (function () {
                     var res = msg.res;
                     delete msg.req;
                     delete msg.res;
-                    var m = __edgelink.deepClone(msg);
+                    var m = this._cloneDeep(msg);
                     if (req) {
                         m.req = req;
                         msg.req = req;
