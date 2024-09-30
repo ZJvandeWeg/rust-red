@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
 use super::group::{Group, GroupParent};
-use crate::runtime::engine::FlowEngine;
+use crate::runtime::engine::Engine;
 use crate::runtime::env::*;
 use crate::runtime::model::json::*;
 use crate::runtime::model::*;
@@ -89,7 +89,7 @@ pub struct Flow {
     pub ordering: usize,
     pub type_str: &'static str,
 
-    pub engine: Weak<FlowEngine>,
+    pub engine: Weak<Engine>,
 
     pub stop_token: CancellationToken,
 
@@ -248,7 +248,7 @@ impl FlowState {
 
 impl Flow {
     pub(crate) fn new(
-        engine: Arc<FlowEngine>,
+        engine: Arc<Engine>,
         flow_config: &RedFlowConfig,
         reg: Arc<dyn Registry>,
         options: Option<&config::Config>,
@@ -404,7 +404,7 @@ impl Flow {
         self: &Arc<Self>,
         flow_config: &RedFlowConfig,
         reg: &dyn Registry,
-        engine: &FlowEngine,
+        engine: &Engine,
     ) -> crate::Result<()> {
         // Adding nodes
         for node_config in flow_config.nodes.iter() {
@@ -687,7 +687,7 @@ impl Flow {
         meta_node: &MetaNode,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
-        engine: &FlowEngine,
+        engine: &Engine,
     ) -> crate::Result<FlowNode> {
         let mut ports = Vec::new();
         let (tx_root, rx) = tokio::sync::mpsc::channel(NODE_MSG_CHANNEL_CAPACITY);

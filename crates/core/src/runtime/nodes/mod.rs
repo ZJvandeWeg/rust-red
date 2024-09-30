@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
 use super::group::Group;
-use crate::runtime::engine::FlowEngine;
+use crate::runtime::engine::Engine;
 use crate::runtime::env::*;
 use crate::runtime::flow::*;
 use crate::runtime::model::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
@@ -47,7 +47,7 @@ impl fmt::Display for NodeKind {
     }
 }
 
-type GlobalNodeFactoryFn = fn(Arc<FlowEngine>, &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>>;
+type GlobalNodeFactoryFn = fn(Arc<Engine>, &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>>;
 
 type FlowNodeFactoryFn = fn(&Flow, FlowNode, &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>>;
 
@@ -127,7 +127,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         self.get_node().context.clone()
     }
 
-    fn get_engine(&self) -> Option<Arc<FlowEngine>> {
+    fn get_engine(&self) -> Option<Arc<Engine>> {
         let flow = self.get_node().flow.upgrade()?;
         flow.engine.upgrade()
     }

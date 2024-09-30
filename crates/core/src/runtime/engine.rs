@@ -18,11 +18,11 @@ use crate::runtime::registry::Registry;
 use crate::*;
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct FlowEngineArgs {
+pub struct EngineArgs {
     //node_msg_queue_capacity: usize,
 }
 
-impl FlowEngineArgs {
+impl EngineArgs {
     pub fn load(cfg: Option<&config::Config>) -> crate::Result<Self> {
         match cfg {
             Some(cfg) => match cfg.get::<Self>("runtime.engine") {
@@ -36,7 +36,7 @@ impl FlowEngineArgs {
 }
 
 #[derive(Debug)]
-pub(crate) struct FlowEngineState {
+pub(crate) struct EngineState {
     _context: Variant,
     shutdown: AtomicBool,
     flows: DashMap<ElementId, Arc<Flow>>,
@@ -44,11 +44,11 @@ pub(crate) struct FlowEngineState {
     all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
 }
 
-pub struct FlowEngine {
-    pub(crate) state: FlowEngineState,
+pub struct Engine {
+    pub(crate) state: EngineState,
 
     stop_token: CancellationToken,
-    _args: FlowEngineArgs,
+    _args: EngineArgs,
     envs: Arc<EnvStore>,
     context_manager: Arc<ContextManager>,
     context: Arc<Context>,
@@ -60,12 +60,12 @@ pub struct FlowEngine {
     final_msgs_tx: MsgUnboundedSender,
 }
 
-impl FlowEngine {
+impl Engine {
     pub fn new_with_json(
         reg: Arc<dyn Registry>,
         json: &serde_json::Value,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<FlowEngine>> {
+    ) -> crate::Result<Arc<Engine>> {
         let json_values = json::deser::load_flows_json_value(json).map_err(|e| {
             log::error!("Failed to load NodeRED JSON value: {}", e);
             e
@@ -87,9 +87,9 @@ impl FlowEngine {
         #[cfg(any(test, feature = "pymod"))]
         let final_msgs_channel = tokio::sync::mpsc::unbounded_channel();
 
-        let engine = Arc::new(FlowEngine {
+        let engine = Arc::new(Engine {
             stop_token: CancellationToken::new(),
-            state: FlowEngineState {
+            state: EngineState {
                 all_flow_nodes: DashMap::new(),
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
@@ -97,7 +97,7 @@ impl FlowEngine {
                 shutdown: AtomicBool::new(true),
             },
             envs,
-            _args: FlowEngineArgs::load(elcfg)?,
+            _args: EngineArgs::load(elcfg)?,
             context_manager,
             context,
 
@@ -119,7 +119,7 @@ impl FlowEngine {
         reg: Arc<dyn Registry>,
         flows_json_path: &str,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<FlowEngine>> {
+    ) -> crate::Result<Arc<Engine>> {
         let mut file = std::fs::File::open(flows_json_path)?;
         let mut json_str = String::new();
         file.read_to_string(&mut json_str)?;
@@ -130,7 +130,7 @@ impl FlowEngine {
         reg: Arc<dyn Registry>,
         json_str: &str,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<FlowEngine>> {
+    ) -> crate::Result<Arc<Engine>> {
         let json: serde_json::Value = serde_json::from_str(json_str)?;
         Self::new_with_json(reg, &json, elcfg)
     }
@@ -377,7 +377,7 @@ impl FlowEngine {
     }
 }
 
-impl Drop for FlowEngine {
+impl Drop for Engine {
     fn drop(&mut self) {
         let is_shutdown = self.state.shutdown.load(std::sync::atomic::Ordering::SeqCst);
         if !is_shutdown {
@@ -389,7 +389,7 @@ impl Drop for FlowEngine {
     }
 }
 
-impl std::fmt::Debug for FlowEngine {
+impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
         f.debug_struct("FlowEngine").finish()
@@ -397,9 +397,9 @@ impl std::fmt::Debug for FlowEngine {
 }
 
 #[cfg(test)]
-pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Arc<FlowEngine>> {
+pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Arc<Engine>> {
     let registry = crate::runtime::registry::RegistryBuilder::default().build().unwrap();
-    FlowEngine::new_with_json(registry, &flows_json, None)
+    Engine::new_with_json(registry, &flows_json, None)
 }
 
 #[cfg(test)]

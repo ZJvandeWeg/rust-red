@@ -13,7 +13,7 @@ struct UnknownGlobalNode {
 }
 
 impl UnknownGlobalNode {
-    fn build(engine: Arc<FlowEngine>, config: &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
+    fn build(engine: Arc<Engine>, config: &RedGlobalNodeConfig) -> crate::Result<Box<dyn GlobalNodeBehavior>> {
         let context = engine.get_context_manager().new_context(&engine.context(), config.id.to_string());
         let node = Self {
             base: GlobalNode {

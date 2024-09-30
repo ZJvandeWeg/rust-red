@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use edgelink_core::runtime::engine::FlowEngine;
+use edgelink_core::runtime::engine::Engine;
 use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::text::json_seq;
@@ -35,7 +35,7 @@ pub struct MsgInjectionEntry {
 #[derive(Debug)]
 struct App {
     _registry: Arc<dyn Registry>,
-    engine: Arc<FlowEngine>,
+    engine: Arc<Engine>,
     msgs_to_inject: Mutex<Vec<MsgInjectionEntry>>,
 }
 
@@ -96,9 +96,9 @@ impl App {
                 let json_str = String::from_utf8_lossy(&buffer);
                 serde_json::from_str(&json_str)?
             };
-            FlowEngine::new_with_json(reg.clone(), &flows_json_value, app_config)?
+            Engine::new_with_json(reg.clone(), &flows_json_value, app_config)?
         } else {
-            FlowEngine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?
+            Engine::new_with_flows_file(reg.clone(), &elargs.flows_path, app_config)?
         };
 
         Ok(App { _registry: reg, engine, msgs_to_inject: Mutex::new(msgs_to_inject) })
