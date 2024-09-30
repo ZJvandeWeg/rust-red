@@ -163,7 +163,7 @@ impl FlowState {
 impl Flow {
     pub(crate) fn new(
         engine: Arc<Engine>,
-        flow_config: &RedFlowConfig,
+        flow_config: RedFlowConfig,
         reg: Arc<dyn Registry>,
         options: Option<&config::Config>,
     ) -> crate::Result<Arc<Self>> {
@@ -245,7 +245,7 @@ impl Flow {
             },
 
             subflow_state: match flow_kind {
-                FlowKind::Subflow => Some(SubflowState::new(&engine, flow_config, &args)?),
+                FlowKind::Subflow => Some(SubflowState::new(&engine, &flow_config, &args)?),
                 FlowKind::GlobalFlow => None,
             },
             envs,
@@ -256,13 +256,13 @@ impl Flow {
 
         {
             let flow = flow.clone();
-            flow.clone().populate_groups(flow_config)?;
+            flow.clone().populate_groups(&flow_config)?;
 
-            flow.clone().populate_nodes(flow_config, reg.as_ref(), engine.as_ref())?;
+            flow.clone().populate_nodes(&flow_config, reg.as_ref(), engine.as_ref())?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
-            subflow_state.populate_in_nodes(&flow.state, flow_config)?;
+            subflow_state.populate_in_nodes(&flow.state, &flow_config)?;
         }
 
         Ok(flow)

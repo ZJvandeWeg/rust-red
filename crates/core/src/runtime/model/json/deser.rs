@@ -15,7 +15,7 @@ use crate::EdgelinkError;
 
 use super::*;
 
-pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<ResolvedFlows> {
+pub fn load_flows_json_value(root_jv: JsonValue) -> crate::Result<ResolvedFlows> {
     let mut preprocessed = preprocess_subflows(root_jv)?;
     preprocess_merge_subflow_env(&mut preprocessed)?;
     let all_values = preprocessed
@@ -163,7 +163,7 @@ pub fn load_flows_json_value(root_jv: &JsonValue) -> crate::Result<ResolvedFlows
     Ok(ResolvedFlows { flows: flow_configs, global_nodes })
 }
 
-fn preprocess_subflows(jv_root: &JsonValue) -> crate::Result<JsonValue> {
+fn preprocess_subflows(jv_root: JsonValue) -> crate::Result<JsonValue> {
     let elements = jv_root.as_array().unwrap();
     let mut elements_to_delete = HashSet::new();
 

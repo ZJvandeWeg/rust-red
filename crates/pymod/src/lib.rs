@@ -64,7 +64,7 @@ fn run_flows_once<'a>(
         .build()
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
-    let engine = Engine::new_with_json(registry, &flows_json, app_cfg.as_ref())
+    let engine = Engine::with_json(registry, flows_json, app_cfg.as_ref())
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{}", e)))?;
 
     pyo3_asyncio::tokio::future_into_py(py, async move {

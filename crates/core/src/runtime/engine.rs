@@ -59,9 +59,9 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new_with_json(
+    pub fn with_json(
         reg: Arc<dyn Registry>,
-        json: &serde_json::Value,
+        json: serde_json::Value,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<Engine>> {
         let json_values = json::deser::load_flows_json_value(json).map_err(|e| {
@@ -106,14 +106,14 @@ impl Engine {
             final_msgs_tx: final_msgs_channel.0,
         });
 
-        engine.clone().load_flows(&json_values.flows, reg.clone(), elcfg)?;
+        engine.clone().load_flows(json_values.flows, reg.clone(), elcfg)?;
 
-        engine.clone().load_global_nodes(&json_values.global_nodes, reg.clone())?;
+        engine.clone().load_global_nodes(json_values.global_nodes, reg.clone())?;
 
         Ok(engine)
     }
 
-    pub fn new_with_flows_file(
+    pub fn with_flows_file(
         reg: Arc<dyn Registry>,
         flows_json_path: &str,
         elcfg: Option<&config::Config>,
@@ -121,16 +121,16 @@ impl Engine {
         let mut file = std::fs::File::open(flows_json_path)?;
         let mut json_str = String::new();
         file.read_to_string(&mut json_str)?;
-        Self::new_with_json_string(reg, &json_str, elcfg)
+        Self::with_json_string(reg, json_str, elcfg)
     }
 
-    pub fn new_with_json_string(
+    pub fn with_json_string(
         reg: Arc<dyn Registry>,
-        json_str: &str,
+        json_str: String,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Arc<Engine>> {
-        let json: serde_json::Value = serde_json::from_str(json_str)?;
-        Self::new_with_json(reg, &json, elcfg)
+        let json: serde_json::Value = serde_json::from_str(&json_str)?;
+        Self::with_json(reg, json, elcfg)
     }
 
     pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
@@ -139,12 +139,12 @@ impl Engine {
 
     fn load_flows(
         self: Arc<Self>,
-        flow_configs: &[RedFlowConfig],
+        flow_configs: Vec<RedFlowConfig>,
         reg: Arc<dyn Registry>,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<()> {
         // load flows
-        for flow_config in flow_configs.iter() {
+        for flow_config in flow_configs.into_iter() {
             log::debug!("---- Loading flow/subflow: (id='{}', label='{}')...", flow_config.id, flow_config.label);
             let flow = Flow::new(self.clone(), flow_config, reg.clone(), elcfg)?;
             {
@@ -160,24 +160,24 @@ impl Engine {
                     self.state.all_flow_nodes.insert(fnode.id(), fnode.clone());
                 }
 
+                log::debug!(
+                    "---- The flow (id='{}', label='{}') has been loaded successfully.",
+                    flow.id(),
+                    flow.name()
+                );
                 //register the flow
                 self.state.flows.insert(flow.id, flow);
             }
-            log::debug!(
-                "---- The flow (id='{}', label='{}') has been loaded successfully.",
-                flow_config.id,
-                flow_config.label
-            );
         }
         Ok(())
     }
 
     fn load_global_nodes(
         self: Arc<Self>,
-        node_configs: &[RedGlobalNodeConfig],
+        node_configs: Vec<RedGlobalNodeConfig>,
         reg: Arc<dyn Registry>,
     ) -> crate::Result<()> {
-        for global_config in node_configs.iter() {
+        for global_config in node_configs.into_iter() {
             let node_type_name = global_config.type_name.as_str();
             let meta_node = if let Some(meta_node) = reg.get(node_type_name) {
                 meta_node
@@ -192,7 +192,7 @@ impl Engine {
             };
 
             let global_node = match meta_node.factory {
-                NodeFactory::Global(factory) => factory(self.clone(), global_config)?,
+                NodeFactory::Global(factory) => factory(self.clone(), &global_config)?,
                 _ => {
                     return Err(EdgelinkError::NotSupported(format!(
                         "Must be a global node: Node(id={0}, type='{1}')",
@@ -387,7 +387,7 @@ impl std::fmt::Debug for Engine {
 #[cfg(test)]
 pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Arc<Engine>> {
     let registry = crate::runtime::registry::RegistryBuilder::default().build().unwrap();
-    Engine::new_with_json(registry, &flows_json, None)
+    Engine::with_json(registry, flows_json, None)
 }
 
 #[cfg(test)]
