@@ -7,6 +7,7 @@ pub mod group;
 pub mod model;
 pub mod nodes;
 pub mod registry;
+pub mod subflow;
 
 #[cfg(feature = "js")]
 pub mod js;
