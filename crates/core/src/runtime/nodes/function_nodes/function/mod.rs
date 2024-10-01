@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rquickjs::async_with;
 use rquickjs::context::EvalOptions;
 use serde::Deserialize;
 use smallvec::SmallVec;
@@ -62,7 +63,7 @@ impl FlowNodeBehavior for FunctionNode {
 
         //let js_rt = JS_RUMTIME
         //.get_or_init(|| async move {
-        log::debug!("[FUNCTION_NODE] Initializing JavaScript AsyncRuntime...");
+        log::debug!("[function:{}] Initializing JavaScript AsyncRuntime...", self.name());
         let rt = js::AsyncRuntime::new().unwrap();
         let resolver = js::loader::BuiltinResolver::default();
         //resolver.add_module("console");
@@ -75,51 +76,67 @@ impl FlowNodeBehavior for FunctionNode {
 
         let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
 
-        if let Err(e) = self.init_async(&js_ctx).await {
-            // It's a fatal error
-            log::error!("[FUNCTION NODE] Fatal error! Failed to initialize JavaScript environment: {:?}", e);
-
-            stop_token.cancel();
-            stop_token.cancelled().await;
-        }
         js_rt.idle().await;
 
-        while !stop_token.is_cancelled() {
-            let sub_ctx = &js_ctx;
-            let cancel = stop_token.child_token();
-            let this_node = self.clone();
-            with_uow(this_node.clone().as_ref(), cancel.child_token(), |_, msg| async move {
-                let res = {
-                    let msg_guard = msg.write().await;
-                    // This gonna eat the msg and produce a new one
-                    this_node.filter_msg(msg_guard.clone(), sub_ctx).await
-                };
-                match res {
-                    Ok(changed_msgs) => {
-                        // Pack the new messages
-                        if !changed_msgs.is_empty() {
-                            let envelopes = changed_msgs
-                                .into_iter()
-                                .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
-                                .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
+        let cloned_this = self.clone();
+        async_with!(js_ctx => |ctx| {
+            if let Err(e) = cloned_this.prepare_js_ctx(&ctx) {
+                // It's a fatal error
+                log::error!("[function:{}] Fatal error! Failed to initialize JavaScript environment: {:?}", cloned_this.name(), e);
 
-                            this_node.fan_out_many(&envelopes, cancel.clone()).await?;
+                stop_token.cancel();
+                stop_token.cancelled().await;
+                return;
+            }
+
+            if let Err(e) = cloned_this.init_async(ctx.clone()).await {
+                // It's a fatal error
+                log::error!("[function:{}] Fatal error! Failed to initialize JavaScript environment: {:?}", cloned_this.name(), e);
+
+                stop_token.cancel();
+                stop_token.cancelled().await;
+                return;
+            }
+
+            while !stop_token.is_cancelled() {
+                let sub_ctx = ctx.clone();
+                let cancel = stop_token.child_token();
+                let this_node = cloned_this.clone();
+                with_uow(this_node.clone().as_ref(), cancel.child_token(), |_, msg| async move {
+                    let res = {
+                        let msg_guard = msg.write().await;
+                        // This gonna eat the msg and produce a new one
+                        this_node.filter_msg(sub_ctx.clone(), msg_guard.clone()).await
+                    };
+                    match res {
+                        Ok(changed_msgs) => {
+                            // Pack the new messages
+                            if !changed_msgs.is_empty() {
+                                let envelopes = changed_msgs
+                                    .into_iter()
+                                    .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
+                                    .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
+
+                                this_node.fan_out_many(&envelopes, cancel.clone()).await?;
+                            }
                         }
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-                Ok(())
-            })
-            .await;
-        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                    Ok(())
+                })
+                .await;
+            }
 
-        //let _ = js_ctx.eval(js::Source::from_bytes(&self1.config.initialize));
-        let _ = self.finalize_async(&js_ctx).await;
-        js_ctx.runtime().idle().await;
+            if let Err(e) = cloned_this.finalize_async(ctx.clone()).await {
+                log::error!("[function:{}] Fatal error! Failed to finalize JavaScript environment: {:?}", cloned_this.name(), e);
+            }
 
-        log::debug!("DebugNode process() task has been terminated.");
+        })
+        .await;
+        js_rt.idle().await;
+        log::debug!("[function:{}] processing task has been terminated.", self.name());
     }
 }
 
@@ -162,36 +179,41 @@ impl FunctionNode {
         Ok(Box::new(node))
     }
 
-    async fn filter_msg(self: &Arc<Self>, msg: Msg, js_ctx: &js::AsyncContext) -> crate::Result<OutputMsgs> {
+    /*
+    async fn filter_msg<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>, msg: Msg) -> crate::Result<OutputMsgs> {
+    }
+    */
+
+    async fn filter_msg<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>, msg: Msg) -> crate::Result<OutputMsgs> {
         let origin_msg_id = msg.id();
-        let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
-            self.prepare_js_ctx(&ctx).map_err(|_| js::Error::Exception)?;
+        //let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
+        self.prepare_js_ctx(&ctx).map_err(|_| js::Error::Exception)?;
 
-            match ctx.eval_with_options::<(),_>(self.user_func.as_slice(), self.make_eval_options()).catch(&ctx) {
-                Ok(()) => (),
-                Err(e) => {
-                    log::error!("Failed to evaluate the user function definition code: {:?}", e);
-                    return Err(js::Error::Exception)
-                }
+        match ctx.eval_with_options::<(), _>(self.user_func.as_slice(), self.make_eval_options()).catch(&ctx) {
+            Ok(()) => (),
+            Err(e) => {
+                log::error!("Failed to evaluate the user function definition code: {:?}", e);
+                anyhow::bail!("We are so over!");
             }
+        }
 
-            let user_func : js::Function = ctx.globals().get("__el_user_func")?;
-            let js_msg = msg.into_js(&ctx)?;
-            let args = (js_msg,);
-            let promised = user_func.call::<_, rquickjs::Promise>(args)?;
-            let js_res_value: js::Result<js::Value> = promised.into_future().await;
-            match js_res_value.catch(&ctx) {
-                Ok(js_result) => self.convert_return_value(&ctx , js_result, origin_msg_id),
-                Err(e) => {
-                    log::error!("Javascript user function exception: {:?}", e);
-                    Err(js::Error::Exception)
-                }
+        let user_func: js::Function = ctx.globals().get("__el_user_func")?;
+        let js_msg = msg.into_js(&ctx)?;
+        let args = (js_msg,);
+        let promised = user_func.call::<_, rquickjs::Promise>(args)?;
+        let js_res_value: js::Result<js::Value> = promised.into_future().await;
+        let eval_result = match js_res_value.catch(&ctx) {
+            Ok(js_result) => self.convert_return_value(&ctx, js_result, origin_msg_id),
+            Err(e) => {
+                log::error!("Javascript user function exception: {:?}", e);
+                Err(js::Error::Exception)
             }
-        })
-        .await;
+        };
+        //})
+        //.await;
 
         // This is VERY IMPORTANT! Execute all spawned tasks.
-        js_ctx.runtime().idle().await;
+        // js_ctx.runtime().idle().await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
@@ -267,15 +289,13 @@ impl FunctionNode {
         Ok(items)
     }
 
-    async fn init_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
-        log::debug!("[FUNCTION_NODE] Initializing JavaScript context...");
-        js::async_with!(js_ctx => |ctx| {
-            self.prepare_js_ctx(&ctx)?;
+    async fn init_async<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>) -> crate::Result<()> {
+        log::debug!("[function:{}] Initializing JavaScript context...", self.name());
 
-            if !self.config.initialize.trim_ascii().is_empty() {
-                let init_body = &self.config.initialize;
-                let init_script = format!(
-                    "
+        if !self.config.initialize.trim_ascii().is_empty() {
+            let init_body = &self.config.initialize;
+            let init_script = format!(
+                "
                     async function __el_init_func() {{ 
                         var global = __edgelinkGlobalContext; 
                         var flow = __edgelinkFlowContext; 
@@ -285,35 +305,35 @@ impl FunctionNode {
                         \n{init_body}\n
                     }}
                     "
-                );
-                match ctx.eval_with_options::<(), _>(init_script.as_bytes(), self.make_eval_options()) {
-                    Err(e) => {
-                        log::error!("Failed to evaluate the `initialize` script: {:?}", e);
-                        return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                    }
-                    _ =>{
-                        log::debug!("[FUNCTION_NODE] The evulation of the `initialize` script has been succeed.");
-                    }
+            );
+            match ctx.eval_with_options::<(), _>(init_script.as_bytes(), self.make_eval_options()) {
+                Err(e) => {
+                    log::error!("Failed to evaluate the `initialize` script: {:?}", e);
+                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
                 }
-
-                let init_func : js::Function = ctx.globals().get("__el_init_func")?;
-                let promised = init_func.call::<_, rquickjs::Promise>(())?;
-                match promised.into_future().await {
-                    Ok(()) => (),
-                    Err(e) => {
-                        log::error!("Failed to invoke the initialization script code: {}", e);
-                        return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                    }
+                _ => {
+                    log::debug!(
+                        "[function:{}] The evulation of the `initialize` script has been succeed.",
+                        self.name()
+                    );
                 }
             }
-            while ctx.execute_pending_job() {};
 
-            Ok(())
-        })
-        .await
+            let init_func: js::Function = ctx.globals().get("__el_init_func")?;
+            let promised = init_func.call::<_, rquickjs::Promise>(())?;
+            match promised.into_future().await {
+                Ok(()) => (),
+                Err(e) => {
+                    log::error!("Failed to invoke the initialization script code: {}", e);
+                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
+                }
+            }
+        }
+        while ctx.execute_pending_job() {}
+        Ok(())
     }
 
-    async fn finalize_async(self: &Arc<Self>, js_ctx: &js::AsyncContext) -> crate::Result<()> {
+    async fn finalize_async<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>) -> crate::Result<()> {
         let final_body = &self.config.finalize;
         let final_script = format!(
             "
@@ -327,30 +347,25 @@ impl FunctionNode {
             }}
             "
         );
-        js::async_with!(js_ctx => |ctx| {
-            self.prepare_js_ctx(&ctx)?;
-
-            match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
-                Err(e) => {
-                    log::error!("Failed to evaluate the `finialize` script: {:?}", e);
-                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                }
-                _ =>{
-                    log::debug!("[FUNCTION_NODE] The evulation of the `finalize` script has been succeed.");
-                }
+        match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
+            Err(e) => {
+                log::error!("Failed to evaluate the `finialize` script: {:?}", e);
+                return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
             }
-
-            let final_func : js::Function = ctx.globals().get("__el_finalize_func")?;
-            let promised = final_func.call::<_, rquickjs::Promise>(())?;
-            match promised.into_future().await {
-                Ok(()) => Ok(()),
-                Err(e) => {
-                    log::error!("Failed to invoke the `finialize` script code: {}", e);
-                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                }
+            _ => {
+                log::debug!("[function:{}] The evulation of the `finalize` script has been succeed.", self.name());
             }
-        })
-        .await
+        }
+
+        let final_func: js::Function = ctx.globals().get("__el_finalize_func")?;
+        let promised = final_func.call::<_, rquickjs::Promise>(())?;
+        match promised.into_future().await {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                log::error!("Failed to invoke the `finialize` script code: {}", e);
+                Err(EdgelinkError::InvalidOperation(e.to_string()).into())
+            }
+        }
     }
 
     fn prepare_js_ctx(self: &Arc<Self>, ctx: &js::Ctx<'_>) -> crate::Result<()> {

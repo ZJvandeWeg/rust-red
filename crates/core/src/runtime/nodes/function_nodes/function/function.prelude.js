@@ -3,7 +3,7 @@ const RED = (function () {
     return {
         util: {
 
-            _cloneDeep: function (value, map = new WeakMap()) {
+            __cloneDeep: function (value, map = new WeakMap()) {
                 if (value === null || typeof value !== 'object') {
                     return value;
                 }
@@ -21,7 +21,7 @@ const RED = (function () {
                 }
 
                 if (Array.isArray(value)) {
-                    const clonedArray = value.map(item => this._cloneDeep(item, map));
+                    const clonedArray = value.map(item => this.__cloneDeep(item, map));
                     map.set(value, clonedArray);
                     return clonedArray;
                 }
@@ -31,7 +31,7 @@ const RED = (function () {
 
                 for (const key in value) {
                     if (value.hasOwnProperty(key)) {
-                        clonedObj[key] = this._cloneDeep(value[key], map);
+                        clonedObj[key] = this.__cloneDeep(value[key], map);
                     }
                 }
 
@@ -47,7 +47,7 @@ const RED = (function () {
                     var res = msg.res;
                     delete msg.req;
                     delete msg.res;
-                    var m = this._cloneDeep(msg);
+                    var m = this.__cloneDeep(msg);
                     if (req) {
                         m.req = req;
                         msg.req = req;
