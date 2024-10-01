@@ -6,24 +6,16 @@ EdgeLink Daemon Program
 
 EdgeLink is a Node-RED compatible run-time engine implemented in Rust.
 
-By replacing the original NodeJS backend with this Rust-based implementation,
-you can achieve better performance and a smaller memory footprint.
-
-In summary, you can first test the workflow on a normal desktop PC,
-and subsequently deploy EdgeLink along with the `flows.json` workflow file
-to an edge computing device that is constrained by limited resources for operational execution.
-
-Copyright (C) 2023-TODAY Li Wei and contributors.
-All rights reserved.
+Copyright (C) 2023-TODAY Li Wei and contributors. All rights reserved.
 
 For more information, visit the website: https://github.com/oldrev/edgelink
 "#;
 
 #[derive(Parser, Debug, Clone)]
-#[command(version, about, author, long_about=LONG_ABOUT)]
+#[command(version, about, author, long_about=LONG_ABOUT, color=clap::ColorChoice::Always)]
 pub struct CliArgs {
     /// Path of the 'flows.json' file.
-    #[clap(default_value_t = default_flows_path())]
+    #[clap(default_value_t = default_flows_path(), conflicts_with = "stdin")]
     pub flows_path: String,
 
     /// Home directory of EdgeLink, default is `~/.edgelink`
