@@ -184,6 +184,18 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         Ok(())
     }
 
+    async fn report_error(&self, log_message: String, msg: MsgHandle, cancel: CancellationToken) {
+        let handled = if let Some(flow) = self.get_flow().upgrade() {
+            let node = self.as_any().downcast_ref::<Arc<dyn FlowNodeBehavior>>().unwrap(); // FIXME
+            flow.handle_error(node.as_ref(), &log_message, Some(&msg), None, cancel).await.unwrap_or(false)
+        } else {
+            false
+        };
+        if !handled {
+            log::error!("[{}:{}] {}", self.type_str(), self.name(), log_message);
+        }
+    }
+
     // events
     fn on_loaded(&self) {}
     async fn on_starting(&self) {}
@@ -284,20 +296,6 @@ where
                 err
             );
         }
-    }
-}
-
-pub async fn report_error<B>(node: &B, log_message: String, msg: MsgHandle, cancel: CancellationToken)
-where
-    B: FlowNodeBehavior,
-{
-    let handled = if let Some(flow) = node.get_flow().upgrade() {
-        flow.handle_error(node, &log_message, Some(&msg), None, cancel).await.unwrap_or(false)
-    } else {
-        false
-    };
-    if !handled {
-        log::error!("[{}:{}] {}", node.type_str(), node.name(), log_message);
     }
 }
 
