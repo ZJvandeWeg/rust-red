@@ -6,11 +6,11 @@ use std::sync::Arc;
 
 // 3rd-party libs
 use clap::Parser;
+use runtime::engine::Engine;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use edgelink_core::runtime::engine::Engine;
 use edgelink_core::runtime::model::*;
 use edgelink_core::runtime::registry::{Registry, RegistryBuilder};
 use edgelink_core::text::json_seq;
@@ -35,7 +35,7 @@ pub struct MsgInjectionEntry {
 #[derive(Debug)]
 struct App {
     _registry: Arc<dyn Registry>,
-    engine: Arc<Engine>,
+    engine: Engine,
     msgs_to_inject: Mutex<Vec<MsgInjectionEntry>>,
 }
 

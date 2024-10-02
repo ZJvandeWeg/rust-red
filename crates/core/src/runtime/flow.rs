@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use common_nodes::catch::{CatchNode, CatchNodeScope};
 use dashmap::DashMap;
@@ -10,9 +10,9 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
+use super::engine::{Engine, WeakEngine};
 use super::group::{Group, GroupParent};
 use super::subflow::SubflowState;
-use crate::runtime::engine::Engine;
 use crate::runtime::env::*;
 use crate::runtime::model::json::*;
 use crate::runtime::model::*;
@@ -74,7 +74,7 @@ pub struct Flow {
     pub ordering: usize,
     pub type_str: &'static str,
 
-    pub engine: Weak<Engine>,
+    pub engine: WeakEngine,
 
     stop_token: CancellationToken,
     pub(crate) subflow_state: Option<SubflowState>,
@@ -162,7 +162,7 @@ impl FlowState {
 
 impl Flow {
     pub(crate) fn new(
-        engine: Arc<Engine>,
+        engine: &Engine,
         flow_config: RedFlowConfig,
         reg: Arc<dyn Registry>,
         options: Option<&config::Config>,
@@ -226,7 +226,7 @@ impl Flow {
         let flow: Arc<Flow> = Arc::new(Flow {
             id: flow_config.id,
             parent: subflow_instance.clone().map(|x| x.id()),
-            engine: Arc::downgrade(&engine),
+            engine: engine.downgrade(),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
             ordering: flow_config.ordering,
@@ -258,7 +258,7 @@ impl Flow {
             let flow = flow.clone();
             flow.clone().populate_groups(&flow_config)?;
 
-            flow.clone().populate_nodes(&flow_config, reg.as_ref(), engine.as_ref())?;
+            flow.clone().populate_nodes(&flow_config, reg.as_ref(), &engine)?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
@@ -316,7 +316,7 @@ impl Flow {
             let node = match meta_node.factory {
                 NodeFactory::Flow(factory) => {
                     let mut node_state =
-                        self.new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
+                        self.new_flow_node_state(meta_node, &self.state, node_config, &engine).map_err(|e| {
                             log::error!("Failed to create flow node(id='{}'): {:?}", node_config.id, e);
                             e
                         })?;

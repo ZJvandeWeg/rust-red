@@ -53,7 +53,7 @@ impl SubflowOutputPort {
 }
 
 impl SubflowState {
-    pub(crate) fn new(engine: &Arc<Engine>, flow_config: &RedFlowConfig, args: &FlowArgs) -> crate::Result<Self> {
+    pub(crate) fn new(engine: &Engine, flow_config: &RedFlowConfig, args: &FlowArgs) -> crate::Result<Self> {
         let subflow_instance = flow_config.subflow_node_id.and_then(|x| engine.find_flow_node_by_id(&x));
 
         // Add empty subflow forward ports

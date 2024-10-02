@@ -1,5 +1,5 @@
 use std::io::Read;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use dashmap::DashMap;
 use serde::Deserialize;
@@ -34,22 +34,34 @@ impl EngineArgs {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct EngineState {
-    _context: Variant,
-    flows: DashMap<ElementId, Arc<Flow>>,
-    global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
-    all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
+#[derive(Debug, Clone)]
+pub struct Engine {
+    inner: Arc<InnerEngine>,
 }
 
-pub struct Engine {
-    pub(crate) state: EngineState,
+#[derive(Debug, Clone)]
+pub struct WeakEngine {
+    inner: Weak<InnerEngine>,
+}
+
+impl WeakEngine {
+    pub fn upgrade(&self) -> Option<Engine> {
+        Weak::upgrade(&self.inner).map(|x| Engine { inner: x })
+    }
+}
+
+struct InnerEngine {
     shutdown: tokio::sync::RwLock<bool>,
     stop_token: CancellationToken,
     _args: EngineArgs,
     envs: Arc<EnvStore>,
     context_manager: Arc<ContextManager>,
     context: Arc<Context>,
+
+    _context: Variant,
+    flows: DashMap<ElementId, Arc<Flow>>,
+    global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
+    all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
 
     #[cfg(any(test, feature = "pymod"))]
     final_msgs_rx: MsgUnboundedReceiverHolder,
@@ -59,11 +71,15 @@ pub struct Engine {
 }
 
 impl Engine {
+    pub fn downgrade(&self) -> WeakEngine {
+        WeakEngine { inner: Arc::downgrade(&self.inner) }
+    }
+
     pub fn with_json(
         reg: Arc<dyn Registry>,
         json: serde_json::Value,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<Engine>> {
+    ) -> crate::Result<Engine> {
         let json_values = json::deser::load_flows_json_value(json).map_err(|e| {
             log::error!("Failed to load NodeRED JSON value: {}", e);
             e
@@ -85,26 +101,26 @@ impl Engine {
         #[cfg(any(test, feature = "pymod"))]
         let final_msgs_channel = tokio::sync::mpsc::unbounded_channel();
 
-        let engine = Arc::new(Engine {
-            shutdown: tokio::sync::RwLock::new(true),
-            stop_token: CancellationToken::new(),
-            state: EngineState {
+        let engine = Self {
+            inner: Arc::new(InnerEngine {
+                shutdown: tokio::sync::RwLock::new(true),
+                stop_token: CancellationToken::new(),
                 all_flow_nodes: DashMap::new(),
                 global_nodes: DashMap::new(),
                 flows: DashMap::new(),
                 _context: Variant::empty_object(),
-            },
-            envs,
-            _args: EngineArgs::load(elcfg)?,
-            context_manager,
-            context,
+                envs,
+                _args: EngineArgs::load(elcfg)?,
+                context_manager,
+                context,
 
-            #[cfg(any(test, feature = "pymod"))]
-            final_msgs_rx: MsgUnboundedReceiverHolder::new(final_msgs_channel.1),
+                #[cfg(any(test, feature = "pymod"))]
+                final_msgs_rx: MsgUnboundedReceiverHolder::new(final_msgs_channel.1),
 
-            #[cfg(any(test, feature = "pymod"))]
-            final_msgs_tx: final_msgs_channel.0,
-        });
+                #[cfg(any(test, feature = "pymod"))]
+                final_msgs_tx: final_msgs_channel.0,
+            }),
+        };
 
         engine.clone().load_flows(json_values.flows, reg.clone(), elcfg)?;
 
@@ -117,7 +133,7 @@ impl Engine {
         reg: Arc<dyn Registry>,
         flows_json_path: &str,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<Engine>> {
+    ) -> crate::Result<Engine> {
         let mut file = std::fs::File::open(flows_json_path)?;
         let mut json_str = String::new();
         file.read_to_string(&mut json_str)?;
@@ -128,17 +144,17 @@ impl Engine {
         reg: Arc<dyn Registry>,
         json_str: String,
         elcfg: Option<&config::Config>,
-    ) -> crate::Result<Arc<Engine>> {
+    ) -> crate::Result<Engine> {
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
         Self::with_json(reg, json, elcfg)
     }
 
     pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
-        self.state.flows.get(id).map(|x| x.value().clone())
+        self.inner.flows.get(id).map(|x| x.value().clone())
     }
 
     fn load_flows(
-        self: Arc<Self>,
+        &self,
         flow_configs: Vec<RedFlowConfig>,
         reg: Arc<dyn Registry>,
         elcfg: Option<&config::Config>,
@@ -146,18 +162,18 @@ impl Engine {
         // load flows
         for flow_config in flow_configs.into_iter() {
             log::debug!("---- Loading flow/subflow: (id='{}', label='{}')...", flow_config.id, flow_config.label);
-            let flow = Flow::new(self.clone(), flow_config, reg.clone(), elcfg)?;
+            let flow = Flow::new(self, flow_config, reg.clone(), elcfg)?;
             {
                 // register all nodes
                 for fnode in flow.get_all_flow_nodes().iter() {
-                    if self.state.all_flow_nodes.contains_key(&fnode.id()) {
+                    if self.inner.all_flow_nodes.contains_key(&fnode.id()) {
                         return Err(EdgelinkError::InvalidOperation(format!(
                             "This flow node already existed: {}",
                             fnode
                         ))
                         .into());
                     }
-                    self.state.all_flow_nodes.insert(fnode.id(), fnode.clone());
+                    self.inner.all_flow_nodes.insert(fnode.id(), fnode.clone());
                 }
 
                 log::debug!(
@@ -166,17 +182,13 @@ impl Engine {
                     flow.name()
                 );
                 //register the flow
-                self.state.flows.insert(flow.id, flow);
+                self.inner.flows.insert(flow.id, flow);
             }
         }
         Ok(())
     }
 
-    fn load_global_nodes(
-        self: Arc<Self>,
-        node_configs: Vec<RedGlobalNodeConfig>,
-        reg: Arc<dyn Registry>,
-    ) -> crate::Result<()> {
+    fn load_global_nodes(&self, node_configs: Vec<RedGlobalNodeConfig>, reg: Arc<dyn Registry>) -> crate::Result<()> {
         for global_config in node_configs.into_iter() {
             let node_type_name = global_config.type_name.as_str();
             let meta_node = if let Some(meta_node) = reg.get(node_type_name) {
@@ -192,7 +204,7 @@ impl Engine {
             };
 
             let global_node = match meta_node.factory {
-                NodeFactory::Global(factory) => factory(self.clone(), &global_config)?,
+                NodeFactory::Global(factory) => factory(self, &global_config)?,
                 _ => {
                     return Err(EdgelinkError::NotSupported(format!(
                         "Must be a global node: Node(id={0}, type='{1}')",
@@ -202,7 +214,7 @@ impl Engine {
                 }
             };
 
-            self.state.global_nodes.insert(global_node.id(), Arc::from(global_node));
+            self.inner.global_nodes.insert(global_node.id(), Arc::from(global_node));
         }
         Ok(())
     }
@@ -213,7 +225,7 @@ impl Engine {
         msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let flow = self.state.flows.get(&flow_id).as_deref().cloned();
+        let flow = self.inner.flows.get(&flow_id).as_deref().cloned();
         if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
@@ -228,7 +240,7 @@ impl Engine {
         msg: MsgHandle,
         cancel: CancellationToken,
     ) -> crate::Result<()> {
-        let flow = { self.state.flows.get(link_in_id).as_deref().cloned() };
+        let flow = { self.inner.flows.get(link_in_id).as_deref().cloned() };
         if let Some(flow) = flow {
             flow.inject_msg(msg, cancel.clone()).await?;
             Ok(())
@@ -240,15 +252,15 @@ impl Engine {
 
     pub async fn start(&self) -> crate::Result<()> {
         log::info!("-- Starting engine...");
-        let mut shutdown_lock = self.shutdown.try_write()?;
+        let mut shutdown_lock = self.inner.shutdown.try_write()?;
         if !(*shutdown_lock) {
             return Err(EdgelinkError::invalid_operation("already started."));
         }
 
-        if self.state.flows.is_empty() {
+        if self.inner.flows.is_empty() {
             return Err(EdgelinkError::invalid_operation("no flows loaded in the engine."));
         }
-        for f in self.state.flows.iter() {
+        for f in self.inner.flows.iter() {
             f.value().start().await?;
         }
 
@@ -259,15 +271,15 @@ impl Engine {
     }
 
     pub async fn stop(&self) -> crate::Result<()> {
-        let mut shutdown_lock = self.shutdown.try_write()?;
+        let mut shutdown_lock = self.inner.shutdown.try_write()?;
         if *shutdown_lock {
             return Err(EdgelinkError::invalid_operation("not started."));
         }
         log::info!("-- Stopping engine...");
 
-        self.stop_token.cancel();
+        self.inner.stop_token.cancel();
 
-        for i in self.state.flows.iter() {
+        for i in self.inner.flows.iter() {
             i.value().stop().await?;
         }
 
@@ -291,7 +303,7 @@ impl Engine {
 
         // Clear the final_msgs channel
         {
-            let mut rx = self.final_msgs_rx.rx.lock().await;
+            let mut rx = self.inner.final_msgs_rx.rx.lock().await;
             while rx.try_recv().is_ok() {}
         }
 
@@ -302,7 +314,7 @@ impl Engine {
 
         let result = tokio::time::timeout(timeout, async {
             while !cancel.is_cancelled() && count < expected_msgs {
-                let msg = self.final_msgs_rx.recv_msg(cancel.clone()).await?;
+                let msg = self.inner.final_msgs_rx.recv_msg(cancel.clone()).await?;
                 count += 1;
                 let msg = msg.unwrap().await;
                 received.push(msg);
@@ -327,11 +339,11 @@ impl Engine {
     }
 
     pub fn find_flow_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        self.state.all_flow_nodes.get(id).map(|x| x.value().clone())
+        self.inner.all_flow_nodes.get(id).map(|x| x.value().clone())
     }
 
     pub fn find_flow_node_by_name(&self, name: &str) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
-        for i in self.state.flows.iter() {
+        for i in self.inner.flows.iter() {
             let flow = i.value();
             let opt_node = flow.get_node_by_name(name)?;
             if opt_node.is_some() {
@@ -355,29 +367,29 @@ impl Engine {
     }
 
     pub fn get_envs(&self) -> Arc<EnvStore> {
-        self.envs.clone()
+        self.inner.envs.clone()
     }
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {
-        self.envs.evalute_env(key)
+        self.inner.envs.evalute_env(key)
     }
 
     pub fn get_context_manager(&self) -> &Arc<ContextManager> {
-        &self.context_manager
+        &self.inner.context_manager
     }
 
     pub fn context(&self) -> Arc<Context> {
-        self.context.clone()
+        self.inner.context.clone()
     }
 
     #[cfg(any(test, feature = "pymod"))]
     pub fn recv_final_msg(&self, msg: MsgHandle) -> crate::Result<()> {
-        self.final_msgs_tx.send(msg)?;
+        self.inner.final_msgs_tx.send(msg)?;
         Ok(())
     }
 }
 
-impl std::fmt::Debug for Engine {
+impl std::fmt::Debug for InnerEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO
         f.debug_struct("FlowEngine").finish()
@@ -385,7 +397,7 @@ impl std::fmt::Debug for Engine {
 }
 
 #[cfg(test)]
-pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Arc<Engine>> {
+pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Engine> {
     let registry = crate::runtime::registry::RegistryBuilder::default().build().unwrap();
     Engine::with_json(registry, flows_json, None)
 }
