@@ -2,6 +2,7 @@ use std::io::Read;
 use std::sync::{Arc, Weak};
 
 use dashmap::DashMap;
+use runtime::registry::RegistryHandle;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
@@ -13,7 +14,6 @@ use super::nodes::FlowNodeBehavior;
 use crate::runtime::flow::Flow;
 use crate::runtime::model::Variant;
 use crate::runtime::nodes::{GlobalNodeBehavior, NodeFactory};
-use crate::runtime::registry::Registry;
 use crate::*;
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -76,7 +76,7 @@ impl Engine {
     }
 
     pub fn with_json(
-        reg: Arc<dyn Registry>,
+        reg: &RegistryHandle,
         json: serde_json::Value,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Engine> {
@@ -122,7 +122,7 @@ impl Engine {
             }),
         };
 
-        engine.clone().load_flows(json_values.flows, reg.clone(), elcfg)?;
+        engine.clone().load_flows(json_values.flows, reg, elcfg)?;
 
         engine.clone().load_global_nodes(json_values.global_nodes, reg.clone())?;
 
@@ -130,7 +130,7 @@ impl Engine {
     }
 
     pub fn with_flows_file(
-        reg: Arc<dyn Registry>,
+        reg: &RegistryHandle,
         flows_json_path: &str,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Engine> {
@@ -141,7 +141,7 @@ impl Engine {
     }
 
     pub fn with_json_string(
-        reg: Arc<dyn Registry>,
+        reg: &RegistryHandle,
         json_str: String,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<Engine> {
@@ -155,14 +155,14 @@ impl Engine {
 
     fn load_flows(
         &self,
-        flow_configs: Vec<RedFlowConfig>,
-        reg: Arc<dyn Registry>,
+        flow_cfg: Vec<RedFlowConfig>,
+        reg: &RegistryHandle,
         elcfg: Option<&config::Config>,
     ) -> crate::Result<()> {
         // load flows
-        for flow_config in flow_configs.into_iter() {
+        for flow_config in flow_cfg.into_iter() {
             log::debug!("---- Loading flow/subflow: (id='{}', label='{}')...", flow_config.id, flow_config.label);
-            let flow = Flow::new(self, flow_config, reg.clone(), elcfg)?;
+            let flow = Flow::new(self, flow_config, reg, elcfg)?;
             {
                 // register all nodes
                 for fnode in flow.get_all_flow_nodes().iter() {
@@ -188,7 +188,7 @@ impl Engine {
         Ok(())
     }
 
-    fn load_global_nodes(&self, node_configs: Vec<RedGlobalNodeConfig>, reg: Arc<dyn Registry>) -> crate::Result<()> {
+    fn load_global_nodes(&self, node_configs: Vec<RedGlobalNodeConfig>, reg: RegistryHandle) -> crate::Result<()> {
         for global_config in node_configs.into_iter() {
             let node_type_name = global_config.type_name.as_str();
             let meta_node = if let Some(meta_node) = reg.get(node_type_name) {
@@ -399,7 +399,7 @@ impl std::fmt::Debug for InnerEngine {
 #[cfg(test)]
 pub fn build_test_engine(flows_json: serde_json::Value) -> crate::Result<Engine> {
     let registry = crate::runtime::registry::RegistryBuilder::default().build().unwrap();
-    Engine::with_json(registry, flows_json, None)
+    Engine::with_json(&registry, flows_json, None)
 }
 
 #[cfg(test)]

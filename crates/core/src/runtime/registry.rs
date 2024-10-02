@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::runtime::nodes::*;
@@ -10,7 +11,17 @@ pub trait Registry: 'static + Send + Sync {
     fn get(&self, type_name: &str) -> Option<&'static MetaNode>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct RegistryHandle(Arc<dyn Registry>);
+
+impl Deref for RegistryHandle {
+    type Target = Arc<dyn Registry>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone)]
 struct RegistryImpl {
     meta_nodes: Arc<HashMap<&'static str, &'static MetaNode>>,
 }
@@ -44,12 +55,12 @@ impl RegistryBuilder {
         self
     }
 
-    pub fn build(self) -> crate::Result<Arc<dyn Registry>> {
+    pub fn build(self) -> crate::Result<RegistryHandle> {
         if self.meta_nodes.is_empty() {
             log::warn!("There are no meta node in the Registry!");
         }
 
-        let result = Arc::new(RegistryImpl { meta_nodes: Arc::new(self.meta_nodes) });
+        let result = RegistryHandle(Arc::new(RegistryImpl { meta_nodes: Arc::new(self.meta_nodes) }));
         Ok(result)
     }
 }

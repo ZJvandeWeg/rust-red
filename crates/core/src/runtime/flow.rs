@@ -12,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 use super::context::Context;
 use super::engine::{Engine, WeakEngine};
 use super::group::{Group, GroupParent};
+use super::registry::RegistryHandle;
 use super::subflow::SubflowState;
 use crate::runtime::env::*;
 use crate::runtime::model::json::*;
@@ -164,7 +165,7 @@ impl Flow {
     pub(crate) fn new(
         engine: &Engine,
         flow_config: RedFlowConfig,
-        reg: Arc<dyn Registry>,
+        reg: &RegistryHandle,
         options: Option<&config::Config>,
     ) -> crate::Result<Arc<Self>> {
         let flow_kind = match flow_config.type_name.as_str() {
