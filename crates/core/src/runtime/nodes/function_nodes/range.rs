@@ -144,7 +144,7 @@ impl FlowNodeBehavior for RangeNode {
                     let mut msg_guard = msg.write().await;
                     node.do_range(&mut msg_guard)?;
                 }
-                node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                node.fan_out_one(Envelope { port: 0, msg }, cancel.child_token()).await?;
                 Ok(())
             })
             .await;

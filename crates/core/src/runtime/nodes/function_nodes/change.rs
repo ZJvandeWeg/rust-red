@@ -89,7 +89,7 @@ impl FlowNodeBehavior for ChangeNode {
                     // We always relay the message, regardless of whether the rules are followed or not.
                     node.apply_rules(&mut msg_guard).await;
                 }
-                node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone()).await
+                node.fan_out_one(Envelope { port: 0, msg }, cancel.clone()).await
             })
             .await;
         }

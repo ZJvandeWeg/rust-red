@@ -36,7 +36,7 @@ impl SubflowOutputPort {
                     // Find out the subflow:xxx node
                     if let Some(instance_node) = self.instance_node.clone().and_then(|x| x.upgrade()) {
                         let envelope = Envelope { port: self.index, msg };
-                        if let Err(e) = instance_node.fan_out_one(&envelope, stop_token.clone()).await {
+                        if let Err(e) = instance_node.fan_out_one(envelope, stop_token.clone()).await {
                             log::warn!("Failed to fan-out message: {:?}", e);
                         }
                     } else {

@@ -242,7 +242,7 @@ impl LinkCallNodeBehavior for LinkCallNode {
     ) -> crate::Result<()> {
         let mut mut_state = self.mut_state.lock().await;
         if let Some(event) = mut_state.msg_events.remove(&stack_id) {
-            self.fan_out_one(&Envelope { msg, port: 0 }, cancel).await?;
+            self.fan_out_one(Envelope { msg, port: 0 }, cancel).await?;
             drop(event);
             Ok(())
         } else {

@@ -28,7 +28,7 @@ impl FlowNodeBehavior for CompleteNode {
         while !stop_token.is_cancelled() {
             // We are not using the Unit of Work stuff here!
             match self.recv_msg(stop_token.clone()).await {
-                Ok(msg) => match self.fan_out_one(&Envelope { port: 0, msg }, stop_token.clone()).await {
+                Ok(msg) => match self.fan_out_one(Envelope { port: 0, msg }, stop_token.clone()).await {
                     Ok(_) => {}
                     Err(err) => {
                         log::error!(

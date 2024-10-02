@@ -162,7 +162,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         }
     }
 
-    async fn fan_out_one(&self, envelope: &Envelope, cancel: CancellationToken) -> crate::Result<()> {
+    async fn fan_out_one(&self, envelope: Envelope, cancel: CancellationToken) -> crate::Result<()> {
         if self.get_node().ports.is_empty() {
             log::warn!("No output wires in this node: Node(id='{}', name='{}')", self.id(), self.name());
             return Ok(());
@@ -184,13 +184,13 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         Ok(())
     }
 
-    async fn fan_out_many(&self, envelopes: &[Envelope], cancel: CancellationToken) -> crate::Result<()> {
+    async fn fan_out_many(&self, envelopes: Vec<Envelope>, cancel: CancellationToken) -> crate::Result<()> {
         if self.get_node().ports.is_empty() {
             log::warn!("No output wires in this node: Node(id='{}')", self.id());
             return Ok(());
         }
 
-        for e in envelopes.iter() {
+        for e in envelopes.into_iter() {
             self.fan_out_one(e, cancel.child_token()).await?;
         }
         Ok(())

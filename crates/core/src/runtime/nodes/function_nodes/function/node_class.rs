@@ -106,7 +106,7 @@ impl NodeClass {
                 let cancel = CancellationToken::new();
                 let async_node = node.clone();
                 ctx.spawn(async move {
-                    match async_node.fan_out_many(&msgs_to_send, cancel).await {
+                    match async_node.fan_out_many(msgs_to_send, cancel).await {
                         Ok(_) => {}
                         Err(err) => log::error!("Failed to send msg in function node: {}", err),
                     }
@@ -120,7 +120,7 @@ impl NodeClass {
                 let cancel = CancellationToken::new();
                 let async_node = node.clone();
                 ctx.spawn(async move {
-                    match async_node.fan_out_one(&envelope, cancel).await {
+                    match async_node.fan_out_one(envelope, cancel).await {
                         Ok(_) => {}
                         Err(err) => log::error!("Failed to send msg in function node: {}", err),
                     }

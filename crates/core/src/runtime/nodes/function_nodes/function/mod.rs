@@ -3,7 +3,6 @@ use std::sync::Arc;
 use rquickjs::async_with;
 use rquickjs::context::EvalOptions;
 use serde::Deserialize;
-use smallvec::SmallVec;
 
 mod js {
     pub use rquickjs::prelude::*;
@@ -48,7 +47,7 @@ struct FunctionNode {
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
-// static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
+static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
@@ -61,20 +60,21 @@ impl FlowNodeBehavior for FunctionNode {
         // for some reason, if the runtime of rquickjs is used as a global variable,
         // the members of node and env will disappear upon the second load.
 
-        //let js_rt = JS_RUMTIME
-        //.get_or_init(|| async move {
-        log::debug!("[function:{}] Initializing JavaScript AsyncRuntime...", self.name());
-        let rt = js::AsyncRuntime::new().unwrap();
-        let resolver = js::loader::BuiltinResolver::default();
-        //resolver.add_module("console");
-        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
-        rt.set_loader(resolver, loaders).await;
-        rt.idle().await;
-        let js_rt = rt;
-        //})
-        //.await;
+        let js_rt_this = self.clone();
+        let js_rt = JS_RUMTIME
+            .get_or_init(|| async move {
+                log::debug!("[function:{}] Initializing JavaScript AsyncRuntime...", js_rt_this.name());
+                let rt = js::AsyncRuntime::new().unwrap();
+                let resolver = js::loader::BuiltinResolver::default();
+                //resolver.add_module("console");
+                let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
+                rt.set_loader(resolver, loaders).await;
+                rt.idle().await;
+                rt
+            })
+            .await;
 
-        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
+        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
 
         js_rt.idle().await;
 
@@ -115,9 +115,9 @@ impl FlowNodeBehavior for FunctionNode {
                                 let envelopes = changed_msgs
                                     .into_iter()
                                     .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
-                                    .collect::<SmallVec<[Envelope; OUTPUT_MSGS_CAP]>>();
+                                    .collect::<Vec<Envelope>>();
 
-                                this_node.fan_out_many(&envelopes, cancel.clone()).await?;
+                                this_node.fan_out_many(envelopes, cancel.clone()).await?;
                             }
                         }
                         Err(e) => {

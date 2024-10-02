@@ -26,7 +26,7 @@ impl FlowNodeBehavior for StatusNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.child_token();
             with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
-                node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                node.fan_out_one(Envelope { port: 0, msg }, cancel.child_token()).await?;
                 Ok(())
             })
             .await;

@@ -289,7 +289,7 @@ impl FlowNodeBehavior for RbeNode {
                     node.do_filter(&mut msg_guard, &mut state_guard)
                 };
                 if can_send {
-                    node.fan_out_one(&Envelope { port: 0, msg }, cancel.child_token()).await?;
+                    node.fan_out_one(Envelope { port: 0, msg }, cancel.child_token()).await?;
                 }
                 Ok(())
             })

@@ -160,7 +160,7 @@ impl InjectNode {
 
         self.notify_uow_completed(envelope.msg.clone(), stop_token.clone()).await;
 
-        self.fan_out_one(&envelope, stop_token.clone()).await
+        self.fan_out_one(envelope, stop_token.clone()).await
     }
 }
 

@@ -27,7 +27,7 @@ impl FlowNodeBehavior for LinkInNode {
         while !stop_token.is_cancelled() {
             let cancel = stop_token.clone();
             with_uow(self.as_ref(), cancel.child_token(), |node, msg| async move {
-                node.fan_out_one(&Envelope { port: 0, msg }, cancel.clone()).await
+                node.fan_out_one(Envelope { port: 0, msg }, cancel.clone()).await
             })
             .await;
         }
