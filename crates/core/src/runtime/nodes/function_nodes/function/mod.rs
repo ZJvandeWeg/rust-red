@@ -117,7 +117,7 @@ impl FlowNodeBehavior for FunctionNode {
                                     .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
                                     .collect::<Vec<Envelope>>();
 
-                                this_node.fan_out_many(envelopes, cancel.clone()).await?;
+                                (this_node as Arc<dyn FlowNodeBehavior>).fan_out_many(envelopes, cancel.clone()).await?;
                             }
                         }
                         Err(e) => {

@@ -184,18 +184,6 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         Ok(())
     }
 
-    async fn fan_out_many(&self, envelopes: Vec<Envelope>, cancel: CancellationToken) -> crate::Result<()> {
-        if self.get_node().ports.is_empty() {
-            log::warn!("No output wires in this node: Node(id='{}')", self.id());
-            return Ok(());
-        }
-
-        for e in envelopes.into_iter() {
-            self.fan_out_one(e, cancel.child_token()).await?;
-        }
-        Ok(())
-    }
-
     // events
     fn on_loaded(&self) {}
     async fn on_starting(&self) {}
@@ -232,6 +220,22 @@ impl fmt::Display for dyn GlobalNodeBehavior {
 impl dyn FlowNodeBehavior {
     pub fn type_id(&self) -> ::std::any::TypeId {
         self.as_any().type_id()
+    }
+
+    async fn fan_out_many(
+        &self,
+        envelopes: impl IntoIterator<Item = Envelope>,
+        cancel: CancellationToken,
+    ) -> crate::Result<()> {
+        if self.get_node().ports.is_empty() {
+            log::warn!("No output wires in this node: Node(id='{}')", self.id());
+            return Ok(());
+        }
+
+        for e in envelopes.into_iter() {
+            self.fan_out_one(e, cancel.child_token()).await?;
+        }
+        Ok(())
     }
 }
 
