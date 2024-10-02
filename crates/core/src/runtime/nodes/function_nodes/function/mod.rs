@@ -29,10 +29,13 @@ type OutputMsgs = smallvec::SmallVec<[(usize, Msg); OUTPUT_MSGS_CAP]>;
 #[derive(Deserialize, Debug)]
 struct FunctionNodeConfig {
     #[serde(default)]
-    initialize: String,
+    initialize: Option<String>,
 
     #[serde(default)]
-    finalize: String,
+    func: Option<String>,
+
+    #[serde(default)]
+    finalize: Option<String>,
 
     #[serde(default, rename = "outputs")]
     output_count: usize,
@@ -42,12 +45,12 @@ struct FunctionNodeConfig {
 #[flow_node("function")]
 struct FunctionNode {
     base: FlowNode,
-    config: FunctionNodeConfig,
-    user_func: Vec<u8>,
+
+    output_count: usize,
+    user_script: Vec<u8>,
 }
 
 const JS_PRELUDE_SCRIPT: &str = include_str!("./function.prelude.js");
-static JS_RUMTIME: ::tokio::sync::OnceCell<js::AsyncRuntime> = ::tokio::sync::OnceCell::const_new();
 
 #[async_trait]
 impl FlowNodeBehavior for FunctionNode {
@@ -59,35 +62,26 @@ impl FlowNodeBehavior for FunctionNode {
         // This is a workaround; ideally, all function nodes should share a runtime. However,
         // for some reason, if the runtime of rquickjs is used as a global variable,
         // the members of node and env will disappear upon the second load.
-
         let js_rt_this = self.clone();
-        let js_rt = JS_RUMTIME
-            .get_or_init(|| async move {
-                log::debug!("[function:{}] Initializing JavaScript AsyncRuntime...", js_rt_this.name());
-                let rt = js::AsyncRuntime::new().unwrap();
-                let resolver = js::loader::BuiltinResolver::default();
-                //resolver.add_module("console");
-                let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
-                rt.set_loader(resolver, loaders).await;
-                rt.idle().await;
-                rt
-            })
-            .await;
-
-        let js_ctx = js::AsyncContext::full(js_rt).await.unwrap();
-
+        log::debug!("[function:{}] Initializing JavaScript AsyncRuntime...", js_rt_this.name());
+        let js_rt = js::AsyncRuntime::new().unwrap();
+        let resolver = js::loader::BuiltinResolver::default();
+        let loaders = (js::loader::ScriptLoader::default(), js::loader::ModuleLoader::default());
+        js_rt.set_loader(resolver, loaders).await;
         js_rt.idle().await;
 
+        let js_ctx = js::AsyncContext::full(&js_rt).await.unwrap();
         let cloned_this = self.clone();
         async_with!(js_ctx => |ctx| {
             if let Err(e) = cloned_this.prepare_js_ctx(&ctx) {
                 // It's a fatal error
-                log::error!("[function:{}] Fatal error! Failed to initialize JavaScript environment: {:?}", cloned_this.name(), e);
+                log::error!("[function:{}] Fatal error! Failed to prepare JavaScript context: {:?}", cloned_this.name(), e);
 
                 stop_token.cancel();
                 stop_token.cancelled().await;
                 return;
             }
+            while ctx.execute_pending_job() {}
 
             if let Err(e) = cloned_this.init_async(ctx.clone()).await {
                 // It's a fatal error
@@ -97,6 +91,7 @@ impl FlowNodeBehavior for FunctionNode {
                 stop_token.cancelled().await;
                 return;
             }
+            while ctx.execute_pending_job() {}
 
             while !stop_token.is_cancelled() {
                 let sub_ctx = ctx.clone();
@@ -127,14 +122,17 @@ impl FlowNodeBehavior for FunctionNode {
                     Ok(())
                 })
                 .await;
+                while ctx.execute_pending_job() {}
             }
 
             if let Err(e) = cloned_this.finalize_async(ctx.clone()).await {
                 log::error!("[function:{}] Fatal error! Failed to finalize JavaScript environment: {:?}", cloned_this.name(), e);
             }
-
+            while ctx.execute_pending_job() {}
         })
         .await;
+
+        js_rt.run_gc().await;
         js_rt.idle().await;
         log::debug!("[function:{}] processing task has been terminated.", self.name());
     }
@@ -151,31 +149,47 @@ impl FunctionNode {
             function_config.output_count = 1;
         }
 
-        let user_script_bytes = if let Some(user_script) = _config.rest.get("func").and_then(|x| x.as_str()) {
-            let user_script = format!(
-                r#"
-                async function __el_user_func(msg) {{ 
-                    var global = __edgelinkGlobalContext; 
-                    var flow = __edgelinkFlowContext; 
-                    var context = __edgelinkNodeContext; 
-                    var __msgid__ = msg._msgid; 
-                    context.flow = flow;
-                    context.global = global;
+        let user_script = format!(
+            "
+            async function __el_init_func() {{ 
+                let global = __edgelinkGlobalContext; 
+                let flow = __edgelinkFlowContext; 
+                let context = __edgelinkNodeContext; 
+                context.flow = flow;
+                context.global = global;
+                \n{}\n
+            }}
 
-                    {} 
+            async function __el_user_func(msg) {{ 
+                let global = __edgelinkGlobalContext; 
+                let flow = __edgelinkFlowContext; 
+                let context = __edgelinkNodeContext; 
+                let __msgid__ = msg._msgid; 
+                context.flow = flow;
+                context.global = global;
+                \n{}\n
+            }}
+                
+            async function __el_finalize_func() {{ 
+                let global = __edgelinkGlobalContext; 
+                let flow = __edgelinkFlowContext; 
+                let context = __edgelinkNodeContext; 
+                context.flow = flow;
+                context.global = global;
+                \n{}\n
+            }}
+            ",
+            function_config.initialize.unwrap_or("".to_string()),
+            function_config.func.unwrap_or("return msg;".to_string()),
+            function_config.finalize.unwrap_or("".to_string()),
+        );
+        log::warn!("```\n{}\n```", &user_script);
 
-                }}"#,
-                user_script
-            );
-            user_script.as_bytes().to_vec()
-        } else {
-            return Err(EdgelinkError::BadFlowsJson(
-                "The `func` property in function node cannot be null or empty".to_string(),
-            )
-            .into());
+        let node = FunctionNode {
+            base: base_node,
+            output_count: function_config.output_count,
+            user_script: user_script.as_bytes().to_vec(),
         };
-
-        let node = FunctionNode { base: base_node, config: function_config, user_func: user_script_bytes };
         Ok(Box::new(node))
     }
 
@@ -186,16 +200,6 @@ impl FunctionNode {
 
     async fn filter_msg<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>, msg: Msg) -> crate::Result<OutputMsgs> {
         let origin_msg_id = msg.id();
-        //let eval_result: js::Result<OutputMsgs> = js::async_with!(js_ctx => |ctx| {
-        self.prepare_js_ctx(&ctx).map_err(|_| js::Error::Exception)?;
-
-        match ctx.eval_with_options::<(), _>(self.user_func.as_slice(), self.make_eval_options()).catch(&ctx) {
-            Ok(()) => (),
-            Err(e) => {
-                log::error!("Failed to evaluate the user function definition code: {:?}", e);
-                anyhow::bail!("We are so over!");
-            }
-        }
 
         let user_func: js::Function = ctx.globals().get("__el_user_func")?;
         let js_msg = msg.into_js(&ctx)?;
@@ -205,22 +209,21 @@ impl FunctionNode {
         let eval_result = match js_res_value.catch(&ctx) {
             Ok(js_result) => self.convert_return_value(&ctx, js_result, origin_msg_id),
             Err(e) => {
-                log::error!("Javascript user function exception: {:?}", e);
+                if e.is_exception() {
+                    log::warn!("[function:{}] Javascript user function exception: {}", self.name(), e);
+                } else {
+                    log::warn!("[function:{}] Javascript user function error: {}", self.name(), e);
+                }
                 Err(js::Error::Exception)
             }
         };
-        //})
-        //.await;
 
         // This is VERY IMPORTANT! Execute all spawned tasks.
         // js_ctx.runtime().idle().await;
 
         match eval_result {
             Ok(msgs) => Ok(msgs),
-            Err(e) => {
-                log::warn!("Failed to invoke user func: {}", e);
-                Err(EdgelinkError::InvalidOperation(e.to_string()).into())
-            }
+            Err(e) => Err(EdgelinkError::InvalidOperation(e.to_string()).into()),
         }
     }
 
@@ -275,15 +278,19 @@ impl FunctionNode {
             }
 
             js::Type::Null => {
-                log::debug!("[FUNCTION_NODE] Skip `null`");
+                log::debug!("[function:{}] Skip `null`", self.name());
             }
 
             js::Type::Undefined => {
-                log::debug!("[FUNCTION_NODE] No returned msg(s).");
+                log::debug!("[function:{}] No returned msg(s).", self.name());
             }
 
             _ => {
-                log::warn!("Wrong type of the return values: Javascript type={}", js_result.type_of());
+                log::warn!(
+                    "[function:{}] Wrong type of the return values: Javascript type={}",
+                    self.name(),
+                    js_result.type_of()
+                );
             }
         }
         Ok(items)
@@ -292,41 +299,13 @@ impl FunctionNode {
     async fn init_async<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>) -> crate::Result<()> {
         log::debug!("[function:{}] Initializing JavaScript context...", self.name());
 
-        if !self.config.initialize.trim_ascii().is_empty() {
-            let init_body = &self.config.initialize;
-            let init_script = format!(
-                "
-                    async function __el_init_func() {{ 
-                        var global = __edgelinkGlobalContext; 
-                        var flow = __edgelinkFlowContext; 
-                        var context = __edgelinkNodeContext; 
-                        context.flow = flow;
-                        context.global = global;
-                        \n{init_body}\n
-                    }}
-                    "
-            );
-            match ctx.eval_with_options::<(), _>(init_script.as_bytes(), self.make_eval_options()) {
-                Err(e) => {
-                    log::error!("Failed to evaluate the `initialize` script: {:?}", e);
-                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                }
-                _ => {
-                    log::debug!(
-                        "[function:{}] The evulation of the `initialize` script has been succeed.",
-                        self.name()
-                    );
-                }
-            }
-
-            let init_func: js::Function = ctx.globals().get("__el_init_func")?;
-            let promised = init_func.call::<_, rquickjs::Promise>(())?;
-            match promised.into_future().await {
-                Ok(()) => (),
-                Err(e) => {
-                    log::error!("Failed to invoke the initialization script code: {}", e);
-                    return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-                }
+        let init_func: js::Function = ctx.globals().get("__el_init_func")?;
+        let promised = init_func.call::<_, rquickjs::Promise>(())?;
+        match promised.into_future().await {
+            Ok(()) => (),
+            Err(e) => {
+                log::error!("Failed to invoke the initialization script code: {}", e);
+                return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
             }
         }
         while ctx.execute_pending_job() {}
@@ -334,35 +313,12 @@ impl FunctionNode {
     }
 
     async fn finalize_async<'js>(self: &Arc<Self>, ctx: js::Ctx<'js>) -> crate::Result<()> {
-        let final_body = &self.config.finalize;
-        let final_script = format!(
-            "
-            async function __el_finalize_func() {{ 
-                var global = __edgelinkGlobalContext; 
-                var flow = __edgelinkFlowContext; 
-                var context = __edgelinkNodeContext; 
-                context.flow = flow;
-                context.global = global;
-                \n{final_body}\n
-            }}
-            "
-        );
-        match ctx.eval_with_options::<(), _>(final_script.as_bytes(), self.make_eval_options()) {
-            Err(e) => {
-                log::error!("Failed to evaluate the `finialize` script: {:?}", e);
-                return Err(EdgelinkError::InvalidOperation(e.to_string()).into());
-            }
-            _ => {
-                log::debug!("[function:{}] The evulation of the `finalize` script has been succeed.", self.name());
-            }
-        }
-
         let final_func: js::Function = ctx.globals().get("__el_finalize_func")?;
         let promised = final_func.call::<_, rquickjs::Promise>(())?;
         match promised.into_future().await {
             Ok(()) => Ok(()),
             Err(e) => {
-                log::error!("Failed to invoke the `finialize` script code: {}", e);
+                log::error!("[function:{}] Failed to invoke the `finialize` script code: {}", self.name(), e);
                 Err(EdgelinkError::InvalidOperation(e.to_string()).into())
             }
         }
@@ -414,6 +370,15 @@ impl FunctionNode {
             return Err(EdgelinkError::InvalidOperation(e.to_string()))
                 .with_context(|| format!("Failed to evaluate the prelude script: {:?}", e));
         }
+
+        match ctx.eval_with_options::<(), _>(self.user_script.as_slice(), self.make_eval_options()).catch(ctx) {
+            Ok(()) => (),
+            Err(e) => {
+                log::error!("[function:{}] Failed to evaluate the user function definition code: {}", self.name(), e);
+                anyhow::bail!("We are so over!");
+            }
+        }
+
         Ok(())
     }
 
@@ -435,7 +400,7 @@ mod tests {
         let flows_json = json!([
             {"id": "100", "type": "tab"},
             {"id": "1", "type": "function", "z": "100", "wires": [
-                ["2"]], "func": "context.set('count','0'); msg.count=context.get('count'); node.send(msg);"},
+                ["2"]], "func": "context.set('count','0');\n msg.count=context.get('count');\n node.send(msg);"},
             {"id": "2", "z": "100", "type": "test-once"},
         ]);
         let msgs_to_inject_json = json!([

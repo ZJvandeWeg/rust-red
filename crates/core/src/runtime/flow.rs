@@ -246,7 +246,7 @@ impl Flow {
             },
 
             subflow_state: match flow_kind {
-                FlowKind::Subflow => Some(SubflowState::new(&engine, &flow_config, &args)?),
+                FlowKind::Subflow => Some(SubflowState::new(engine, &flow_config, &args)?),
                 FlowKind::GlobalFlow => None,
             },
             envs,
@@ -259,7 +259,7 @@ impl Flow {
             let flow = flow.clone();
             flow.clone().populate_groups(&flow_config)?;
 
-            flow.clone().populate_nodes(&flow_config, reg.as_ref(), &engine)?;
+            flow.clone().populate_nodes(&flow_config, reg.as_ref(), engine)?;
         }
 
         if let Some(subflow_state) = &flow.subflow_state {
@@ -317,7 +317,7 @@ impl Flow {
             let node = match meta_node.factory {
                 NodeFactory::Flow(factory) => {
                     let mut node_state =
-                        self.new_flow_node_state(meta_node, &self.state, node_config, &engine).map_err(|e| {
+                        self.new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
                             log::error!("Failed to create flow node(id='{}'): {:?}", node_config.id, e);
                             e
                         })?;

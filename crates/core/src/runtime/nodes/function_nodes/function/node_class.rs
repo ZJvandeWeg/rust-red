@@ -39,7 +39,7 @@ impl NodeClass {
     #[qjs(get, rename = "outputCount")]
     fn get_output_count(&self) -> rquickjs::Result<usize> {
         let node = self.node.upgrade().clone().ok_or(rquickjs::Error::UnrelatedRuntime)?;
-        Ok(node.config.output_count)
+        Ok(node.output_count)
     }
 
     #[qjs(rename = "status")]
