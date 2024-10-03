@@ -78,25 +78,25 @@ pub struct Context {
     pub scope: String,
 }
 
+pub type ContextStoreHandle = Arc<dyn ContextStore>;
+
 pub struct ContextManager {
-    default_store: Arc<dyn ContextStore>,
-    stores: HashMap<String, Arc<dyn ContextStore>>,
+    default_store: ContextStoreHandle,
+    stores: HashMap<String, ContextStoreHandle>,
     contexts: DashMap<String, Arc<Context>>,
 }
 
 pub struct ContextManagerBuilder {
-    stores: HashMap<String, Arc<dyn ContextStore>>,
+    stores: HashMap<String, ContextStoreHandle>,
     default_store: String,
     settings: Option<ContextStorageSettings>,
 }
 
 impl Context {
     pub async fn get_one(&self, storage: Option<&str>, key: &str, eval_env: &[PropexEnv<'_>]) -> Option<Variant> {
-        let store = if let Some(storage) = storage {
-            self.manager.upgrade()?.get_context_store(storage)?
-        } else {
-            self.manager.upgrade()?.get_default_store()
-        };
+        let manager = self.manager.upgrade()?;
+        let store =
+            if let Some(storage) = storage { manager.get_context_store(storage)? } else { manager.get_default_store() };
         // TODO FIXME change it to fixed length stack-allocated string
         let mut path = propex::parse(key).ok()?;
         expand_propex_segments(&mut path, eval_env).ok()?;
@@ -104,11 +104,9 @@ impl Context {
     }
 
     pub async fn keys(&self, store: Option<&str>) -> Option<Vec<String>> {
-        let store = if let Some(storage) = store {
-            self.manager.upgrade()?.get_context_store(storage)?
-        } else {
-            self.manager.upgrade()?.get_default_store()
-        };
+        let manager = self.manager.upgrade()?;
+        let store =
+            if let Some(storage) = store { manager.get_context_store(storage)? } else { manager.get_default_store() };
         store.get_keys(&self.scope).await.ok()
     }
 
@@ -119,15 +117,14 @@ impl Context {
         value: Option<Variant>,
         eval_env: &[PropexEnv<'_>],
     ) -> Result<()> {
+        let manager = self.manager.upgrade().expect("manager");
         let store = if let Some(storage) = storage {
-            self.manager
-                .upgrade()
-                .expect("The mananger cannot be released!")
+            manager
                 .get_context_store(storage)
                 .ok_or(EdgelinkError::BadArgument("storage"))
                 .with_context(|| format!("Cannot found the storage: '{}'", storage))?
         } else {
-            self.manager.upgrade().expect("The manager cannot be released!").get_default_store()
+            manager.get_default_store()
         };
         let mut path = propex::parse(key)?;
         expand_propex_segments(&mut path, eval_env)?;
@@ -146,7 +143,7 @@ impl Default for ContextManager {
         let memory_metadata = x.into_iter().find(|x| x.type_ == "memory").unwrap();
         let memory_store =
             (memory_metadata.factory)("memory".into(), None).expect("Create memory storage cannot go wrong.");
-        let mut stores: HashMap<std::string::String, Arc<dyn ContextStore>> = HashMap::with_capacity(1);
+        let mut stores: HashMap<std::string::String, ContextStoreHandle> = HashMap::with_capacity(1);
         stores.insert("memory".to_string(), Arc::from(memory_store));
         Self { default_store: stores["memory"].clone(), contexts: DashMap::new(), stores }
     }
@@ -236,14 +233,14 @@ impl ContextManager {
         c
     }
 
-    pub fn get_default_store(&self) -> Arc<dyn ContextStore> {
-        self.default_store.clone()
+    pub fn get_default_store(&self) -> &ContextStoreHandle {
+        &self.default_store
     }
 
-    pub fn get_context_store(&self, store_name: &str) -> Option<Arc<dyn ContextStore>> {
+    pub fn get_context_store<'a>(&'a self, store_name: &str) -> Option<&'a ContextStoreHandle> {
         match store_name {
-            DEFAULT_STORE_NAME | DEFAULT_STORE_NAME_ALIAS | "" => Some(self.default_store.clone()),
-            _ => self.stores.get(store_name).cloned(),
+            DEFAULT_STORE_NAME | DEFAULT_STORE_NAME_ALIAS | "" => Some(&self.default_store),
+            _ => self.stores.get(store_name),
         }
     }
 }
