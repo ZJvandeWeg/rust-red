@@ -85,7 +85,7 @@ impl Group {
     }
 
     pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: &Flow) -> crate::Result<Self> {
-        let envs_builder = EnvStoreBuilder::default().with_parent(&flow.get_envs());
+        let envs_builder = EnvStoreBuilder::default().with_parent(flow.get_envs());
 
         let inner = InnerGroup {
             id: config.id,

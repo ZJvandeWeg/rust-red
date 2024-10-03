@@ -196,7 +196,7 @@ impl Flow {
             FlowKind::GlobalFlow => envs_builder.with_parent(&engine.get_envs()),
             FlowKind::Subflow => {
                 if let Some(ref instance) = subflow_instance {
-                    envs_builder.with_parent(&instance.get_envs())
+                    envs_builder.with_parent(instance.get_envs())
                 } else {
                     log::warn!("Cannot found the instance node of the subflow: id='{}'", flow_config.id);
                     envs_builder.with_parent(&engine.get_envs())
@@ -634,7 +634,7 @@ impl Flow {
         if let Some(ref g) = group {
             envs_builder = envs_builder.with_parent(&g.get_envs());
         } else {
-            envs_builder = envs_builder.with_parent(&self.get_envs());
+            envs_builder = envs_builder.with_parent(self.get_envs());
         }
         if let Some(env_json) = node_config.rest.get("env") {
             envs_builder = envs_builder.load_json(env_json);
