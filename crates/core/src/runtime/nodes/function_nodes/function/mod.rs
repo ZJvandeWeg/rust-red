@@ -341,7 +341,7 @@ impl FunctionNode {
         */
         ::rquickjs_extra::timers::init(ctx)?;
 
-        ctx.globals().set("env", env_class::EnvClass::new(self.get_envs().clone()))?;
+        ctx.globals().set("env", env_class::EnvClass::new(self.get_envs()))?;
         ctx.globals().set("node", node_class::NodeClass::new(self))?;
 
         // Register the global-scoped context

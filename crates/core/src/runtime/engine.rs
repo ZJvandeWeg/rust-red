@@ -54,7 +54,7 @@ struct InnerEngine {
     shutdown: tokio::sync::RwLock<bool>,
     stop_token: CancellationToken,
     _args: EngineArgs,
-    envs: Arc<EnvStore>,
+    envs: Envs,
     context_manager: Arc<ContextManager>,
     context: Arc<Context>,
 
@@ -366,7 +366,7 @@ impl Engine {
         node.inject_msg(msg, cancel).await
     }
 
-    pub fn get_envs(&self) -> Arc<EnvStore> {
+    pub fn get_envs(&self) -> Envs {
         self.inner.envs.clone()
     }
 

@@ -13,22 +13,42 @@ use utils::topo::TopologicalSorter;
 use crate::runtime::model::{RedPropertyType, Variant};
 use crate::*;
 
+#[derive(Debug, Clone)]
+pub struct Envs {
+    inner: Arc<EnvStore>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WeakEnvs {
+    inner: Weak<EnvStore>,
+}
+
+impl WeakEnvs {
+    pub fn upgrade(&self) -> Option<Envs> {
+        Weak::upgrade(&self.inner).map(|x| Envs { inner: x })
+    }
+}
+
 #[derive(Debug)]
-pub struct EnvStore {
-    parent: RwLock<Option<Weak<EnvStore>>>,
+struct EnvStore {
+    parent: RwLock<Option<WeakEnvs>>,
     envs: DashMap<String, Variant>,
 }
 
-impl EnvStore {
+impl Envs {
+    pub fn downgrade(&self) -> WeakEnvs {
+        WeakEnvs { inner: Arc::downgrade(&self.inner) }
+    }
+
     pub fn evalute_env(&self, env_expr: &str) -> Option<Variant> {
         self.get_normalized(env_expr)
     }
 
     fn get_raw_env(&self, key: &str) -> Option<Variant> {
-        if let Some(value) = self.envs.get(key) {
+        if let Some(value) = self.inner.envs.get(key) {
             Some(value.clone())
         } else {
-            let parent = self.parent.read().ok()?;
+            let parent = self.inner.parent.read().ok()?;
             parent.as_ref().and_then(|p| p.upgrade()).and_then(|p| p.get_raw_env(key))
         }
     }
@@ -64,13 +84,13 @@ struct EnvEntry {
 
 #[derive(Debug, Default, Clone)]
 pub struct EnvStoreBuilder {
-    parent: Option<Weak<EnvStore>>,
+    parent: Option<WeakEnvs>,
     envs: HashMap<String, Variant>,
 }
 
 impl EnvStoreBuilder {
-    pub fn with_parent(mut self, parent: &Arc<EnvStore>) -> Self {
-        self.parent = Some(Arc::downgrade(parent));
+    pub fn with_parent(mut self, parent: &Envs) -> Self {
+        self.parent = Some(parent.downgrade());
         self
     }
 
@@ -128,8 +148,8 @@ impl EnvStoreBuilder {
         self
     }
 
-    pub fn extends_with(mut self, other: &EnvStore) -> Self {
-        for it in other.envs.iter() {
+    pub fn extends_with(mut self, other: &Envs) -> Self {
+        for it in other.inner.envs.iter() {
             if !self.envs.contains_key(it.key()) {
                 self.envs.insert(it.key().clone(), it.value().clone());
             }
@@ -137,18 +157,18 @@ impl EnvStoreBuilder {
         self
     }
 
-    pub fn update_with(mut self, other: &EnvStore) -> Self {
-        for guard in other.envs.iter() {
+    pub fn update_with(mut self, other: &Envs) -> Self {
+        for guard in other.inner.envs.iter() {
             self.envs.insert(guard.key().clone(), guard.value().clone());
         }
         self
     }
 
-    pub fn build(self) -> Arc<EnvStore> {
-        let mut this = EnvStore { parent: RwLock::new(self.parent), envs: DashMap::with_capacity(self.envs.len()) };
-        this.envs.extend(self.envs);
+    pub fn build(self) -> Envs {
+        let mut inner = EnvStore { parent: RwLock::new(self.parent), envs: DashMap::with_capacity(self.envs.len()) };
+        inner.envs.extend(self.envs);
 
-        Arc::new(this)
+        Envs { inner: Arc::new(inner) }
     }
 
     fn evaluate(&self, value: &str, type_: RedPropertyType) -> crate::Result<Variant> {

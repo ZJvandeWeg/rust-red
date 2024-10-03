@@ -76,7 +76,7 @@ struct InnerGroup {
     pub name: String,
     pub disabled: bool,
     pub parent: GroupParent,
-    pub envs: Arc<EnvStore>,
+    pub envs: Envs,
 }
 
 impl Group {
@@ -114,7 +114,7 @@ impl Group {
         &self.inner.parent
     }
 
-    pub fn get_envs(&self) -> Arc<EnvStore> {
+    pub fn get_envs(&self) -> Envs {
         self.inner.envs.clone()
     }
 
@@ -123,7 +123,7 @@ impl Group {
     }
 }
 
-fn build_envs(mut envs_builder: EnvStoreBuilder, config: &RedGroupConfig) -> Arc<EnvStore> {
+fn build_envs(mut envs_builder: EnvStoreBuilder, config: &RedGroupConfig) -> Envs {
     if let Some(env_json) = config.rest.get("env") {
         envs_builder = envs_builder.load_json(env_json);
     }

@@ -94,7 +94,7 @@ struct InnerFlow {
 
     subflow_state: Option<SubflowState>,
 
-    envs: Arc<EnvStore>,
+    envs: Envs,
     context: Arc<Context>,
 }
 
@@ -208,7 +208,7 @@ impl Flow {
         }
         if let Some(ref instance) = subflow_instance {
             // merge from subflow instance
-            envs_builder = envs_builder.update_with(instance.get_envs().as_ref());
+            envs_builder = envs_builder.update_with(instance.get_envs());
         }
 
         envs_builder = match flow_kind {
@@ -486,8 +486,8 @@ impl Flow {
         self.inner.engine.upgrade()
     }
 
-    pub fn get_envs(&self) -> Arc<EnvStore> {
-        self.inner.envs.clone()
+    pub fn get_envs(&self) -> &Envs {
+        &self.inner.envs
     }
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {

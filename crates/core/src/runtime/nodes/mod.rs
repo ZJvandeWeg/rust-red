@@ -78,7 +78,7 @@ pub struct FlowNode {
     pub msg_rx: MsgReceiverHolder,
     pub ports: Vec<Port>,
     pub group: Option<WeakGroup>,
-    pub envs: Arc<EnvStore>,
+    pub envs: Envs,
     pub context: Arc<Context>,
 
     pub on_received: MsgEventSender,
@@ -115,8 +115,8 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         &self.get_node().flow
     }
 
-    fn get_envs(&self) -> Arc<EnvStore> {
-        self.get_node().envs.clone()
+    fn get_envs(&self) -> &Envs {
+        &self.get_node().envs
     }
 
     fn get_env(&self, key: &str) -> Option<Variant> {
