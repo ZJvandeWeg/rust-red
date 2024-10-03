@@ -85,7 +85,7 @@ struct InnerFlow {
 
     stop_token: CancellationToken,
 
-    pub(crate) groups: DashMap<ElementId, Arc<Group>>,
+    pub(crate) groups: DashMap<ElementId, Group>,
     pub(crate) nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
     pub(crate) complete_nodes_map: DashMap<ElementId, Vec<Arc<dyn FlowNodeBehavior>>>,
     pub(crate) catch_nodes: std::sync::RwLock<Vec<Arc<dyn FlowNodeBehavior>>>,
@@ -290,14 +290,15 @@ impl Flow {
                 // Subgroup
                 Some(parent_id) => Group::new_subgroup(
                     gc,
-                    self,
-                    &self.inner.groups.get(parent_id).unwrap(), //FIXME
+                    &self.inner.groups.get(parent_id).map(|x| x.value().clone()).ok_or(
+                        EdgelinkError::InvalidOperation(format!("cannot found parent group id `{}`", parent_id)),
+                    )?,
                 )?,
 
                 // Root group
                 None => Group::new_flow_group(gc, self)?,
             };
-            self.inner.groups.insert(group.id, Arc::new(group));
+            self.inner.groups.insert(group.id(), group);
         }
         Ok(())
     }
@@ -658,7 +659,7 @@ impl Flow {
             msg_tx: tx_root,
             msg_rx: MsgReceiverHolder::new(rx),
             ports,
-            group: group.map(|g| Arc::downgrade(&g)),
+            group: group.map(|g| g.downgrade()),
             envs,
             context,
             on_received: MsgEventSender::new(1),
@@ -698,18 +699,19 @@ impl Flow {
                     }
                 }
                 let mut distance: usize = 0;
-                let catch_node_group_id = catch_node.group().and_then(|x| x.upgrade()).map(|x| x.id);
-                if let Some(ref reporting_node_group_id) =
-                    reporting_node.group().and_then(|x| x.upgrade()).map(|x| x.id)
-                {
+                let catch_node_group_id = catch_node.group().map(|x| x.id());
+                if let Some(ref reporting_node_group_id) = reporting_node.group().map(|x| x.id()) {
                     // Reporting node inside a group. Calculate the distance between it and the catch node
                     let mut containing_group_id = Some(*reporting_node_group_id);
                     while containing_group_id.is_some() && containing_group_id != catch_node_group_id {
                         distance += 1;
-                        let containing_group_parent =
-                            self.inner.groups.get(&containing_group_id.unwrap()).map(|x| x.value().parent.clone());
+                        let containing_group_parent = self
+                            .inner
+                            .groups
+                            .get(&containing_group_id.unwrap())
+                            .map(|x| x.value().get_parent().clone());
                         containing_group_id = if let Some(GroupParent::Group(g)) = containing_group_parent {
-                            Some(g.upgrade().expect("Group").id)
+                            Some(g.upgrade().expect("Group").id())
                         } else {
                             None
                         };

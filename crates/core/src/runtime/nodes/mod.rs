@@ -3,11 +3,11 @@ use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
 use runtime::engine::Engine;
+use runtime::group::{Group, WeakGroup};
 use tokio::select;
 use tokio_util::sync::CancellationToken;
 
 use super::context::Context;
-use super::group::Group;
 use crate::runtime::env::*;
 use crate::runtime::flow::*;
 use crate::runtime::model::json::{RedFlowNodeConfig, RedGlobalNodeConfig};
@@ -77,7 +77,7 @@ pub struct FlowNode {
     pub msg_tx: MsgSender,
     pub msg_rx: MsgReceiverHolder,
     pub ports: Vec<Port>,
-    pub group: Option<Weak<Group>>,
+    pub group: Option<WeakGroup>,
     pub envs: Arc<EnvStore>,
     pub context: Arc<Context>,
 
@@ -107,8 +107,8 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken);
 
-    fn group(&self) -> Option<&Weak<Group>> {
-        self.get_node().group.as_ref()
+    fn group(&self) -> Option<Group> {
+        self.get_node().group.clone().and_then(|x| x.upgrade())
     }
 
     fn get_flow(&self) -> &WeakFlow {

@@ -20,7 +20,7 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
 
     if let Some(flow_ref) = flow {
         if let Some(node) = node {
-            if let Some(ref group) = node.group().and_then(|g| g.upgrade()) {
+            if let Some(ref group) = node.group() {
                 return group.get_env(name);
             }
         }

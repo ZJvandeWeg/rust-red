@@ -31,6 +31,9 @@ pub struct RedGroupConfig {
     #[serde(default)]
     pub name: String,
 
+    #[serde(default)]
+    pub disabled: bool,
+
     #[serde(default, deserialize_with = "deser::deser_red_id_vec")]
     pub nodes: Vec<ElementId>,
 

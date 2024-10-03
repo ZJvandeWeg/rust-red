@@ -1,59 +1,125 @@
 use std::sync::Arc;
 use std::sync::Weak;
 
+use super::context::Context;
 use super::env::*;
 use super::flow::*;
 use super::model::json::*;
 use super::model::*;
 
 #[derive(Debug, Clone)]
-pub enum GroupParent {
-    Flow(WeakFlow),
-    Group(Weak<Group>),
+pub struct Group {
+    inner: Arc<InnerGroup>,
 }
 
-#[derive(Debug)]
-pub struct Group {
+#[derive(Debug, Clone)]
+pub struct WeakGroup {
+    inner: Weak<InnerGroup>,
+}
+
+impl WeakGroup {
+    pub fn upgrade(&self) -> Option<Group> {
+        Weak::upgrade(&self.inner).map(|x| Group { inner: x })
+    }
+}
+
+impl FlowsElement for Group {
+    fn id(&self) -> ElementId {
+        self.inner.id
+    }
+
+    fn name(&self) -> &str {
+        &self.inner.name
+    }
+
+    fn type_str(&self) -> &'static str {
+        "group"
+    }
+
+    fn ordering(&self) -> usize {
+        0
+    }
+
+    fn parent_element(&self) -> Option<ElementId> {
+        match self.inner.parent {
+            GroupParent::Flow(ref flow) => flow.upgrade().map(|x| x.id()),
+            GroupParent::Group(ref group) => group.upgrade().map(|x| x.id()),
+        }
+    }
+
+    fn context(&self) -> Arc<Context> {
+        panic!("Group do not support context!")
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.inner.disabled
+    }
+
+    fn get_path(&self) -> String {
+        panic!("Group do not support path!")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GroupParent {
+    Flow(WeakFlow),
+    Group(WeakGroup),
+}
+
+#[derive(Debug, Clone)]
+struct InnerGroup {
     pub id: ElementId,
     pub name: String,
-    pub flow: WeakFlow,
+    pub disabled: bool,
     pub parent: GroupParent,
     pub envs: Arc<EnvStore>,
 }
 
 impl Group {
+    pub fn downgrade(&self) -> WeakGroup {
+        WeakGroup { inner: Arc::downgrade(&self.inner) }
+    }
+
     pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: &Flow) -> crate::Result<Self> {
         let envs_builder = EnvStoreBuilder::default().with_parent(&flow.get_envs());
 
-        let group = Group {
+        let inner = InnerGroup {
             id: config.id,
             name: config.name.clone(),
-            flow: flow.downgrade(),
+            disabled: config.disabled,
             parent: GroupParent::Flow(flow.downgrade()),
             envs: build_envs(envs_builder, config),
         };
-        Ok(group)
+        Ok(Self { inner: Arc::new(inner) })
     }
 
-    pub(crate) fn new_subgroup(config: &RedGroupConfig, flow: &Flow, parent: &Arc<Group>) -> crate::Result<Self> {
-        let envs_builder = EnvStoreBuilder::default().with_parent(&parent.envs);
+    pub(crate) fn new_subgroup(config: &RedGroupConfig, parent: &Group) -> crate::Result<Self> {
+        let envs_builder = EnvStoreBuilder::default().with_parent(&parent.inner.envs);
 
-        let group = Group {
+        let inner = InnerGroup {
             id: config.id,
             name: config.name.clone(),
-            flow: flow.downgrade(),
-            parent: GroupParent::Group(Arc::downgrade(parent)),
+            disabled: config.disabled,
+            parent: GroupParent::Group(parent.downgrade()),
             envs: build_envs(envs_builder, config),
         };
-        Ok(group)
+        Ok(Self { inner: Arc::new(inner) })
+    }
+
+    pub fn get_parent(&self) -> &GroupParent {
+        &self.inner.parent
     }
 
     pub fn get_envs(&self) -> Arc<EnvStore> {
-        self.envs.clone()
+        self.inner.envs.clone()
     }
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {
-        self.envs.evalute_env(key)
+        self.inner.envs.evalute_env(key)
     }
 }
 
