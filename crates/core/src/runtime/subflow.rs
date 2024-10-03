@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     engine::Engine,
-    flow::{FlowArgs, FlowState},
+    flow::{Flow, FlowArgs},
     nodes::FlowNodeBehavior,
 };
 use crate::runtime::model::*;
@@ -84,12 +84,12 @@ impl SubflowState {
         Ok(this)
     }
 
-    pub(crate) fn populate_in_nodes(&self, flow_state: &FlowState, flow_config: &RedFlowConfig) -> crate::Result<()> {
+    pub(crate) fn populate_in_nodes(&self, flow: &Flow, flow_config: &RedFlowConfig) -> crate::Result<()> {
         // this is a subflow with in ports
         let mut in_nodes = self.in_nodes.write().expect("`in_nodes` write lock");
         for wire_obj in flow_config.in_ports.iter().flat_map(|x| x.wires.iter()) {
-            if let Some(node) = flow_state.nodes.get(&wire_obj.id) {
-                in_nodes.push(node.value().clone());
+            if let Some(node) = flow.get_node_by_id(&wire_obj.id) {
+                in_nodes.push(node.clone());
             } else {
                 log::warn!("Can not found node(id='{}')", wire_obj.id);
             }
