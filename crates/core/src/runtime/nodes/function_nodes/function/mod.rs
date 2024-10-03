@@ -183,7 +183,6 @@ impl FunctionNode {
             function_config.func.unwrap_or("return msg;".to_string()),
             function_config.finalize.unwrap_or("".to_string()),
         );
-        log::warn!("```\n{}\n```", &user_script);
 
         let node = FunctionNode {
             base: base_node,
