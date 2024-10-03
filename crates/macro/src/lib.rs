@@ -46,10 +46,6 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 self.get_node().flow.upgrade().map(|arc| arc.id())
             }
 
-            fn context(&self) -> Arc<Context> {
-                self.get_node().context.clone()
-            }
-
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
@@ -58,6 +54,12 @@ pub fn flow_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 format!("{}/{}", self.get_node().flow.upgrade().unwrap().get_path(), self.id())
             }
 
+        }
+
+        impl ContextHolder for #struct_name {
+            fn context(&self) -> Arc<Context> {
+                self.get_node().context.clone()
+            }
         }
 
         ::inventory::submit! {
@@ -117,16 +119,18 @@ pub fn global_node(attr: TokenStream, item: TokenStream) -> TokenStream {
                 None
             }
 
-            fn context(&self) -> Arc<Context> {
-                self.get_node().context.clone()
-            }
-
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
 
             fn get_path(&self) -> String {
                 self.id().to_string()
+            }
+        }
+
+        impl ContextHolder for #struct_name {
+            fn context(&self) -> Arc<Context> {
+                self.get_node().context.clone()
             }
         }
 

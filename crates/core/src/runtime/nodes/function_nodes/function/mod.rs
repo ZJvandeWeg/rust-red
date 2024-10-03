@@ -353,7 +353,7 @@ impl FunctionNode {
         }
 
         // Register the flow-scoped context
-        if let Some(flow_context) = self.get_flow().upgrade().map(|x| x.context()) {
+        if let Some(flow_context) = self.get_flow().map(|x| x.context()) {
             ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
         } else {
             return Err(EdgelinkError::InvalidOperation("Failed to get flow context".into()).into());

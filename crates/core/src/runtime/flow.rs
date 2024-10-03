@@ -119,10 +119,6 @@ impl FlowsElement for Flow {
         self.inner.parent
     }
 
-    fn context(&self) -> Arc<Context> {
-        self.inner.context.clone()
-    }
-
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
@@ -137,6 +133,12 @@ impl FlowsElement for Flow {
         } else {
             self.inner.id.to_string()
         }
+    }
+}
+
+impl ContextHolder for Flow {
+    fn context(&self) -> Arc<Context> {
+        self.inner.context.clone()
     }
 }
 
@@ -228,8 +230,7 @@ impl Flow {
                     ("NR_SUBFLOW_NAME".into(), subflow_instance.name().into()),
                     (
                         "NR_SUBFLOW_PATH".into(),
-                        format!("{}/{}", subflow_instance.get_flow().upgrade().unwrap().id(), subflow_instance.id())
-                            .into(),
+                        format!("{}/{}", subflow_instance.get_flow().unwrap().id(), subflow_instance.id()).into(),
                     ),
                 ])
             }

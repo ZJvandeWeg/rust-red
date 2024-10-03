@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::Weak;
 
-use super::context::Context;
 use super::env::*;
 use super::flow::*;
 use super::model::json::*;
@@ -45,10 +44,6 @@ impl FlowsElement for Group {
             GroupParent::Flow(ref flow) => flow.upgrade().map(|x| x.id()),
             GroupParent::Group(ref group) => group.upgrade().map(|x| x.id()),
         }
-    }
-
-    fn context(&self) -> Arc<Context> {
-        panic!("Group do not support context!")
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {

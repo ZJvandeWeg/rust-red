@@ -360,7 +360,7 @@ impl ChangeNode {
 
     fn get_context_by_property_type(&self, pt: RedPropertyType) -> crate::Result<Arc<Context>> {
         let res = match pt {
-            RedPropertyType::Flow => self.get_flow().upgrade().map(|x| x.context()),
+            RedPropertyType::Flow => self.get_flow().map(|x| x.context()),
             RedPropertyType::Global => self.get_engine().map(|x| x.context()),
             _ => None,
         };

@@ -163,7 +163,7 @@ impl LinkCallNode {
                 } else {
                     // Secondly, we are looking into the node names in this flow
                     // Otherwises, we should looking into the node names in the whole engine
-                    let flow = self.get_flow().upgrade().expect("The flow must be instanced!");
+                    let flow = self.get_flow().expect("The flow must be instanced!");
 
                     if let Some(node) = flow.get_node_by_name(target_name)? {
                         Some(node)

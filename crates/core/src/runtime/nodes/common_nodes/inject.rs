@@ -149,9 +149,7 @@ impl InjectNode {
         let mut msg_body: BTreeMap<String, Variant> = BTreeMap::new();
         for prop in self.config.props.iter() {
             let k = prop.p.to_string();
-            let v =
-                eval::evaluate_node_property(&prop.v, prop.vt, Some(self), self.get_flow().upgrade().as_ref(), None)
-                    .await?;
+            let v = eval::evaluate_node_property(&prop.v, prop.vt, Some(self), self.get_flow().as_ref(), None).await?;
             msg_body.insert(k, v);
         }
         msg_body.insert(wellknown::MSG_ID_PROPERTY.to_string(), Variant::String(Msg::generate_id().to_string()));

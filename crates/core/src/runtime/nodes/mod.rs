@@ -111,8 +111,8 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         self.get_node().group.clone().and_then(|x| x.upgrade())
     }
 
-    fn get_flow(&self) -> &WeakFlow {
-        &self.get_node().flow
+    fn get_flow(&self) -> Option<Flow> {
+        self.get_node().flow.upgrade()
     }
 
     fn get_envs(&self) -> &Envs {
@@ -128,20 +128,13 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
     }
 
     fn get_engine(&self) -> Option<Engine> {
-        let flow = self.get_node().flow.upgrade()?;
-        flow.engine()
+        self.get_node().flow.upgrade()?.engine()
     }
 
     async fn inject_msg(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
         select! {
-            result = self.get_node().msg_tx.send(msg) => {
-                result.map_err(|e| e.into())
-            }
-
-            _ = cancel.cancelled() => {
-                // The token was cancelled
-                Err(EdgelinkError::TaskCancelled.into())
-            }
+            result = self.get_node().msg_tx.send(msg) => result.map_err(|e| e.into()),
+            _ = cancel.cancelled() => Err(EdgelinkError::TaskCancelled.into()),
         }
     }
 
@@ -185,7 +178,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
     }
 
     async fn report_error(&self, log_message: String, msg: MsgHandle, cancel: CancellationToken) {
-        let handled = if let Some(flow) = self.get_flow().upgrade() {
+        let handled = if let Some(flow) = self.get_flow() {
             let node = self.as_any().downcast_ref::<Arc<dyn FlowNodeBehavior>>().unwrap(); // FIXME
             flow.handle_error(node.as_ref(), &log_message, Some(&msg), None, cancel).await.unwrap_or(false)
         } else {
@@ -272,7 +265,7 @@ where
     match node.recv_msg(cancel.clone()).await {
         Ok(msg) => {
             if let Err(ref err) = proc(node, msg.clone()).await {
-                let flow = node.get_flow().upgrade().expect("flow");
+                let flow = node.get_flow().expect("flow");
                 let error_message = err.to_string();
                 match flow.handle_error(node, &error_message, Some(&msg), None, cancel.clone()).await {
                     Ok(_) => (),

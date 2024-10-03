@@ -90,7 +90,7 @@ pub async fn evaluate_node_property(
             let ctx = flow
                 .and_then(|f| f.engine())
                 .or(node.and_then(|n| n.get_engine()))
-                .map(|e| e.context())
+                .map(|e| e.context().clone())
                 .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
 
             let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
@@ -106,8 +106,8 @@ pub async fn evaluate_node_property(
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
             let ctx = flow
                 .cloned()
-                .or(node.and_then(|n| n.get_flow().upgrade()))
-                .map(|e| e.context())
+                .or(node.and_then(|n| n.get_flow()))
+                .map(|e| e.context().clone())
                 .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
 
             let msg_env = msg.map(|m| SmallVec::from([PropexEnv::ExtRef("msg", m.as_variant())])).unwrap_or_default();
