@@ -142,9 +142,9 @@ impl FunctionNode {
     fn build(
         _flow: &Flow,
         base_node: FlowNode,
-        _config: &RedFlowNodeConfig,
+        config: &RedFlowNodeConfig,
     ) -> crate::Result<Box<dyn FlowNodeBehavior>> {
-        let mut function_config = FunctionNodeConfig::deserialize(&_config.rest)?;
+        let mut function_config = FunctionNodeConfig::deserialize(&config.rest)?;
         if function_config.output_count == 0 {
             function_config.output_count = 1;
         }

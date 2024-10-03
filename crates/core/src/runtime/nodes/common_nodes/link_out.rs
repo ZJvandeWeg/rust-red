@@ -37,7 +37,7 @@ struct LinkOutNode {
 impl LinkOutNode {
     fn build(flow: &Flow, state: FlowNode, _config: &RedFlowNodeConfig) -> crate::Result<Box<dyn FlowNodeBehavior>> {
         let link_out_config = LinkOutNodeConfig::deserialize(&_config.rest)?;
-        let engine = flow.engine.upgrade().expect("The engine must be created!");
+        let engine = flow.engine().expect("The engine must be created!");
 
         let mut linked_nodes = Vec::new();
         if link_out_config.mode == LinkOutMode::Link {
@@ -77,7 +77,7 @@ impl LinkOutNode {
             }
             LinkOutMode::Return => {
                 let flow = self.get_node().flow.upgrade().expect("The flow cannot be released!");
-                let engine = flow.engine.upgrade().expect("The engine cannot be released");
+                let engine = flow.engine().expect("The engine cannot be released");
                 let stack_top = {
                     let mut msg_guard = msg.write().await;
                     msg_guard.pop_link_source()

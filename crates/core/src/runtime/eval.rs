@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::sync::Arc;
 
 use regex::Regex;
 use serde::Deserialize;
@@ -12,7 +11,7 @@ use crate::utils;
 use crate::*;
 
 /// Get value of environment variable.
-fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Arc<Flow>>) -> Option<Variant> {
+fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: Option<&Flow>) -> Option<Variant> {
     if let Some(node) = node {
         if let Some(var) = node.get_env(name) {
             return Some(var);
@@ -29,7 +28,7 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
         return flow_ref.get_env(name);
     }
 
-    flow.and_then(|f| f.engine.upgrade()).or(node.and_then(|n| n.get_engine())).and_then(|x| x.get_env(name))
+    flow.and_then(|f| f.engine()).or(node.and_then(|n| n.get_engine())).and_then(|x| x.get_env(name))
 }
 
 /// Evaluates a property value according to its type.
@@ -44,7 +43,7 @@ pub async fn evaluate_node_property(
     value: &str,
     _type: RedPropertyType,
     node: Option<&dyn FlowNodeBehavior>,
-    flow: Option<&Arc<Flow>>,
+    flow: Option<&Flow>,
     msg: Option<&Msg>,
 ) -> crate::Result<Variant> {
     match _type {
@@ -89,7 +88,7 @@ pub async fn evaluate_node_property(
         RedPropertyType::Global => {
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
             let ctx = flow
-                .and_then(|f| f.engine.upgrade())
+                .and_then(|f| f.engine())
                 .or(node.and_then(|n| n.get_engine()))
                 .map(|e| e.context())
                 .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
@@ -137,7 +136,7 @@ pub fn evaluate_node_property_variant<'a>(
     value: &'a Variant,
     type_: &'a RedPropertyType,
     node: Option<&'a dyn FlowNodeBehavior>,
-    flow: Option<&'a Arc<Flow>>,
+    flow: Option<&'a Flow>,
     msg: Option<&'a Msg>,
 ) -> crate::Result<Cow<'a, Variant>> {
     let res = match (type_, value) {

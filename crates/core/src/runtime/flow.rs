@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use common_nodes::catch::{CatchNode, CatchNodeScope};
 use dashmap::DashMap;
@@ -49,6 +49,22 @@ impl Default for FlowArgs {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Flow {
+    inner: Arc<InnerFlow>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WeakFlow {
+    inner: Weak<InnerFlow>,
+}
+
+impl WeakFlow {
+    pub fn upgrade(&self) -> Option<Flow> {
+        Weak::upgrade(&self.inner).map(|x| Flow { inner: x })
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct FlowState {
     pub(crate) groups: DashMap<ElementId, Arc<Group>>,
@@ -66,12 +82,12 @@ pub enum FlowKind {
 }
 
 #[derive(Debug)]
-pub struct Flow {
+struct InnerFlow {
     pub id: ElementId,
     pub parent: Option<ElementId>,
     pub label: String,
     pub disabled: bool,
-    pub args: FlowArgs,
+    pub _args: FlowArgs,
     pub ordering: usize,
     pub type_str: &'static str,
 
@@ -87,27 +103,27 @@ pub struct Flow {
 
 impl FlowsElement for Flow {
     fn id(&self) -> ElementId {
-        self.id
+        self.inner.id
     }
 
     fn name(&self) -> &str {
-        &self.label
+        &self.inner.label
     }
 
     fn type_str(&self) -> &'static str {
-        self.type_str
+        self.inner.type_str
     }
 
     fn ordering(&self) -> usize {
-        self.ordering
+        self.inner.ordering
     }
 
     fn parent_element(&self) -> Option<ElementId> {
-        self.parent
+        self.inner.parent
     }
 
     fn context(&self) -> Arc<Context> {
-        self.context.clone()
+        self.inner.context.clone()
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
@@ -115,14 +131,14 @@ impl FlowsElement for Flow {
     }
 
     fn is_disabled(&self) -> bool {
-        self.disabled
+        self.inner.disabled
     }
 
     fn get_path(&self) -> String {
         if let Some(parent_id) = self.parent_element() {
-            self.engine.upgrade().unwrap().find_flow_node_by_id(&parent_id).unwrap().get_path()
+            self.inner.engine.upgrade().unwrap().find_flow_node_by_id(&parent_id).unwrap().get_path()
         } else {
-            self.id.to_string()
+            self.inner.id.to_string()
         }
     }
 }
@@ -162,12 +178,16 @@ impl FlowState {
 }
 
 impl Flow {
+    pub fn downgrade(&self) -> WeakFlow {
+        WeakFlow { inner: Arc::downgrade(&self.inner) }
+    }
+
     pub(crate) fn new(
         engine: &Engine,
         flow_config: RedFlowConfig,
         reg: &RegistryHandle,
         options: Option<&config::Config>,
-    ) -> crate::Result<Arc<Self>> {
+    ) -> crate::Result<Flow> {
         let flow_kind = match flow_config.type_name.as_str() {
             "tab" => FlowKind::GlobalFlow,
             "subflow" => FlowKind::Subflow,
@@ -224,14 +244,14 @@ impl Flow {
         let context = engine.get_context_manager().new_context(&engine.context(), flow_config.id.to_string());
         let args = FlowArgs::load(options)?;
 
-        let flow: Arc<Flow> = Arc::new(Flow {
+        let inner_flow = InnerFlow {
             id: flow_config.id,
             parent: subflow_instance.clone().map(|x| x.id()),
             engine: engine.downgrade(),
             label: flow_config.label.clone(),
             disabled: flow_config.disabled,
             ordering: flow_config.ordering,
-            args: args.clone(),
+            _args: args.clone(),
             type_str: match flow_kind {
                 FlowKind::GlobalFlow => "flow",
                 FlowKind::Subflow => "subflow",
@@ -253,25 +273,22 @@ impl Flow {
             context,
             stop_token: CancellationToken::new(),
             // groups: HashMap::new(), //   flow_config.groups.iter().map(|g| Group::new_flow_group(config, flow))
-        });
+        };
+        let flow = Flow { inner: Arc::new(inner_flow) };
 
-        {
-            let flow = flow.clone();
-            flow.clone().populate_groups(&flow_config)?;
+        flow.populate_groups(&flow_config)?;
+        flow.populate_nodes(&flow_config, reg.as_ref(), engine)?;
 
-            flow.clone().populate_nodes(&flow_config, reg.as_ref(), engine)?;
-        }
-
-        if let Some(subflow_state) = &flow.subflow_state {
-            subflow_state.populate_in_nodes(&flow.state, &flow_config)?;
+        if let Some(subflow_state) = &flow.inner.subflow_state {
+            subflow_state.populate_in_nodes(&flow.inner.state, &flow_config)?;
         }
 
         Ok(flow)
     }
 
-    fn populate_groups(self: &Arc<Self>, flow_config: &RedFlowConfig) -> crate::Result<()> {
-        if !self.state.groups.is_empty() {
-            self.state.groups.clear();
+    fn populate_groups(&self, flow_config: &RedFlowConfig) -> crate::Result<()> {
+        if !self.inner.state.groups.is_empty() {
+            self.inner.state.groups.clear();
         }
         // Adding root groups
         let root_group_configs = flow_config.groups.iter().filter(|gc| gc.z == self.id());
@@ -281,23 +298,18 @@ impl Flow {
                 Some(parent_id) => Group::new_subgroup(
                     gc,
                     self,
-                    &self.state.groups.get(parent_id).unwrap(), //FIXME
+                    &self.inner.state.groups.get(parent_id).unwrap(), //FIXME
                 )?,
 
                 // Root group
                 None => Group::new_flow_group(gc, self)?,
             };
-            self.state.groups.insert(group.id, Arc::new(group));
+            self.inner.state.groups.insert(group.id, Arc::new(group));
         }
         Ok(())
     }
 
-    fn populate_nodes(
-        self: &Arc<Self>,
-        flow_config: &RedFlowConfig,
-        reg: &dyn Registry,
-        engine: &Engine,
-    ) -> crate::Result<()> {
+    fn populate_nodes(&self, flow_config: &RedFlowConfig, reg: &dyn Registry, engine: &Engine) -> crate::Result<()> {
         // Adding nodes
         for node_config in flow_config.nodes.iter() {
             let meta_node = if let Some(meta_node) = reg.get(&node_config.type_name) {
@@ -317,13 +329,13 @@ impl Flow {
             let node = match meta_node.factory {
                 NodeFactory::Flow(factory) => {
                     let mut node_state =
-                        self.new_flow_node_state(meta_node, &self.state, node_config, engine).map_err(|e| {
+                        self.new_flow_node_state(meta_node, &self.inner.state, node_config, engine).map_err(|e| {
                             log::error!("Failed to create flow node(id='{}'): {:?}", node_config.id, e);
                             e
                         })?;
 
                     // Redirect all the output node wires in the subflow to the output port of the subflow.
-                    if let Some(subflow_state) = &self.subflow_state {
+                    if let Some(subflow_state) = &self.inner.subflow_state {
                         for (subflow_port_index, red_port) in flow_config.out_ports.iter().enumerate() {
                             let red_wires = red_port.wires.iter().filter(|x| x.id == node_state.id);
                             for red_wire in red_wires {
@@ -373,7 +385,7 @@ impl Flow {
 
             let arc_node: Arc<dyn FlowNodeBehavior> = Arc::from(node);
             arc_node.on_loaded();
-            self.state.nodes.insert(node_config.id, arc_node.clone());
+            self.inner.state.nodes.insert(node_config.id, arc_node.clone());
 
             log::debug!("------ {} has been loaded!", arc_node);
 
@@ -382,7 +394,7 @@ impl Flow {
 
         // Sort the `catch` nodes
         {
-            let mut catch_nodes = self.state.catch_nodes.write().expect("`catch_nodes` write lock");
+            let mut catch_nodes = self.inner.state.catch_nodes.write().expect("`catch_nodes` write lock");
             catch_nodes.sort_by(|a, b| {
                 let a = a.as_any().downcast_ref::<CatchNode>().unwrap();
                 let b = b.as_any().downcast_ref::<CatchNode>().unwrap();
@@ -414,7 +426,7 @@ impl Flow {
             "complete" => self.register_complete_node(node, node_config)?,
 
             "catch" => {
-                let mut catch_nodes = self.state.catch_nodes.write().expect("`catch_nodes` write lock");
+                let mut catch_nodes = self.inner.state.catch_nodes.write().expect("`catch_nodes` write lock");
                 catch_nodes.push(node.clone());
             }
 
@@ -432,7 +444,7 @@ impl Flow {
         if let Some(scope) = node_config.rest.get("scope").and_then(|x| x.as_array()) {
             for src_id in scope {
                 if let Some(src_id) = helpers::parse_red_id_value(src_id) {
-                    if let Some(ref mut complete_nodes) = self.state.complete_nodes_map.get_mut(&src_id) {
+                    if let Some(ref mut complete_nodes) = self.inner.state.complete_nodes_map.get_mut(&src_id) {
                         if !complete_nodes.iter().any(|x| x.id() == node.id()) {
                             complete_nodes.push(node.clone());
                         } else {
@@ -443,7 +455,7 @@ impl Flow {
                             .into());
                         }
                     } else {
-                        self.state.complete_nodes_map.insert(src_id, Vec::from([node.clone()]));
+                        self.inner.state.complete_nodes_map.insert(src_id, Vec::from([node.clone()]));
                     }
                 }
             }
@@ -454,19 +466,19 @@ impl Flow {
     }
 
     pub fn is_subflow(&self) -> bool {
-        self.subflow_state.is_some()
+        self.inner.subflow_state.is_some()
     }
 
     pub fn get_all_flow_nodes(&self) -> Vec<Arc<dyn FlowNodeBehavior>> {
-        self.state.nodes.iter().map(|x| x.value().clone()).collect()
+        self.inner.state.nodes.iter().map(|x| x.value().clone()).collect()
     }
 
     pub fn get_node_by_id(&self, id: &ElementId) -> Option<Arc<dyn FlowNodeBehavior>> {
-        self.state.nodes.get(id).map(|x| x.value().clone())
+        self.inner.state.nodes.get(id).map(|x| x.value().clone())
     }
 
     pub fn get_node_by_name(&self, name: &str) -> crate::Result<Option<Arc<dyn FlowNodeBehavior>>> {
-        let iter = self.state.nodes.iter().filter(|val| val.name() == name);
+        let iter = self.inner.state.nodes.iter().filter(|val| val.name() == name);
         let nfound = iter.clone().count();
         if nfound == 1 {
             Ok(iter.clone().next().map(|x| x.clone()))
@@ -477,30 +489,34 @@ impl Flow {
         }
     }
 
+    pub fn engine(&self) -> Option<Engine> {
+        self.inner.engine.upgrade()
+    }
+
     pub fn get_envs(&self) -> Arc<EnvStore> {
-        self.envs.clone()
+        self.inner.envs.clone()
     }
 
     pub fn get_env(&self, key: &str) -> Option<Variant> {
-        self.envs.evalute_env(key)
+        self.inner.envs.evalute_env(key)
     }
 
     pub async fn start(&self) -> crate::Result<()> {
         // let mut state = self.shared.state.write().await;
 
         if self.is_subflow() {
-            log::info!("---- Starting Subflow (id={})...", self.id);
+            log::info!("---- Starting Subflow (id={})...", self.id());
         } else {
-            log::info!("---- Starting Flow (id={})...", self.id);
+            log::info!("---- Starting Flow (id={})...", self.id());
         }
 
-        if let Some(subflow_state) = &self.subflow_state {
+        if let Some(subflow_state) = &self.inner.subflow_state {
             log::info!("------ Starting the forward tasks of the subflow...");
-            subflow_state.start_tx_tasks(self.stop_token.clone()).await?;
+            subflow_state.start_tx_tasks(self.inner.stop_token.clone()).await?;
         }
 
         {
-            self.state.start_nodes(self.stop_token.clone()).await?;
+            self.inner.state.start_nodes(self.inner.stop_token.clone()).await?;
         }
 
         Ok(())
@@ -508,12 +524,12 @@ impl Flow {
 
     pub async fn stop(&self) -> crate::Result<()> {
         if self.is_subflow() {
-            log::info!("---- Stopping Subflow (id={})...", self.id);
+            log::info!("---- Stopping Subflow (id={})...", self.id());
         } else {
-            log::info!("---- Stopping Flow (id={})...", self.id);
+            log::info!("---- Stopping Flow (id={})...", self.id());
         }
 
-        self.stop_token.cancel();
+        self.inner.stop_token.cancel();
 
         // Wait all subflow senders to stop
         /*
@@ -525,15 +541,15 @@ impl Flow {
 
         // Wait all nodes
         {
-            self.state.stop_nodes().await?;
+            self.inner.state.stop_nodes().await?;
         }
-        log::info!("---- All node in flow/subflow(id='{}') has been stopped.", self.id);
+        log::info!("---- All node in flow/subflow(id='{}') has been stopped.", self.id());
 
         Ok(())
     }
 
     pub async fn notify_node_uow_completed(&self, emitter_id: &ElementId, msg: MsgHandle, cancel: CancellationToken) {
-        if let Some(complete_nodes) = self.state.complete_nodes_map.get(emitter_id) {
+        if let Some(complete_nodes) = self.inner.state.complete_nodes_map.get(emitter_id) {
             for complete_node in complete_nodes.iter() {
                 let to_send = msg.deep_clone(true).await;
                 match complete_node.inject_msg(to_send, cancel.child_token()).await {
@@ -558,7 +574,7 @@ impl Flow {
     }
 
     async fn inject_msg_internal(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {
-        if let Some(subflow_state) = &self.subflow_state {
+        if let Some(subflow_state) = &self.inner.subflow_state {
             let mut msg_sent = false;
             let in_nodes = subflow_state.in_nodes.read().expect("read in_nodes lock").clone();
             for node in in_nodes.iter() {
@@ -576,7 +592,7 @@ impl Flow {
     }
 
     fn new_flow_node_state(
-        self: &Arc<Self>,
+        &self,
         meta_node: &MetaNode,
         state: &FlowState,
         node_config: &RedFlowNodeConfig,
@@ -638,7 +654,7 @@ impl Flow {
                 ("NR_NODE_PATH".into(), Variant::String(format!("{}/{}", self.get_path(), node_config.id))),
             ])
             .build();
-        let context = engine.get_context_manager().new_context(&self.context, node_config.id.to_string());
+        let context = engine.get_context_manager().new_context(&self.inner.context, node_config.id.to_string());
 
         Ok(FlowNode {
             id: node_config.id,
@@ -647,7 +663,7 @@ impl Flow {
             ordering: node_config.ordering,
             disabled: node_config.disabled,
             active: node_config.active.unwrap_or(true),
-            flow: Arc::downgrade(self),
+            flow: self.downgrade(),
             msg_tx: tx_root,
             msg_rx: MsgReceiverHolder::new(rx),
             ports,
@@ -673,7 +689,7 @@ impl Flow {
         // TODO: use SmallVec
         let mut candidates = Vec::new();
         {
-            let catch_nodes = self.state.catch_nodes.read().expect("`catch_nodes` read lock").clone();
+            let catch_nodes = self.inner.state.catch_nodes.read().expect("`catch_nodes` read lock").clone();
             for catch_node_behavior in catch_nodes.iter() {
                 let catch_node = catch_node_behavior.as_any().downcast_ref::<CatchNode>().expect("CatchNode");
                 if catch_node.group().is_some()
@@ -699,8 +715,12 @@ impl Flow {
                     let mut containing_group_id = Some(*reporting_node_group_id);
                     while containing_group_id.is_some() && containing_group_id != catch_node_group_id {
                         distance += 1;
-                        let containing_group_parent =
-                            self.state.groups.get(&containing_group_id.unwrap()).map(|x| x.value().parent.clone());
+                        let containing_group_parent = self
+                            .inner
+                            .state
+                            .groups
+                            .get(&containing_group_id.unwrap())
+                            .map(|x| x.value().parent.clone());
                         containing_group_id = if let Some(GroupParent::Group(g)) = containing_group_parent {
                             Some(g.upgrade().expect("Group").id)
                         } else {

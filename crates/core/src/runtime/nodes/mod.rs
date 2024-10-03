@@ -73,7 +73,7 @@ pub struct FlowNode {
     pub ordering: usize,
     pub disabled: bool,
     pub active: bool,
-    pub flow: Weak<Flow>,
+    pub flow: WeakFlow,
     pub msg_tx: MsgSender,
     pub msg_rx: MsgReceiverHolder,
     pub ports: Vec<Port>,
@@ -111,7 +111,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         self.get_node().group.as_ref()
     }
 
-    fn get_flow(&self) -> &Weak<Flow> {
+    fn get_flow(&self) -> &WeakFlow {
         &self.get_node().flow
     }
 
@@ -129,7 +129,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
 
     fn get_engine(&self) -> Option<Engine> {
         let flow = self.get_node().flow.upgrade()?;
-        flow.engine.upgrade()
+        flow.engine()
     }
 
     async fn inject_msg(&self, msg: MsgHandle, cancel: CancellationToken) -> crate::Result<()> {

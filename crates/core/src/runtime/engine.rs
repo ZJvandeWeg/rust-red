@@ -2,6 +2,7 @@ use std::io::Read;
 use std::sync::{Arc, Weak};
 
 use dashmap::DashMap;
+use runtime::flow::*;
 use runtime::registry::RegistryHandle;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
@@ -11,7 +12,6 @@ use super::env::*;
 use super::model::json::{RedFlowConfig, RedGlobalNodeConfig};
 use super::model::*;
 use super::nodes::FlowNodeBehavior;
-use crate::runtime::flow::Flow;
 use crate::runtime::model::Variant;
 use crate::runtime::nodes::{GlobalNodeBehavior, NodeFactory};
 use crate::*;
@@ -59,7 +59,7 @@ struct InnerEngine {
     context: Arc<Context>,
 
     _context: Variant,
-    flows: DashMap<ElementId, Arc<Flow>>,
+    flows: DashMap<ElementId, Flow>,
     global_nodes: DashMap<ElementId, Arc<dyn GlobalNodeBehavior>>,
     all_flow_nodes: DashMap<ElementId, Arc<dyn FlowNodeBehavior>>,
 
@@ -149,7 +149,7 @@ impl Engine {
         Self::with_json(reg, json, elcfg)
     }
 
-    pub fn get_flow(&self, id: &ElementId) -> Option<Arc<Flow>> {
+    pub fn get_flow(&self, id: &ElementId) -> Option<Flow> {
         self.inner.flows.get(id).map(|x| x.value().clone())
     }
 
@@ -182,7 +182,7 @@ impl Engine {
                     flow.name()
                 );
                 //register the flow
-                self.inner.flows.insert(flow.id, flow);
+                self.inner.flows.insert(flow.id(), flow);
             }
         }
         Ok(())

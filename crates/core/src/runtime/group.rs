@@ -8,7 +8,7 @@ use super::model::*;
 
 #[derive(Debug, Clone)]
 pub enum GroupParent {
-    Flow(Weak<Flow>),
+    Flow(WeakFlow),
     Group(Weak<Group>),
 }
 
@@ -16,32 +16,32 @@ pub enum GroupParent {
 pub struct Group {
     pub id: ElementId,
     pub name: String,
-    pub flow: Weak<Flow>,
+    pub flow: WeakFlow,
     pub parent: GroupParent,
     pub envs: Arc<EnvStore>,
 }
 
 impl Group {
-    pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: &Arc<Flow>) -> crate::Result<Self> {
+    pub(crate) fn new_flow_group(config: &RedGroupConfig, flow: &Flow) -> crate::Result<Self> {
         let envs_builder = EnvStoreBuilder::default().with_parent(&flow.get_envs());
 
         let group = Group {
             id: config.id,
             name: config.name.clone(),
-            flow: Arc::downgrade(flow),
-            parent: GroupParent::Flow(Arc::downgrade(flow)),
+            flow: flow.downgrade(),
+            parent: GroupParent::Flow(flow.downgrade()),
             envs: build_envs(envs_builder, config),
         };
         Ok(group)
     }
 
-    pub(crate) fn new_subgroup(config: &RedGroupConfig, flow: &Arc<Flow>, parent: &Arc<Group>) -> crate::Result<Self> {
+    pub(crate) fn new_subgroup(config: &RedGroupConfig, flow: &Flow, parent: &Arc<Group>) -> crate::Result<Self> {
         let envs_builder = EnvStoreBuilder::default().with_parent(&parent.envs);
 
         let group = Group {
             id: config.id,
             name: config.name.clone(),
-            flow: Arc::downgrade(flow),
+            flow: flow.downgrade(),
             parent: GroupParent::Group(Arc::downgrade(parent)),
             envs: build_envs(envs_builder, config),
         };
