@@ -151,7 +151,7 @@ impl LinkCallNode {
 
         let result = match target_field {
             Variant::String(target_name) => {
-                let engine = self.get_engine().expect("The engine must be instanced!");
+                let engine = self.engine().expect("The engine must be instanced!");
                 // Firstly, we are looking into the node ids
                 if let Some(parsed_id) = parse_red_id_str(target_name) {
                     let found = engine.find_flow_node_by_id(&parsed_id);
@@ -163,7 +163,7 @@ impl LinkCallNode {
                 } else {
                     // Secondly, we are looking into the node names in this flow
                     // Otherwises, we should looking into the node names in the whole engine
-                    let flow = self.get_flow().expect("The flow must be instanced!");
+                    let flow = self.flow().expect("The flow must be instanced!");
 
                     if let Some(node) = flow.get_node_by_name(target_name)? {
                         Some(node)

@@ -70,7 +70,7 @@ impl NodeClass {
 
         match msgs.type_of() {
             rquickjs::Type::Array => {
-                let mut msgs_to_send = Vec::new();
+                let mut msgs_to_send = SmallVec::new();
                 let ports = msgs.as_array().expect("Must be an array");
                 // The first-level array is bound to a port.
                 let mut is_first = true;

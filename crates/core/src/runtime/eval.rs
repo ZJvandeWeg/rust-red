@@ -28,7 +28,7 @@ fn evaluate_env_property(name: &str, node: Option<&dyn FlowNodeBehavior>, flow: 
         return flow_ref.get_env(name);
     }
 
-    flow.and_then(|f| f.engine()).or(node.and_then(|n| n.get_engine())).and_then(|x| x.get_env(name))
+    flow.and_then(|f| f.engine()).or(node.and_then(|n| n.engine())).and_then(|x| x.get_env(name))
 }
 
 /// Evaluates a property value according to its type.
@@ -89,7 +89,7 @@ pub async fn evaluate_node_property(
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
             let ctx = flow
                 .and_then(|f| f.engine())
-                .or(node.and_then(|n| n.get_engine()))
+                .or(node.and_then(|n| n.engine()))
                 .map(|e| e.context().clone())
                 .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
 
@@ -106,7 +106,7 @@ pub async fn evaluate_node_property(
             let ctx_prop = crate::runtime::context::evaluate_key(value)?;
             let ctx = flow
                 .cloned()
-                .or(node.and_then(|n| n.get_flow()))
+                .or(node.and_then(|n| n.flow()))
                 .map(|e| e.context().clone())
                 .ok_or_else(|| EdgelinkError::BadArgument("flow,node"))?;
 

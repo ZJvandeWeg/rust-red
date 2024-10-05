@@ -110,7 +110,7 @@ impl FlowNodeBehavior for FunctionNode {
                                 let envelopes = changed_msgs
                                     .into_iter()
                                     .map(|x| Envelope { port: x.0, msg: MsgHandle::new(x.1) })
-                                    .collect::<Vec<Envelope>>();
+                                    .collect::<SmallVec<[Envelope; 4]>>();
 
                                 (this_node as Arc<dyn FlowNodeBehavior>).fan_out_many(envelopes, cancel.clone()).await?;
                             }
@@ -341,11 +341,11 @@ impl FunctionNode {
         */
         ::rquickjs_extra::timers::init(ctx)?;
 
-        ctx.globals().set("env", env_class::EnvClass::new(self.get_envs()))?;
+        ctx.globals().set("env", env_class::EnvClass::new(self.envs()))?;
         ctx.globals().set("node", node_class::NodeClass::new(self))?;
 
         // Register the global-scoped context
-        if let Some(global_context) = self.get_engine().map(|x| x.context()) {
+        if let Some(global_context) = self.engine().map(|x| x.context()) {
             ctx.globals().set("__edgelinkGlobalContext", context_class::ContextClass::new(global_context))?;
         } else {
             return Err(EdgelinkError::InvalidOperation("Failed to get global context".into()))
@@ -353,7 +353,7 @@ impl FunctionNode {
         }
 
         // Register the flow-scoped context
-        if let Some(flow_context) = self.get_flow().map(|x| x.context()) {
+        if let Some(flow_context) = self.flow().map(|x| x.context()) {
             ctx.globals().set("__edgelinkFlowContext", context_class::ContextClass::new(flow_context))?;
         } else {
             return Err(EdgelinkError::InvalidOperation("Failed to get flow context".into()).into());

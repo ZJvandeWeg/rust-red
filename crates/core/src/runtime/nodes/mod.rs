@@ -4,6 +4,7 @@ use std::sync::{Arc, Weak};
 use async_trait::async_trait;
 use runtime::engine::Engine;
 use runtime::group::{Group, WeakGroup};
+use smallvec::SmallVec;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
 
@@ -111,11 +112,11 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         self.get_node().group.clone().and_then(|x| x.upgrade())
     }
 
-    fn get_flow(&self) -> Option<Flow> {
+    fn flow(&self) -> Option<Flow> {
         self.get_node().flow.upgrade()
     }
 
-    fn get_envs(&self) -> &Envs {
+    fn envs(&self) -> &Envs {
         &self.get_node().envs
     }
 
@@ -123,11 +124,7 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         self.get_node().envs.evalute_env(key)
     }
 
-    fn get_context(&self) -> Arc<Context> {
-        self.get_node().context.clone()
-    }
-
-    fn get_engine(&self) -> Option<Engine> {
+    fn engine(&self) -> Option<Engine> {
         self.get_node().flow.upgrade()?.engine()
     }
 
@@ -177,10 +174,22 @@ pub trait FlowNodeBehavior: Send + Sync + FlowsElement {
         Ok(())
     }
 
+    async fn fan_out_many(&self, envelopes: SmallVec<[Envelope; 4]>, cancel: CancellationToken) -> crate::Result<()> {
+        if self.get_node().ports.is_empty() {
+            log::warn!("No output wires in this node: Node(id='{}')", self.id());
+            return Ok(());
+        }
+
+        for e in envelopes.into_iter() {
+            self.fan_out_one(e, cancel.child_token()).await?;
+        }
+        Ok(())
+    }
+
     async fn report_error(&self, log_message: String, msg: MsgHandle, cancel: CancellationToken) {
-        let handled = if let Some(flow) = self.get_flow() {
+        let handled = if let Some(flow) = self.flow() {
             let node = self.as_any().downcast_ref::<Arc<dyn FlowNodeBehavior>>().unwrap(); // FIXME
-            flow.handle_error(node.as_ref(), &log_message, Some(&msg), None, cancel).await.unwrap_or(false)
+            flow.handle_error(node.as_ref(), &log_message, Some(msg), None, cancel).await.unwrap_or(false)
         } else {
             false
         };
@@ -226,22 +235,6 @@ impl dyn FlowNodeBehavior {
     pub fn type_id(&self) -> ::std::any::TypeId {
         self.as_any().type_id()
     }
-
-    async fn fan_out_many(
-        &self,
-        envelopes: impl IntoIterator<Item = Envelope>,
-        cancel: CancellationToken,
-    ) -> crate::Result<()> {
-        if self.get_node().ports.is_empty() {
-            log::warn!("No output wires in this node: Node(id='{}')", self.id());
-            return Ok(());
-        }
-
-        for e in envelopes.into_iter() {
-            self.fan_out_one(e, cancel.child_token()).await?;
-        }
-        Ok(())
-    }
 }
 
 impl fmt::Debug for dyn FlowNodeBehavior {
@@ -265,15 +258,17 @@ where
     match node.recv_msg(cancel.clone()).await {
         Ok(msg) => {
             if let Err(ref err) = proc(node, msg.clone()).await {
-                let flow = node.get_flow().expect("flow");
+                let flow = node.flow().expect("flow");
                 let error_message = err.to_string();
-                match flow.handle_error(node, &error_message, Some(&msg), None, cancel.clone()).await {
+
+                match flow.handle_error(node, &error_message, Some(msg.clone()), None, cancel.clone()).await {
                     Ok(_) => (),
                     Err(e) => {
-                        log::error!("Failed to handle error: {:?}", e)
+                        log::error!("Failed to handle error: {:?}", e);
                     }
                 }
             }
+
             // Report the completion
             node.notify_uow_completed(msg, cancel.clone()).await;
         }
@@ -281,13 +276,8 @@ where
             if let Some(EdgelinkError::TaskCancelled) = err.downcast_ref::<EdgelinkError>() {
                 return;
             }
-            log::warn!(
-                "with_uow() Error: Node(id='{}', name='{}', type='{}')\n{:#?}",
-                node.id(),
-                node.name(),
-                node.type_str(),
-                err
-            );
+
+            log::warn!("[{}:{}] {}", node.type_str(), node.name(), err);
         }
     }
 }

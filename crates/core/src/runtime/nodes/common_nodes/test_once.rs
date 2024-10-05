@@ -24,7 +24,7 @@ impl FlowNodeBehavior for TestOnceNode {
 
     async fn run(self: Arc<Self>, stop_token: CancellationToken) {
         while !stop_token.is_cancelled() {
-            let engine = self.get_engine().expect("The engine cannot be released");
+            let engine = self.engine().expect("The engine cannot be released");
 
             match self.recv_msg(stop_token.clone()).await {
                 Ok(msg) => engine.recv_final_msg(msg).expect("Shoud send final msg to the engine"),

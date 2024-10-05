@@ -198,7 +198,7 @@ impl Flow {
             FlowKind::GlobalFlow => envs_builder.with_parent(&engine.get_envs()),
             FlowKind::Subflow => {
                 if let Some(ref instance) = subflow_instance {
-                    envs_builder.with_parent(instance.get_envs())
+                    envs_builder.with_parent(instance.envs())
                 } else {
                     log::warn!("Cannot found the instance node of the subflow: id='{}'", flow_config.id);
                     envs_builder.with_parent(&engine.get_envs())
@@ -210,7 +210,7 @@ impl Flow {
         }
         if let Some(ref instance) = subflow_instance {
             // merge from subflow instance
-            envs_builder = envs_builder.update_with(instance.get_envs());
+            envs_builder = envs_builder.update_with(instance.envs());
         }
 
         envs_builder = match flow_kind {
@@ -230,7 +230,7 @@ impl Flow {
                     ("NR_SUBFLOW_NAME".into(), subflow_instance.name().into()),
                     (
                         "NR_SUBFLOW_PATH".into(),
-                        format!("{}/{}", subflow_instance.get_flow().unwrap().id(), subflow_instance.id()).into(),
+                        format!("{}/{}", subflow_instance.flow().unwrap().id(), subflow_instance.id()).into(),
                     ),
                 ])
             }
@@ -673,7 +673,7 @@ impl Flow {
         &self,
         node: &dyn FlowNodeBehavior,
         log_message: &str,
-        msg: Option<&MsgHandle>,
+        msg: Option<MsgHandle>,
         reporting_node: Option<&dyn FlowNodeBehavior>,
         cancel: CancellationToken,
     ) -> crate::Result<bool> {
@@ -741,7 +741,7 @@ impl Flow {
                 }
                 handled_by_uncaught = true;
             }
-            let mut error_msg = if let Some(msg) = msg {
+            let mut error_msg = if let Some(ref msg) = msg {
                 let msg_lock = msg.read().await;
                 msg_lock.clone()
             } else {
