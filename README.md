@@ -209,11 +209,7 @@ If you want to support the development of this project, you could consider buyin
 
 [![Support via PayPal.me](assets/paypal_button.svg)](https://www.paypal.me/oldrev)
 
-## Known Issues
-
-Please refer to [ISSUES.md](docs/ISSUES.md) for a list of known issues and workarounds.
-
-## Feedback and Support
+## Issues, Feedback and Support
 
 We welcome your feedback! If you encounter any issues or have suggestions, please open an [issue](https://github.com/edge-link/edgelink/issues).
 
