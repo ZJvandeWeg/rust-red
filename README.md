@@ -36,6 +36,8 @@ After completing the flow design in Node-RED, please ensure that you click the b
 
 ### 1. Build
 
+Using Rust 1.80 or later, run:
+
 ```bash
 cargo build -r
 ```
@@ -99,7 +101,8 @@ py.test
 
 ## Configuration
 
-Adjust various settings in the configuration file, such as port number, `flows.json` path, etc. Refer to [CONFIG.md](docs/CONFIG.md) for more information.
+Adjust various settings and configuration, please execute `edgelinkd` with flags.
+The flags available can be found when executing `edgelinkd --help`. 
 
 ## Project Status
 
